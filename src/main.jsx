@@ -1,9 +1,11 @@
 import { Component, render } from 'preact';
-import { App } from './App.jsx';
+import { Site } from './Site.jsx';
 import './styles.css';
 import './editor.css';
 import './workspace.css';
 import './planner.css';
+import './landing.css';
+import './experience.css';
 
 class AppBoundary extends Component {
   state = { error: null };
@@ -14,4 +16,4 @@ class AppBoundary extends Component {
   }
 }
 
-render(<AppBoundary><App/></AppBoundary>, document.getElementById('app'));
+render(<AppBoundary><Site/></AppBoundary>, document.getElementById('app'));

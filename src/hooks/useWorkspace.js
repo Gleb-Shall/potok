@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { connectFirebase, explainFirebaseError } from '../lib/firebase-client.js';
 import { loadData, persistData, emptyData } from '../lib/storage.js';
 
-export function useWorkspace(editing) {
+export function useWorkspace(editing, { initialMode, demoOnly = false } = {}) {
   const [session, updateSession] = useState(() => {
-    const mode = localStorage.getItem('tutor-schedule:mode') === 'personal' ? 'personal' : 'demo';
+    const mode = initialMode || (localStorage.getItem('tutor-schedule:mode') === 'personal' ? 'personal' : 'demo');
     return { mode, data: loadData(mode) };
   });
   const [account, setAccount] = useState({ user: null, loading: true, error: '', ready: false, saving: false, online: navigator.onLine });
@@ -19,6 +19,7 @@ export function useWorkspace(editing) {
   const [retry, setRetry] = useState(0);
 
   useEffect(() => {
+    if (demoOnly) { setAccount(state => ({ ...state, loading: false })); return; }
     let active = true, unsubscribeAuth, unsubscribeData;
     const fail = error => { if (active) setAccount(state => ({ ...state, loading: false, ready: false, error: explainFirebaseError(error) })); };
     connectFirebase().then(connection => {
@@ -47,7 +48,7 @@ export function useWorkspace(editing) {
       }, fail);
     }).catch(fail);
     return () => { active = false; unsubscribeAuth?.(); unsubscribeData?.(); currentUid.current = null; };
-  }, [retry]);
+  }, [retry, demoOnly]);
 
   useEffect(() => {
     const changed = event => { if (event.key === `tutor-schedule:${latest.current.session.mode}:v2`) setStale(true); };

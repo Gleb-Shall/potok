@@ -27,7 +27,7 @@ export function TypeEditor({ data, original, onSave, onClose, onDelete }) {
     } catch (error) { setError(error.message); }
   };
   return <Modal title={original ? 'Редактор типа карточки' : 'Свой тип события'} eyebrow="КОНСТРУКТОР КАРТОЧЕК" subtitle="Выбери поля, порядок и то, что видно прямо в расписании." wide onClose={onClose}>
-    <form onSubmit={submit}>
+    <form onSubmit={submit} class="type-builder-form"><div class="builder-layout"><div class="builder-main">
       <div class="template-basics"><Field label="Название типа" value={type.name} onChange={value => change('name', value)} required maxLength="80" placeholder="Например, Тренировка"/><Select label="Значок" value={type.icon} onChange={value => change('icon', value)}>{['◇', '✎', '▤', '◷', '✦', '●', '♧', '⌂'].map(icon => <option key={icon}>{icon}</option>)}</Select></div>
       <Field label="Как назвать основное поле" value={type.titleLabel} onChange={value => change('titleLabel', value)} required maxLength="80" placeholder="Например, Предмет или Название встречи"/>
       <Colors value={type.color} onChange={value => change('color', value)}/>
@@ -43,7 +43,7 @@ export function TypeEditor({ data, original, onSave, onClose, onDelete }) {
         {!field.archived && <div class="field-flags"><Check checked={field.required} onChange={value => updateField(field.id, { required: value })}>Обязательное</Check><Check checked={field.showCompact ?? (field.type === 'url' && field.showOnCard !== false)} onChange={value => updateField(field.id, { showCompact: value })}>В свёрнутой карточке</Check><Check checked={field.showOnCard} onChange={value => updateField(field.id, { showOnCard: value })}>В развёрнутой карточке</Check></div>}
         {used(field) && <small class="quiet-note">Формат поля зафиксирован: в событиях уже есть значения. Можно переименовать или скрыть поле — данные сохранятся.</small>}
       </section>)}</div>
-      <section class="template-preview"><span class="section-caption">ПРИМЕР КАРТОЧКИ</span><div class="preview-mode-switch"><Button onClick={() => setCompactPreview(true)} aria-pressed={compactPreview}>Свёрнутая</Button><Button onClick={() => setCompactPreview(false)} aria-pressed={!compactPreview}>Развёрнутая</Button></div><EventCard event={preview} data={previewData} preview expanded={!compactPreview}/></section>
+      </div><aside class="template-preview"><span class="section-caption">ПРИМЕР КАРТОЧКИ</span><div class="preview-mode-switch"><Button onClick={() => setCompactPreview(true)} aria-pressed={compactPreview}>Свёрнутая</Button><Button onClick={() => setCompactPreview(false)} aria-pressed={!compactPreview}>Развёрнутая</Button></div><EventCard event={preview} data={previewData} preview expanded={!compactPreview}/></aside></div>
       <ErrorMessage error={error}/><FormFooter onClose={onClose} label="Сохранить шаблон">{data.types.some(item => item.id === original?.id) && onDelete && <Button icon="trash" kind="text-button danger-text delete-action" onClick={onDelete}>Удалить шаблон</Button>}</FormFooter>
     </form>
   </Modal>;

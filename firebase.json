@@ -31,6 +31,20 @@
             }
           ]
         }
+      ],
+      "rewrites": [
+        {
+          "source": "/app",
+          "destination": "/index.html"
+        },
+        {
+          "source": "/app/**",
+          "destination": "/index.html"
+        },
+        {
+          "source": "/demo",
+          "destination": "/index.html"
+        }
       ]
     },
     {
@@ -63,6 +77,20 @@
               "value": "no-cache"
             }
           ]
+        }
+      ],
+      "rewrites": [
+        {
+          "source": "/app",
+          "destination": "/index.html"
+        },
+        {
+          "source": "/app/**",
+          "destination": "/index.html"
+        },
+        {
+          "source": "/demo",
+          "destination": "/index.html"
         }
       ]
     }

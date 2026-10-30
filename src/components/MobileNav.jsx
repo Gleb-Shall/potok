@@ -1,0 +1,8 @@
+import { useEffect, useRef, useState } from 'preact/hooks';
+import { Icon } from './Icon.jsx';
+export function MobileNav({ view, onChange, pending, onHome }) {
+  const [more, setMore] = useState(false); const ref = useRef(null);
+  useEffect(() => { const close = event => { if (!ref.current?.contains(event.target)) setMore(false); }; document.addEventListener('pointerdown', close); return () => document.removeEventListener('pointerdown', close); }, []);
+  const choose = id => { onChange(id); setMore(false); };
+  return <nav class="mobile-bottom-nav" aria-label="Основная навигация"><div class="mobile-nav-items">{[['schedule','calendar','Календарь'],['students','users','Записи'],['types','sliders','Шаблоны'],['history','history','История']].map(([id,icon,label])=><button key={id} class={view===id?'active':''} aria-current={view===id?'page':undefined} onClick={()=>choose(id)}><Icon name={icon}/><span>{label}</span></button>)}<div class="mobile-more" ref={ref} onKeyDown={event=>{if(event.key==='Escape')setMore(false);}}><button class={['settings','transfers'].includes(view)||more?'active':''} aria-expanded={more} aria-controls="mobile-more-panel" onClick={()=>setMore(!more)}><Icon name="more"/><span>Ещё{pending>0&&<i/>}</span></button>{more&&<div class="mobile-more-panel" id="mobile-more-panel"><button onClick={()=>choose('transfers')}><Icon name="arrows"/>Переносы{pending>0&&<span>{pending}</span>}</button><button onClick={()=>choose('settings')}><Icon name="settings"/>Настройки</button>{onHome&&<button onClick={onHome}><Icon name="home"/>Главная страница</button>}</div>}</div></div></nav>;
+}
