@@ -51,6 +51,7 @@ const submit = async form => { await act(() => form.dispatchEvent(new Event('sub
 beforeEach(() => {
   root = document.createElement('div'); document.body.append(root);
   localStorage.clear();
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ features: [] }) }));
   mapSDK.maps.length = 0; mapSDK.markers.length = 0;
   HTMLDialogElement.prototype.showModal = function () { this.open = true; };
   HTMLDialogElement.prototype.close = function () { this.open = false; };
@@ -148,6 +149,7 @@ describe('critical user flows', () => {
     expect(root.querySelector('.place-floating-label').textContent).toContain('Учебный корпус');
     expect(root.querySelector('.place-marker')).toBeTruthy();
     await input(root.querySelector('input[maxlength="200"]'), 'Мой корпус');
+    await vi.waitFor(() => expect(byText('Выбрать место').disabled).toBe(false));
     await click(byText('Выбрать место'));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ lat: 59.94, lng: 30.3, label: 'Мой корпус' }));
   });
@@ -157,6 +159,7 @@ describe('critical user flows', () => {
     await vi.waitFor(() => expect(root.querySelector('.map-canvas')).toBeTruthy());
     await act(() => root.querySelector('.map-canvas').dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 100, clientY: 80 })));
     expect(root.querySelector('.place-marker')).toBeTruthy();
+    await vi.waitFor(() => expect(byText('Выбрать место').disabled).toBe(false));
     await click(byText('Выбрать место'));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ lat: expect.any(Number), lng: expect.any(Number), label: 'Выбранное место' }));
   });
@@ -167,6 +170,7 @@ describe('critical user flows', () => {
     await vi.waitFor(() => expect(document.body.querySelector('.map-canvas')).toBeTruthy());
     await act(() => document.body.querySelector('.map-canvas').dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 120, clientY: 90 })));
     const confirm = [...document.body.querySelectorAll('button')].find(button => button.textContent === 'Выбрать место');
+    await vi.waitFor(() => expect(confirm.disabled).toBe(false));
     await click(confirm);
     expect(onSave).not.toHaveBeenCalled();
     expect(root.querySelector('.location-trigger').textContent).toContain('Выбранное место');
@@ -183,8 +187,33 @@ describe('critical user flows', () => {
     await vi.waitFor(() => expect(root.querySelector('[role="alert"]')?.textContent).toContain('Сеть недоступна'));
     await vi.waitFor(() => expect(root.querySelector('.map-canvas')).toBeTruthy());
     await act(() => root.querySelector('.map-canvas').dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 140, clientY: 100 })));
+    await vi.waitFor(() => expect(byText('Выбрать место').disabled).toBe(false));
     await click(byText('Выбрать место'));
     expect(onChange).toHaveBeenCalledOnce();
+  });
+  it('shows the address after a map click and saves it with the exact pin', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ features: [{ properties: { street: 'Дворцовая набережная', housenumber: '38', city: 'Санкт-Петербург' } }] }) }));
+    const onChange = vi.fn(); await mount(<MapPicker value={null} saved={[]} onChange={onChange} onClose={() => {}}/>);
+    await vi.waitFor(() => expect(root.querySelector('.map-canvas')).toBeTruthy());
+    await act(() => root.querySelector('.map-canvas').dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    await vi.waitFor(() => expect(root.querySelector('.place-floating-label').textContent).toContain('Дворцовая набережная, 38'));
+    await vi.waitFor(() => expect(byText('Выбрать место').disabled).toBe(false));
+    await click(byText('Выбрать место'));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ lat: 59.94, lng: 30.3, address: 'Дворцовая набережная, 38, Санкт-Петербург' }));
+  });
+  it('keeps a custom place name typed while the address is being resolved', async () => {
+    let resolveBody;
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: () => new Promise(resolve => { resolveBody = resolve; }) }));
+    const onChange = vi.fn(); await mount(<MapPicker value={null} saved={[]} onChange={onChange} onClose={() => {}}/>);
+    await vi.waitFor(() => expect(root.querySelector('.map-canvas')).toBeTruthy());
+    // A different point avoids the successful previous lookup's address cache.
+    await act(() => mapSDK.maps[0].fire('click', { lngLat: { lat: 59.95, lng: 30.31 } }));
+    await vi.waitFor(() => expect(resolveBody).toBeTypeOf('function'));
+    await input(root.querySelector('input[maxlength="200"]'), 'Мой корпус');
+    await act(async () => resolveBody({ features: [{ properties: { street: 'Университетская набережная', housenumber: '7', city: 'Санкт-Петербург' } }] }));
+    await vi.waitFor(() => expect(byText('Выбрать место').disabled).toBe(false));
+    await click(byText('Выбрать место'));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ label: 'Мой корпус', labelIsCustom: true, address: 'Университетская набережная, 7, Санкт-Петербург' }));
   });
   it('groups events at the same map pin and opens the matching event from the list', async () => {
     const first = sample(); first.location = { lat: 59.94, lng: 30.3, label: 'Корпус' };

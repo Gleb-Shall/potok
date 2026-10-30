@@ -35,7 +35,7 @@ export default function AppleMapCanvas({ location, points = emptyPoints, onPick,
       map.addEventListener('select', event => { const id = event.annotation?.data?.id; if (id) callbacks.current.onSelect?.(id); });
       map.addEventListener('drag-end', event => {
         const coordinate = event.coordinate || event.annotation?.coordinate; if (!coordinate) return;
-        const next = { lat: coordinate.latitude, lng: coordinate.longitude, label: callbacks.current.location?.label || 'Выбранное место' };
+        const next = { lat: coordinate.latitude, lng: coordinate.longitude, label: callbacks.current.location?.labelIsCustom ? callbacks.current.location.label : 'Выбранное место', labelIsCustom: Boolean(callbacks.current.location?.labelIsCustom) };
         lastPicked.current = next; callbacks.current.onPick?.(next);
       });
       observer = new ResizeObserver(() => { map.element.style.width = '100%'; map.element.style.height = '100%'; }); observer.observe(element.current);

@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort",
     "test": "node --test --experimental-test-coverage tests/*.test.js",
-    "test:ui": "vitest run --environment jsdom tests/ui.test.jsx tests/apple-maps.test.jsx"
+    "test:ui": "vitest run --environment jsdom tests/*.test.jsx"
   },
   "dependencies": {
     "@apple/mapkit-loader": "^1.0.0",

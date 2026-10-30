@@ -57,7 +57,7 @@ export default function VectorMapCanvas({ location, points = emptyPoints, onPick
       const marker = new Marker({ element: button, draggable: Boolean(callbacks.current.onPick), anchor: 'bottom' }).setLngLat([point.lng, point.lat]).addTo(map);
       marker.on('dragend', () => {
         const position = marker.getLngLat();
-        const selected = { lat: position.lat, lng: position.lng, label: callbacks.current.location?.label || 'Выбранное место' };
+        const selected = { lat: position.lat, lng: position.lng, label: callbacks.current.location?.labelIsCustom ? callbacks.current.location.label : 'Выбранное место', labelIsCustom: Boolean(callbacks.current.location?.labelIsCustom) };
         lastPicked.current = selected; callbacks.current.onPick?.(selected);
       });
       return marker;

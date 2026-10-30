@@ -29,3 +29,12 @@ export async function resolveApplePlace(suggestion, signal) {
   if (!place?.coordinate) throw new Error('Не удалось определить координаты места. Выбери другую подсказку или точку на карте.');
   return { lat: place.coordinate.latitude, lng: place.coordinate.longitude, label: place.name || suggestion.label, address: place.formattedAddress || suggestion.address };
 }
+
+export async function reverseApplePlace(point, signal) {
+  const kit = await loadAppleMaps(); signal.throwIfAborted();
+  const response = await new kit.Geocoder({ language: 'ru-RU' }).reverseLookup(new kit.Coordinate(point.lat, point.lng), { signal });
+  signal.throwIfAborted();
+  const place = response.results[0];
+  if (!place?.formattedAddress) return null;
+  return { ...point, label: place.name || place.formattedAddress, address: place.formattedAddress };
+}

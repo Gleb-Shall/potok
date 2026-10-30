@@ -3,6 +3,39 @@ export const validLocation = location => location && Number.isFinite(location.la
 
 const cache = new Map();
 const searchURL = import.meta.env.VITE_MAP_SEARCH_URL || 'https://photon.komoot.io/api/';
+const reverseURL = import.meta.env.VITE_MAP_REVERSE_URL || new URL('../reverse', searchURL).href;
+const addresses = new Map();
+
+export function formatPlaceAddress(info) {
+  const street = [info.street, info.housenumber].filter(Boolean).join(', ');
+  const city = info.city || info.town || info.village || info.locality;
+  return [...new Set([street || info.name, city, info.country].filter(Boolean))].join(', ');
+}
+
+export async function reversePlace(point, signal, provider = getMapProvider()) {
+  if (!validLocation(point)) throw new Error('Не удалось определить точку на карте.');
+  signal.throwIfAborted();
+  if (provider === 'apple') return (await import('./apple-maps.js')).reverseApplePlace(point, signal);
+  const key = `${point.lat.toFixed(6)}:${point.lng.toFixed(6)}`;
+  if (addresses.has(key)) return { ...point, ...addresses.get(key) };
+  const url = new URL(reverseURL);
+  url.searchParams.set('lat', String(point.lat)); url.searchParams.set('lon', String(point.lng));
+  url.searchParams.set('limit', '3'); url.searchParams.set('radius', '0.1');
+  const response = await fetch(url, { signal });
+  if (!response.ok) throw new Error('Не удалось получить адрес. Можно сохранить метку с координатами или указать название вручную.');
+  const body = await response.json(); signal.throwIfAborted();
+  const properties = (body.features || []).map(feature => feature.properties || {});
+  const info = properties.find(item => item.street && item.housenumber) || properties.find(item => item.street || item.name);
+  if (!info) return null;
+  const address = formatPlaceAddress(info);
+  if (!address) return null;
+  const namedPlace = info.name && info.name !== info.street && info.name !== info.housenumber ? info.name : '';
+  const result = { label: namedPlace || [info.street, info.housenumber].filter(Boolean).join(', ') || address, address };
+  if (addresses.size >= 100) addresses.delete(addresses.keys().next().value);
+  addresses.set(key, result);
+  // Keep the exact pin position; the service may return a nearby building centroid.
+  return { ...point, ...result };
+}
 
 export async function searchPlaces(query, signal, provider = getMapProvider()) {
   if (provider === 'apple') return (await import('./apple-maps.js')).searchApplePlaces(query, signal);
