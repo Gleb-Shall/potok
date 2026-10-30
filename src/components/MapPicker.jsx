@@ -3,11 +3,16 @@ import { MapCanvas, MapSourceSwitch } from './MapCanvas.jsx';
 import { searchPlaces, resolvePlace, reversePlace, validLocation } from '../lib/places.js';
 import { Modal, Field, Button, ErrorMessage } from './UI.jsx';
 import { Icon } from './Icon.jsx';
+import { getDeviceLocation } from '../lib/device-location.js';
 import { useMapProvider } from '../lib/map-settings.js';
 
 export default function MapPicker({ value, saved = [], onChange, onClose }) {
   const [provider, setProvider] = useMapProvider();
   const selecting = useRef(null);
+  const geoRequest = useRef(0);
+  const [locating, setLocating] = useState(false);
+  const [mapExpanded, setMapExpanded] = useState(false);
+  const [focusRequest, setFocusRequest] = useState(0);
   const [resolving, setResolving] = useState(false);
   const [addressBusy, setAddressBusy] = useState(false);
   const [location, setLocation] = useState(validLocation(value) ? value : null);
@@ -40,12 +45,14 @@ export default function MapPicker({ value, saved = [], onChange, onClose }) {
     }, 350);
     return () => { current = false; clearTimeout(debounce); clearTimeout(timeout); controller.abort(); };
   }, [searchTerm, tab, provider]);
-  useEffect(() => () => { selecting.current?.abort(); selecting.current = null; }, []);
+  useEffect(() => () => { selecting.current?.abort(); selecting.current = null; geoRequest.current++; }, []);
 
   const places = [...new Map(saved.filter(validLocation).map(item => [`${item.lat.toFixed(5)}:${item.lng.toFixed(5)}`, item])).values()];
   const list = tab === 'saved' ? places.filter(item => `${item.label} ${item.address || ''}`.toLocaleLowerCase('ru').includes(query.toLocaleLowerCase('ru'))) : results;
   const expanded = open && list.length > 0;
+  const cancelLocation = () => { geoRequest.current++; setLocating(false); };
   const changeQuery = text => {
+    cancelLocation();
     selecting.current?.abort(); selecting.current = null; setResolving(false); setAddressBusy(false);
     setQuery(text); setOpen(true); setActive(-1); setResults([]); setError(''); setSearched(false);
     if (!composing.current) setSearchTerm(text);
@@ -54,6 +61,7 @@ export default function MapPicker({ value, saved = [], onChange, onClose }) {
     setLocation(item); setQuery(item.label); setSearchTerm(''); setResults([]); setOpen(false); setActive(-1); setError(''); setSearched(false);
   };
   const choose = async item => {
+    cancelLocation(); setFocusRequest(value => value + 1);
     selecting.current?.abort(); selecting.current = null;
     setAddressBusy(false);
     if (validLocation(item)) { setResolving(false); applyLocation(item); return; }
@@ -67,7 +75,8 @@ export default function MapPicker({ value, saved = [], onChange, onClose }) {
     } catch (error) { if (selecting.current === controller) setError(controller.signal.aborted ? 'Не удалось загрузить место. Попробуй ещё раз.' : error.message); }
     finally { clearTimeout(timeout); if (selecting.current === controller) setResolving(false); }
   };
-  const pickPoint = async point => {
+  const pickPoint = async (point, options = {}) => {
+    cancelLocation(); if (options.focus) setFocusRequest(value => value + 1);
     selecting.current?.abort();
     const controller = new AbortController(); selecting.current = controller;
     applyLocation(point); setResolving(true); setAddressBusy(true);
@@ -85,16 +94,24 @@ export default function MapPicker({ value, saved = [], onChange, onClose }) {
       if (selecting.current === controller) { selecting.current = null; setResolving(false); setAddressBusy(false); }
     }
   };
-  const switchTab = target => { selecting.current?.abort(); selecting.current = null; setResolving(false); setAddressBusy(false); setTab(target); setQuery(''); setSearchTerm(''); setResults([]); setOpen(true); setError(''); setActive(-1); setSearched(false); };
+  const locate = async () => {
+    const request = ++geoRequest.current;
+    setLocating(true); setError('');
+    try {
+      const point = await getDeviceLocation();
+      if (request === geoRequest.current) { setLocating(false); await pickPoint(point, { focus: true }); }
+    } catch (error) { if (request === geoRequest.current) { setError(error.message); setLocating(false); } }
+  };
+  const switchTab = target => { cancelLocation(); selecting.current?.abort(); selecting.current = null; setResolving(false); setAddressBusy(false); setTab(target); setQuery(''); setSearchTerm(''); setResults([]); setOpen(true); setError(''); setActive(-1); setSearched(false); };
   const keyboard = event => {
     if (event.isComposing) return;
-    if (event.key === 'Escape' && open) { event.preventDefault(); event.stopPropagation(); setOpen(false); return; }
+    if (event.key === 'Escape' && expanded) { event.preventDefault(); event.stopPropagation(); setOpen(false); return; }
     if (event.key === 'ArrowDown' && list.length) { event.preventDefault(); setOpen(true); setActive(previous => (previous + 1) % list.length); }
     if (event.key === 'ArrowUp' && list.length) { event.preventDefault(); setOpen(true); setActive(previous => previous <= 0 ? list.length - 1 : previous - 1); }
     if (event.key === 'Enter') { event.preventDefault(); if (expanded) choose(list[active < 0 ? 0 : active]); }
   };
-  return <Modal title="Выбрать место" subtitle="Начни вводить адрес или поставь метку на карте." wide onClose={onClose}>
-    <MapSourceSwitch provider={provider} onChange={next => { selecting.current?.abort(); selecting.current = null; setResolving(false); setAddressBusy(false); setProvider(next); setResults([]); setError(''); setOpen(true); setActive(-1); }}/>
+  return <Modal title="Выбрать место" subtitle="Начни вводить адрес или поставь метку на карте." wide onClose={onClose} className="map-picker-modal" fullscreen={mapExpanded} onEscape={() => mapExpanded ? setMapExpanded(false) : onClose()}>
+    <MapSourceSwitch provider={provider} onChange={next => { cancelLocation(); selecting.current?.abort(); selecting.current = null; setResolving(false); setAddressBusy(false); setProvider(next); setResults([]); setError(''); setOpen(true); setActive(-1); }}/>
     <div class="place-tabs"><button type="button" class={tab === 'search' ? 'active' : ''} onClick={() => switchTab('search')}>Найти место</button><button type="button" class={tab === 'saved' ? 'active' : ''} onClick={() => switchTab('saved')}>В моих событиях <span>{places.length}</span></button></div>
     <div class="place-search-wrap" onFocusOut={event => { if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false); }}>
       <form class="place-search" onSubmit={event => event.preventDefault()}><label><Icon name="search"/><input autoFocus role="combobox" aria-label="Адрес или название места" aria-autocomplete="list" aria-expanded={expanded} aria-controls={listId} aria-activedescendant={expanded && active >= 0 ? `${listId}-${active}` : undefined} autoComplete="off" placeholder="Название, адрес и город" value={query} onFocus={() => setOpen(true)} onInput={event => changeQuery(event.currentTarget.value)} onKeyDown={keyboard} onCompositionStart={() => { composing.current = true; }} onCompositionEnd={event => { composing.current = false; changeQuery(event.currentTarget.value); }} maxLength="300"/>{(busy || resolving) && <span class="search-spinner" aria-label="Ищу места"/>}{query && <button class="search-clear" type="button" aria-label="Очистить поиск" onClick={() => changeQuery('')}><Icon name="close"/></button>}</label></form>
@@ -103,7 +120,7 @@ export default function MapPicker({ value, saved = [], onChange, onClose }) {
     </div>
     <ErrorMessage error={error}/>
     {tab === 'saved' && !list.length && <p class="quiet-note">Здесь появятся места из сохранённых событий.</p>}
-    <div class="place-map"><MapCanvas provider={provider} location={location} onPick={pickPoint}/>{location && <div class="place-floating-label"><span class="place-result-pin"><Icon name="pin"/></span><span><strong>{location.label}</strong><small role={addressBusy ? 'status' : undefined}>{addressBusy ? 'Определяю адрес…' : location.address || `${location.lat.toFixed(5)}, ${location.lng.toFixed(5)}`}</small></span></div>}</div>
+    <div class="place-map"><MapCanvas provider={provider} location={location} onPick={pickPoint} focusRequest={focusRequest}/><div class="map-actions"><Button icon="locate" disabled={locating} onClick={locate}>{locating ? 'Определяю…' : 'Моё местоположение'}</Button><Button icon={mapExpanded ? 'shrink' : 'expand'} aria-pressed={mapExpanded} onClick={() => setMapExpanded(!mapExpanded)}>{mapExpanded ? 'Свернуть карту' : 'На всё окно'}</Button></div>{location && <div class="place-floating-label"><span class="place-result-pin"><Icon name="pin"/></span><span><strong>{location.label}</strong><small role={addressBusy ? 'status' : undefined}>{addressBusy ? 'Определяю адрес…' : location.address || `${location.lat.toFixed(5)}, ${location.lng.toFixed(5)}`}</small></span></div>}</div>
     <p class="quiet-note">Прокрутка или жест на трекпаде — масштаб. Перетаскивание — движение карты. Нажатие — поставить метку.</p>
     {location && <Field label="Как назвать это место" value={location.label} onChange={label => setLocation(previous => ({ ...previous, label, labelIsCustom: true }))} maxLength="200"/>}
     <div class="place-provider">{provider === 'apple' ? 'Карта и поиск — Apple Maps' : <>Карта — <a href="https://openfreemap.org" target="_blank" rel="noopener noreferrer">OpenFreeMap</a> · поиск — <a href="https://photon.komoot.io" target="_blank" rel="noopener noreferrer">Photon</a></>}</div>

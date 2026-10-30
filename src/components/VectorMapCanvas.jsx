@@ -9,11 +9,12 @@ setWorkerUrl(workerURL);
 const styleURL = import.meta.env.VITE_MAP_STYLE_URL || 'https://tiles.openfreemap.org/styles/liberty';
 const emptyPoints = [];
 
-export default function VectorMapCanvas({ location, points = emptyPoints, onPick, onSelect }) {
+export default function VectorMapCanvas({ location, points = emptyPoints, onPick, onSelect, focusRequest = 0 }) {
   const element = useRef(null);
   const mapRef = useRef(null);
   const lastPicked = useRef(null);
   const cameraSignature = useRef('');
+  const lastFocus = useRef(focusRequest);
   const callbacks = useRef({ onPick, onSelect, location });
   callbacks.current = { onPick, onSelect, location };
   const [error, setError] = useState('');
@@ -64,14 +65,15 @@ export default function VectorMapCanvas({ location, points = emptyPoints, onPick
     });
     const justPicked = location && lastPicked.current?.lat === location.lat && lastPicked.current?.lng === location.lng;
     const signature = list.map(point => `${point.id}:${point.lat}:${point.lng}`).join('|');
+    const focusChanged = lastFocus.current !== focusRequest; lastFocus.current = focusRequest;
     const geometryChanged = cameraSignature.current !== signature;
     cameraSignature.current = signature;
-    if (geometryChanged && list.length === 1 && !justPicked) map.easeTo({ center: [list[0].lng, list[0].lat], zoom: 16, duration: 500, padding: { top: 0, bottom: 0, left: 0, right: 0 } });
+    if (list.length === 1 && (focusChanged || geometryChanged && !justPicked)) map.easeTo({ center: [list[0].lng, list[0].lat], zoom: 16, duration: 500, padding: { top: 0, bottom: 0, left: 0, right: 0 } });
     else if (geometryChanged && list.length > 1) {
       const bounds = new LngLatBounds(); list.forEach(point => bounds.extend([point.lng, point.lat]));
       map.fitBounds(bounds, { padding: { top: 50, bottom: 50, left: 50, right: element.current.clientWidth > 700 ? 370 : 50 }, maxZoom: 16, duration: 500 });
     }
     return () => markers.forEach(marker => marker.remove());
-  }, [location, points]);
+  }, [location, points, focusRequest]);
   return <div class="map-canvas-wrap"><div ref={element} class="map-canvas" aria-label="Карта мест событий"/>{loading && <span class="map-loading" role="status">Загружаю карту…</span>}{error && <p class="map-error" role="status">{error}</p>}</div>;
 }

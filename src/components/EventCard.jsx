@@ -3,7 +3,7 @@ import { minutesToTime } from '../lib/domain.js';
 import { dateLabel } from './UI.jsx';
 import { Icon } from './Icon.jsx';
 
-export function EventCard({ event, data, onOpen, onDragStart, onDragEnd, preview = false, expanded = preview, onToggle }) {
+export function EventCard({ event, data, onOpen, onDragStart, onDragEnd, preview = false, onDelete, expanded = preview, onToggle }) {
   const type = getType(data, event.typeId);
   const record = getRecord(data, event);
   if (event.ghost) return <button class="ghost-card" type="button" onClick={() => onOpen(event.id)}><span class="ghost-time">{minutesToTime(event.start)}</span><span>{eventTitle(data, event)}</span><small>{event.status === 'pending' ? 'Ждёт нового времени' : event.status === 'cancelled' ? 'Отменено' : `→ ${dateLabel(event.destinationDate)} · ${minutesToTime(event.destinationStart)}`}</small></button>;
@@ -22,6 +22,6 @@ export function EventCard({ event, data, onOpen, onDragStart, onDragEnd, preview
       {event.history?.length > 0 && <span class="transfer-origin">Было {dateLabel(event.originalDate)} · {minutesToTime(event.originalStart)}</span>}
       {event.busy === false && <span class="not-busy-label">Не блокирует время</span>}
     </div>}
-    {!preview && <button type="button" class="card-expand" aria-expanded={expanded} onClick={() => onToggle?.(event.id)}>{expanded ? 'Свернуть ↑' : 'Подробнее ↓'}</button>}
+    {!preview && <div class="card-controls"><button type="button" class="card-expand" aria-expanded={expanded} onClick={() => onToggle?.(event.id)}>{expanded ? 'Свернуть ↑' : 'Подробнее ↓'}</button>{onDelete && <button type="button" class="card-delete" aria-label={`Удалить событие «${eventTitle(data, event)}»`} onClick={() => onDelete(event)}><Icon name="trash"/></button>}</div>}
   </article>;
 }

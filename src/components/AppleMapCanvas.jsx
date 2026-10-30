@@ -3,12 +3,13 @@ import { loadAppleMaps } from '../lib/apple-maps.js';
 import { validLocation } from '../lib/places.js';
 
 const emptyPoints = [];
-export default function AppleMapCanvas({ location, points = emptyPoints, onPick, onSelect }) {
+export default function AppleMapCanvas({ location, points = emptyPoints, onPick, onSelect, focusRequest = 0 }) {
   const element = useRef(null);
   const instance = useRef(null);
   const callbacks = useRef({ location, onPick, onSelect }); callbacks.current = { location, onPick, onSelect };
   const lastPicked = useRef(null);
   const signature = useRef('');
+  const lastFocus = useRef(focusRequest);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState('');
   useEffect(() => {
@@ -50,11 +51,12 @@ export default function AppleMapCanvas({ location, points = emptyPoints, onPick,
     const annotations = list.map(point => new kit.MarkerAnnotation(new kit.Coordinate(point.lat, point.lng), { title: point.label || 'Место события', subtitle: point.address || '', color: '#8076cc', glyphText: point.count > 1 ? String(point.count) : '●', draggable: Boolean(onPick), data: { id: point.id } }));
     map.addAnnotations(annotations);
     const nextSignature = list.map(point => `${point.id}:${point.lat}:${point.lng}`).join('|');
+    const focusChanged = lastFocus.current !== focusRequest; lastFocus.current = focusRequest;
     const changed = signature.current !== nextSignature; signature.current = nextSignature;
     const justPicked = location && lastPicked.current?.lat === location.lat && lastPicked.current?.lng === location.lng;
-    if (changed && annotations.length === 1 && !justPicked) { map.setCenterAnimated(annotations[0].coordinate, true); map.setCameraDistanceAnimated(1400, true); }
+    if (annotations.length === 1 && (focusChanged || changed && !justPicked)) { map.setCenterAnimated(annotations[0].coordinate, true); map.setCameraDistanceAnimated(1400, true); }
     else if (changed && annotations.length > 1) map.showItems(annotations, { animate: true, padding: new kit.Padding(50, element.current.clientWidth > 700 ? 370 : 50, 50, 50) });
     return () => { if (instance.current?.map === map) map.removeAnnotations(annotations); };
-  }, [ready, location, points]);
+  }, [ready, location, points, focusRequest]);
   return <div class="map-canvas-wrap"><div class="map-canvas apple-map" ref={element} aria-label="Apple Maps"/>{!ready && !error && <span class="map-loading" role="status">Загружаю Apple Maps…</span>}{error && <div class="apple-map-error" role="alert"><strong>Apple Maps пока недоступна</strong><p>{error}</p></div>}</div>;
 }

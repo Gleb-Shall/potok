@@ -3,6 +3,7 @@ import { App } from './App.jsx';
 import './styles.css';
 import './editor.css';
 import './workspace.css';
+import './planner.css';
 
 class AppBoundary extends Component {
   state = { error: null };

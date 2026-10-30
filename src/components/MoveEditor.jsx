@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks';
 import { Modal, Field, Button, FormFooter, ErrorMessage, dateLabel } from './UI.jsx';
 import { minutesToTime, timeToMinutes, todayISO } from '../lib/domain.js';
+import { eventEnd } from '../lib/timing.js';
 import { eventTitle, saveMove } from '../lib/events.js';
 
 export function MoveEditor({ data, event, date, onSave, onAdvanced, onClose }) {
@@ -13,7 +14,7 @@ export function MoveEditor({ data, event, date, onSave, onAdvanced, onClose }) {
       <div class="move-destination"><span>Новый день</span><strong>{dateLabel(target, { weekday: 'long' })}</strong><button class="text-button" type="button" onClick={() => setChangeDay(!changeDay)}>{changeDay ? 'Скрыть календарь' : 'Выбрать другой день'}</button></div>
       {changeDay && <Field label="Дата" type="date" value={target} onChange={setTarget} required/>}
       <Field label="Во сколько начать?" type="time" value={time} onChange={setTime} required autoFocus/>
-      <p class="quiet-note">Длительность — {event.duration} мин. Переносится только это событие; обычное время остаётся в истории.</p>
+      <p class="quiet-note">Конец — {eventEnd(time, event.duration) || '—'} · {event.duration} мин. Переносится только это событие; обычное время остаётся в истории.</p>
       <Button kind="text-button" onClick={() => onAdvanced({ date: target, start: time })}>Расширенное редактирование →</Button>
       <ErrorMessage error={error}/><FormFooter onClose={onClose} label="Перенести"/>
     </form>

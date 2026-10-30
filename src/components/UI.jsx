@@ -16,11 +16,11 @@ export function Field({ label, value, onChange, type = 'text', children, ...prop
 export function Select({ label, value, onChange, children, ...props }) { return <Field label={label}><select value={value} onChange={event => onChange(event.currentTarget.value)} {...props}>{children}</select></Field>; }
 export function Check({ children, checked, onChange, ...props }) { return <label class="check-label editor-check"><input type="checkbox" checked={checked} onChange={event => onChange(event.currentTarget.checked)} {...props}/><span>{children}</span></label>; }
 export function Colors({ value, onChange }) { return <fieldset class="color-field"><legend>Цвет карточки</legend>{Object.entries(COLOR_NAMES).map(([color, name]) => <label key={color} class={`color-option color-${color}`}><input name="color" type="radio" value={color} checked={value === color} onChange={() => onChange(color)}/><span class="sr-only">{name}</span></label>)}</fieldset>; }
-export function Modal({ title, subtitle, eyebrow, onClose, children, wide = false }) {
+export function Modal({ title, subtitle, eyebrow, onClose, children, wide = false, className = '', fullscreen = false, onEscape }) {
   const ref = useRef(null);
   const titleId = useId();
   useEffect(() => { const dialog = ref.current; dialog.showModal(); return () => dialog.close(); }, []);
-  return <dialog ref={ref} class={wide ? 'wide-modal' : ''} aria-labelledby={titleId} onCancel={onClose} onClick={event => {
+  return <dialog ref={ref} class={`${wide ? 'wide-modal' : ''} ${className} ${fullscreen ? 'is-fullscreen' : ''}`} aria-labelledby={titleId} onCancel={event => { if (onEscape) { event.preventDefault(); onEscape(); } else onClose(); }} onClick={event => {
     if (event.target !== event.currentTarget) return;
     const rect = event.currentTarget.getBoundingClientRect();
     if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) onClose();

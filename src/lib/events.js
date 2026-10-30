@@ -37,10 +37,10 @@ export function normalizeData(source) {
 
 export function seriesOccurs(series, date) {
   const firstOffset = (series.weekday - weekdayOf(series.from) + 7) % 7;
-  return !series.archived && date >= series.from && (!series.until || date <= series.until) && weekdayOf(date) === series.weekday && (daysBetween(series.from, date) - firstOffset) % ((series.intervalWeeks || 1) * 7) === 0;
+  return !series.archived && !(series.excludedDates || []).includes(date) && date >= series.from && (!series.until || date <= series.until) && weekdayOf(date) === series.weekday && (daysBetween(series.from, date) - firstOffset) % ((series.intervalWeeks || 1) * 7) === 0;
 }
 function occurrence(series, date) {
-  const { from, until, weekday, intervalWeeks, archived, id, ...details } = series;
+  const { from, until, weekday, intervalWeeks, archived, excludedDates, id, ...details } = series;
   return { ...details, id: `${id}:${date}`, seriesId: id, anchorDate: date, date, status: 'planned', history: [] };
 }
 export function projectWeek(data, start, dayCount = 7) {
@@ -79,10 +79,10 @@ export function validateEvent(data, input) {
   if (!Number.isInteger(input.start) || !Number.isInteger(input.duration) || input.start < 0 || input.duration < 5 || input.start + input.duration > 1440) throw new Error('Событие должно длиться не меньше 5 минут и закончиться в тот же день.');
   const type = data.types.find(item => item.id === input.typeId);
   if (!type) throw new Error('Выбери существующий тип события.');
-  if (type.requireStudent && !data.students.some(student => student.id === input.studentId)) throw new Error('Для этого типа нужен ученик. Сначала добавь его в разделе «Ученики».');
+  if (type.requireStudent && !input.recordDetached && !data.students.some(student => student.id === input.studentId)) throw new Error('Для этого типа нужен ученик. Сначала добавь его в разделе «Записи».');
   const linked = getRecord(data, input);
   const kind = recordKind(type);
-  if (type.requireRecord && !linked) throw new Error('Выбери связанную запись.');
+  if (type.requireRecord && !input.recordDetached && !linked) throw new Error('Выбери связанную запись.');
   if (linked && kind && kind !== 'any' && linked.kind !== kind) throw new Error('Связанная запись не подходит этому типу события.');
   if (input.location && (!Number.isFinite(input.location.lat) || !Number.isFinite(input.location.lng) || Math.abs(input.location.lat) > 90 || Math.abs(input.location.lng) > 180)) throw new Error('Выбери корректную точку на карте.');
   if ((input.notes || '').length > 5000) throw new Error('Заметка слишком длинная.');
@@ -138,6 +138,8 @@ export function saveEvent(data, { values, original = null, repeat = null, scope 
     previous.until = addDays(splitDate, -1);
     if (splitDate <= previous.from) previous.archived = true;
     const futureExceptions = next.events.filter(item => item.seriesId === previous.id && item.anchorDate >= splitDate && item.id !== original.id);
+    const futureExcluded = (previous.excludedDates || []).filter(date => date >= splitDate);
+    previous.excludedDates = (previous.excludedDates || []).filter(date => date < splitDate);
     next.events = next.events.filter(item => !(item.seriesId === previous.id && item.anchorDate >= splitDate));
     const newRepeat = repeat || { intervalWeeks: previous.intervalWeeks || 1, until: '' };
     for (const item of futureExceptions) {
@@ -146,7 +148,9 @@ export function saveEvent(data, { values, original = null, repeat = null, scope 
       next.events.push({ ...item, id: `${newId}:${newAnchor}`, seriesId: newId, anchorDate: newAnchor, originalDate: item.originalDate || item.anchorDate, originalStart: item.originalStart ?? item.start });
     }
     assertNoConflict({ ...next, events: next.events.filter(item => item.seriesId !== newId) }, event, newRepeat);
-    next.series.push(makeSeries(event, newRepeat, newId));
+    const replacement = makeSeries(event, newRepeat, newId);
+    replacement.excludedDates = futureExcluded.map(date => addDays(event.date, Math.round(daysBetween(splitDate, date) / ((previous.intervalWeeks || 1) * 7)) * newRepeat.intervalWeeks * 7));
+    next.series.push(replacement);
     const edited = moveEvent(original, event.date, event.start, event.duration);
     if (edited.history?.length) next.events.push({ ...edited, ...event, id: `${newId}:${event.date}`, seriesId: newId, anchorDate: event.date, history: edited.history, originalDate: edited.originalDate, originalStart: edited.originalStart, originalDuration: edited.originalDuration });
     return next;
@@ -205,4 +209,42 @@ export function saveMove(data, event, date, start) {
   const moved = moveEvent(event, date, start, event.duration);
   assertNoConflict(data, moved);
   return { ...data, events: upsert(data.events, moved) };
+}
+
+export function deleteEvent(data, event, scope = 'one') {
+  const next = structuredClone(data);
+  if (event.seriesId && scope === 'all') {
+    next.series = next.series.filter(item => item.id !== event.seriesId);
+    next.events = next.events.filter(item => item.seriesId !== event.seriesId && item.id !== event.id);
+  } else {
+    next.events = next.events.filter(item => item.id !== event.id);
+    const series = next.series.find(item => item.id === event.seriesId);
+    if (series && event.anchorDate) series.excludedDates = [...new Set([...(series.excludedDates || []), event.anchorDate])];
+  }
+  return next;
+}
+
+export function deleteRecord(data, record, removeEvents = false) {
+  const next = structuredClone(data);
+  const linked = event => event.recordId === record.id || event.studentId === record.id;
+  if (removeEvents) {
+    const seriesIds = new Set(next.series.filter(linked).map(item => item.id));
+    next.series = next.series.filter(item => !seriesIds.has(item.id));
+    next.events = next.events.filter(item => !linked(item) && !seriesIds.has(item.seriesId));
+  } else {
+    const detach = item => linked(item) ? { ...item, title: item.title || record.name, recordId: '', studentId: '', recordDetached: true } : item;
+    next.series = next.series.map(detach); next.events = next.events.map(detach);
+  }
+  next.students = next.students.filter(item => item.id !== record.id);
+  next.records = (next.records || []).filter(item => item.id !== record.id);
+  return next;
+}
+
+export function deleteType(data, id) {
+  const next = structuredClone(data);
+  const seriesIds = new Set(next.series.filter(item => item.typeId === id).map(item => item.id));
+  next.series = next.series.filter(item => !seriesIds.has(item.id));
+  next.events = next.events.filter(item => item.typeId !== id && !seriesIds.has(item.seriesId));
+  next.types = next.types.filter(item => item.id !== id);
+  return next;
 }

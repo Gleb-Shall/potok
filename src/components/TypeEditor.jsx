@@ -4,7 +4,7 @@ import { EventCard } from './EventCard.jsx';
 import { FIELD_TYPES, saveType, RECORD_KINDS, recordKind } from '../lib/events.js';
 import { todayISO } from '../lib/domain.js';
 
-export function TypeEditor({ data, original, onSave, onClose }) {
+export function TypeEditor({ data, original, onSave, onClose, onDelete }) {
   const [type, setType] = useState(() => structuredClone(original ? { ...original, recordKind: recordKind(original), requireRecord: original.requireRecord ?? original.requireStudent, enableLocation: original.enableLocation !== false } : { id: crypto.randomUUID(), name: '', titleLabel: 'Название события', icon: '◇', color: 'peach', recordKind: '', requireRecord: false, enableLocation: true, fields: [], archived: false }));
   const [error, setError] = useState('');
   const change = (key, value) => setType(previous => ({ ...previous, [key]: value }));
@@ -43,7 +43,7 @@ export function TypeEditor({ data, original, onSave, onClose }) {
         {used(field) && <small class="quiet-note">Формат поля зафиксирован: в событиях уже есть значения. Можно переименовать или скрыть поле — данные сохранятся.</small>}
       </section>)}</div>
       <section class="template-preview"><span class="section-caption">ПРИМЕР КАРТОЧКИ</span><EventCard event={preview} data={previewData} preview/></section>
-      <ErrorMessage error={error}/><FormFooter onClose={onClose} label="Сохранить тип"/>
+      <ErrorMessage error={error}/><FormFooter onClose={onClose} label="Сохранить шаблон">{data.types.some(item => item.id === original?.id) && onDelete && <Button icon="trash" kind="text-button danger-text delete-action" onClick={onDelete}>Удалить шаблон</Button>}</FormFooter>
     </form>
   </Modal>;
 }

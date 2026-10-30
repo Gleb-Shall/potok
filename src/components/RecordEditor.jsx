@@ -2,7 +2,7 @@ import { useState } from 'preact/hooks';
 import { Modal, Field, Colors, Button, FormFooter, ErrorMessage } from './UI.jsx';
 import { RECORD_KINDS, saveRecord } from '../lib/events.js';
 
-export function RecordEditor({ data, original, category, onSave, onClose }) {
+export function RecordEditor({ data, original, category, onSave, onClose, onDelete }) {
   const [record, setRecord] = useState(() => structuredClone(original || { id: crypto.randomUUID(), kind: category || 'course', name: '', subtitle: '', contact: '', notes: '', color: 'blue', details: [] }));
   const [error, setError] = useState('');
   const change = (key, value) => setRecord(previous => ({ ...previous, [key]: value }));
@@ -19,16 +19,16 @@ export function RecordEditor({ data, original, category, onSave, onClose }) {
         <button type="button" class="icon-button" aria-label="Убрать сведение" onClick={() => change('details', record.details.filter((_, i) => i !== index))}>×</button>
       </div>)}<Button icon="plus" onClick={() => change('details', [...(record.details || []), { id: crypto.randomUUID(), label: '', value: '' }])}>Добавить сведение</Button></section>
       <Field label="Заметки" type="textarea" rows="3" value={record.notes} onChange={value => change('notes', value)} maxLength="5000"/>
-      <Colors value={record.color} onChange={value => change('color', value)}/><ErrorMessage error={error}/><FormFooter onClose={onClose}/>
+      <Colors value={record.color} onChange={value => change('color', value)}/><ErrorMessage error={error}/><FormFooter onClose={onClose}>{original && onDelete && <Button icon="trash" kind="text-button danger-text delete-action" onClick={onDelete}>Удалить запись</Button>}</FormFooter>
     </form>
   </Modal>;
 }
 
-export function RecordDetails({ record, onEdit, onEvent, onClose }) {
+export function RecordDetails({ record, onEdit, onEvent, onClose, onDelete }) {
   return <Modal title={record.name} eyebrow={RECORD_KINDS[record.kind] || record.kind} subtitle={record.subtitle} onClose={onClose}>
     {record.contact && <p class="notes-text">{record.contact}</p>}
     <dl class="detail-fields">{(record.details || []).map(item => <div key={item.id}><dt>{item.label}</dt><dd>{item.value}</dd></div>)}</dl>
     {record.notes && <p class="notes-text">{record.notes}</p>}
-    <div class="modal-footer"><Button onClick={onEdit}>Редактировать</Button><Button kind="primary" icon="plus" onClick={onEvent}>Создать событие</Button></div>
+    <div class="modal-footer">{onDelete && <Button icon="trash" kind="text-button danger-text delete-action" onClick={onDelete}>Удалить запись</Button>}<Button onClick={onEdit}>Редактировать</Button><Button kind="primary" icon="plus" onClick={onEvent}>Создать событие</Button></div>
   </Modal>;
 }

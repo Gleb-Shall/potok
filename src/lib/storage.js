@@ -35,6 +35,6 @@ export function persistData(mode, data, revision = 0) {
 export function exportData(mode, data) {
   const blob = new Blob([JSON.stringify({ version: 2, exportedAt: new Date().toISOString(), mode, data }, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a'); anchor.href = url; anchor.download = `uroki-${mode}-${todayISO()}.json`; anchor.click();
+  const anchor = document.createElement('a'); anchor.href = url; anchor.download = `potok-${mode}-${todayISO()}.json`; anchor.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

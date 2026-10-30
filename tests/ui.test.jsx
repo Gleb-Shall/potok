@@ -227,4 +227,62 @@ describe('critical user flows', () => {
     await click(root.querySelectorAll('.map-event-row')[1]);
     expect(onOpen).toHaveBeenCalledWith('second');
   });
+  it('updates end and duration in both directions, shifts end with start and saves one canonical duration', async () => {
+    const onSave = vi.fn(); await mount(<EventEditor data={base()} original={sample()} onSave={onSave} onClose={() => {}}/>);
+    const times = root.querySelectorAll('input[type=time]'); const duration = root.querySelector('input[type=number]');
+    expect(times[1].value).toBe('11:30');
+    await input(times[1], '12:00'); expect(duration.value).toBe('120');
+    await input(duration, '45'); expect(times[1].value).toBe('10:45');
+    await input(times[0], '11:00'); expect(times[1].value).toBe('11:45');
+    await submit(root.querySelector('form'));
+    const saved = onSave.mock.calls[0][0].events[0]; expect(saved.start).toBe(660); expect(saved.duration).toBe(45); expect(saved).not.toHaveProperty('end');
+  });
+  it('deletes an event from its card and restores it with undo', async () => {
+    const data = base(); data.events.push(sample());
+    localStorage.setItem('tutor-schedule:mode', 'personal'); localStorage.setItem('tutor-schedule:personal:v2', JSON.stringify(data));
+    await mount(<App/>); await click(root.querySelector('.card-delete')); await submit(root.querySelector('dialog form'));
+    expect(JSON.parse(localStorage.getItem('tutor-schedule:personal:v2')).events).toHaveLength(0);
+    await click(root.querySelector('.toast-undo'));
+    expect(JSON.parse(localStorage.getItem('tutor-schedule:personal:v2')).events).toHaveLength(1);
+  });
+  it('deletes a shared record while keeping its event independent by default', async () => {
+    const data = base(); data.events.push({ ...sample(), recordId: 'course' });
+    localStorage.setItem('tutor-schedule:mode', 'personal'); localStorage.setItem('tutor-schedule:personal:v2', JSON.stringify(data));
+    await mount(<App/>); await click(byText('Записи')); await click(root.querySelector('.student-tile')); await click(byText('Удалить запись'));
+    await submit(root.querySelector('.delete-modal form'));
+    const saved = JSON.parse(localStorage.getItem('tutor-schedule:personal:v2'));
+    expect(saved.records).toHaveLength(0); expect(saved.events).toHaveLength(1); expect(saved.events[0].recordDetached).toBe(true);
+  });
+  it('explains and performs deletion of a template with its dependent events', async () => {
+    const data = base(); data.events.push(sample());
+    localStorage.setItem('tutor-schedule:mode', 'personal'); localStorage.setItem('tutor-schedule:personal:v2', JSON.stringify(data));
+    await mount(<App/>); await click(byText('Шаблоны')); await click(root.querySelector('[aria-label="Удалить шаблон «Пара»"]'));
+    expect(root.querySelector('.delete-modal').textContent).toContain('все события этого типа');
+    await submit(root.querySelector('.delete-modal form'));
+    const saved = JSON.parse(localStorage.getItem('tutor-schedule:personal:v2'));
+    expect(saved.types.some(type => type.id === 'class')).toBe(false); expect(saved.events).toHaveLength(0);
+  });
+  it('expands the place picker to the window and Escape first returns to the ordinary picker', async () => {
+    const onClose = vi.fn(); await mount(<MapPicker value={null} saved={[]} onChange={() => {}} onClose={onClose}/>);
+    await click(byText('На всё окно')); expect(root.querySelector('dialog').classList.contains('is-fullscreen')).toBe(true);
+    await act(() => root.querySelector('dialog').dispatchEvent(new Event('cancel', { cancelable: true })));
+    expect(root.querySelector('dialog').classList.contains('is-fullscreen')).toBe(false); expect(onClose).not.toHaveBeenCalled();
+  });
+  it('requests geolocation only after its button is clicked and selects the returned position', async () => {
+    const request = vi.fn(success => success({ coords: { latitude: 60.1, longitude: 30.2 } }));
+    vi.stubGlobal('navigator', { geolocation: { getCurrentPosition: request } });
+    const onChange = vi.fn(); await mount(<MapPicker value={null} saved={[]} onChange={onChange} onClose={() => {}}/>);
+    expect(request).not.toHaveBeenCalled(); await click(byText('Моё местоположение'));
+    await vi.waitFor(() => expect(byText('Выбрать место').disabled).toBe(false)); await click(byText('Выбрать место'));
+    expect(request).toHaveBeenCalledOnce(); expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ lat: 60.1, lng: 30.2 }));
+  });
+  it('handles denied geolocation without discarding the previously selected place', async () => {
+    vi.stubGlobal('navigator', { geolocation: { getCurrentPosition: (_, fail) => fail({ code: 1 }) } });
+    const value = { lat: 59.94, lng: 30.3, label: 'Сохранённое место' }; const onChange = vi.fn();
+    await mount(<MapPicker value={value} saved={[]} onChange={onChange} onClose={() => {}}/>);
+    await click(byText('Моё местоположение'));
+    await vi.waitFor(() => expect(root.querySelector('[role=alert]')?.textContent).toContain('запрещён'));
+    await click(byText('Выбрать место')); expect(onChange).toHaveBeenCalledWith(value);
+  });
+
 });
