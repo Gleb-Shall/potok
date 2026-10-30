@@ -1,3 +1,4 @@
+import { LinkedText } from './LinkedValue.jsx';
 import { useState } from 'preact/hooks';
 import { Field, Select, Check, Colors, Modal, Button, FormFooter, ErrorMessage, dateLabel } from './UI.jsx';
 import { minutesToTime, timeToMinutes, todayISO } from '../lib/domain.js';
@@ -15,7 +16,7 @@ function CustomField({ field, value, onChange }) {
   }
   const props = { label: field.label + (field.required ? ' *' : ''), value: value ?? '', onChange, required: field.required };
   if (field.type === 'select') return <Select {...props}><option value="">Выбери значение</option>{field.options.map(option => <option key={option} value={option}>{option}</option>)}{value && !field.options.includes(value) && <option value={value}>{value} (сохранённое)</option>}</Select>;
-  return <Field {...props} type={field.type} rows={field.type === 'textarea' ? 3 : undefined} maxLength={['text', 'textarea'].includes(field.type) ? 5000 : undefined} step={field.type === 'number' ? 'any' : undefined}/>;
+  return <Field {...props} type={field.type} rows={field.type === 'textarea' ? 3 : undefined} placeholder={field.type === 'url' ? 'https://…' : undefined} maxLength={['text', 'textarea', 'url'].includes(field.type) ? 5000 : undefined} step={field.type === 'number' ? 'any' : undefined}/>;
 }
 
 export function EventEditor({ data, original, date, typeId, draft, onSave, onClose, onNewStudent, onNewRecord, onDelete }) {
@@ -62,7 +63,7 @@ export function EventEditor({ data, original, date, typeId, draft, onSave, onClo
       <section class="editor-section"><Select label="Тип события" value={values.typeId} onChange={changeType}>{data.types.filter(item => !item.archived || item.id === original?.typeId).map(item => <option key={item.id} value={item.id}>{item.icon} {item.name}{item.archived ? ' (архив)' : ''}</option>)}</Select>
       {kind && <div class="student-select-row"><Select label={`${kind === 'any' ? 'Связанная запись' : RECORD_KINDS[kind] || kind}${requiredRecord ? ' *' : ' · необязательно'}`} value={values.recordId} onChange={chooseRecord} required={requiredRecord}><option value="">Выбери запись</option>{records.filter(item => kind === 'any' || item.kind === kind).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</Select><button type="button" class="icon-button" onClick={newRecord} aria-label="Создать связанную запись"><Icon name="plus"/></button></div>}
       {values.recordDetached && <p class="quiet-note">Связанная запись удалена. Это самостоятельное событие; при желании можно выбрать другую запись.</p>}
-      {linked && <div class="linked-record-summary"><strong>{linked.name}</strong><span>{linked.subject || linked.subtitle || RECORD_KINDS[linked.kind] || linked.kind}</span>{linked.details?.length > 0 && <details><summary>Общие сведения</summary><dl>{linked.details.map(item => <div key={item.id}><dt>{item.label}</dt><dd>{item.value}</dd></div>)}</dl></details>}</div>}
+      {linked && <div class="linked-record-summary"><strong>{linked.name}</strong><span>{linked.subject || linked.subtitle || RECORD_KINDS[linked.kind] || linked.kind}</span>{linked.details?.length > 0 && <details><summary>Общие сведения</summary><dl>{linked.details.map(item => <div key={item.id}><dt>{item.label}</dt><dd><LinkedText value={item.value}/></dd></div>)}</dl></details>}</div>}
       <Field label={type.titleLabel || 'Название события'} value={values.title} onChange={value => change('title', value)} required maxLength={200} placeholder={values.typeId === 'class' ? 'Математический анализ' : 'Название события'}/>
       <div class="form-row time-fields"><Field label="Дата" type="date" value={values.date} onChange={value => change('date', value)} required/><TimingFields values={values} onChange={timing}/></div></section>
       <section class="editor-section recurrence-section">{currentSeries ? <Select label="Какие события изменить" value={scope} onChange={setScope}><option value="one">Только это событие</option><option value="future">Это и последующие по расписанию</option></Select> : <Check checked={repeat} onChange={setRepeat}>Повторять событие</Check>}

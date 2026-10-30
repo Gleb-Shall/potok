@@ -1,4 +1,6 @@
 const paths = {
+  external: '<path d="M15 3h6v6M10 14 21 3M21 14v6H3V3h7"/>',
+  history: '<path d="M3 11a9 9 0 1 1 3 8M3 4v7h7M12 7v5l3 2"/>',
   trash: '<path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/>',
   expand: '<path d="M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5"/>',
   shrink: '<path d="M3 8h5V3M16 3v5h5M3 16h5v5M21 16h-5v5"/>',

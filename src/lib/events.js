@@ -1,10 +1,11 @@
+import { linkHref } from './links.js';
 import { addDays, mondayOf, weekdayOf, validateStudent } from './domain.js';
 
-export const FIELD_TYPES = { text: 'Текст', textarea: 'Длинный текст', number: 'Число', date: 'Дата', select: 'Один вариант', multiselect: 'Несколько вариантов', checkbox: 'Флажок' };
+export const FIELD_TYPES = { text: 'Текст', url: 'Ссылка', textarea: 'Длинный текст', number: 'Число', date: 'Дата', select: 'Один вариант', multiselect: 'Несколько вариантов', checkbox: 'Флажок' };
 export const RECORD_KINDS = { student: 'Ученик', person: 'Человек', course: 'Предмет', place: 'Место', project: 'Проект' };
 export const recordKind = type => type.recordKind ?? (type.linkStudent ? 'student' : type.id === 'class' ? 'course' : type.id === 'personal' ? 'any' : '');
 export const allRecords = data => [...data.students.map(item => ({ ...item, kind: 'student' })), ...(data.records || [])];
-export const getRecord = (data, event) => allRecords(data).find(item => item.id === (event.recordId || event.studentId));
+export const getRecord = (data, event) => event.snapshot?.record || allRecords(data).find(item => item.id === (event.recordId || event.studentId));
 export const COLOR_NAMES = { violet: 'Сиреневый', blue: 'Голубой', green: 'Зелёный', peach: 'Персиковый', pink: 'Розовый' };
 const field = (id, label, type = 'text', extra = {}) => ({ id, label, type, required: false, showOnCard: true, archived: false, options: [], ...extra });
 export function defaultTypes() {
@@ -15,11 +16,16 @@ export function defaultTypes() {
   ];
 }
 export function getType(data, id) { return data.types.find(type => type.id === id) || { id, name: 'Архивный тип', titleLabel: 'Название', icon: '◇', color: 'violet', fields: [] }; }
+export const eventType = (data, event) => event.snapshot?.type?.id === event.typeId ? event.snapshot.type : getType(data, event.typeId);
+export function snapshotEvent(data, event) {
+  const record = getRecord(data, event);
+  return { ...structuredClone(event), title: eventTitle(data, event), snapshot: event.snapshot || { type: structuredClone(eventType(data, event)), record: record ? structuredClone(record) : null } };
+}
 export function getStudent(data, id) { return data.students.find(student => student.id === id); }
 export function eventTitle(data, event) { return event.title || getStudent(data, event.studentId)?.name || 'Событие'; }
 export function eventColor(data, event) { return event.color || getType(data, event.typeId).color || 'violet'; }
 export function eventMatches(data, event, query, typeId = '') {
-  const text = [eventTitle(data, event), getType(data, event.typeId).name, getRecord(data, event)?.name, event.location?.label, ...Object.values(event.fields || {})].join(' ').toLocaleLowerCase('ru');
+  const text = [eventTitle(data, event), eventType(data, event).name, getRecord(data, event)?.name, event.location?.label, ...Object.values(event.fields || {})].join(' ').toLocaleLowerCase('ru');
   return (!typeId || event.typeId === typeId) && text.includes(query.toLocaleLowerCase('ru'));
 }
 export const daysBetween = (from, to) => Math.round((Date.parse(to + 'T00:00:00Z') - Date.parse(from + 'T00:00:00Z')) / 86400000);
@@ -28,7 +34,9 @@ export function normalizeData(source) {
   if (source?.version === 2) {
     if (!['students', 'types', 'series', 'events'].every(key => Array.isArray(source[key]))) throw new Error('Неизвестный формат данных. Исходная копия сохранена.');
     if (source.records !== undefined && !Array.isArray(source.records)) throw new Error('Не удалось прочитать общие записи. Исходная копия сохранена.');
-    return { ...structuredClone(source), records: structuredClone(source.records || []) };
+    const normalized = { ...structuredClone(source), records: structuredClone(source.records || []) };
+    normalized.events = normalized.events.map(event => event.status === 'done' && !event.snapshot ? snapshotEvent(normalized, event) : event);
+    return normalized;
   }
   if (!source || !['students', 'series', 'lessons'].every(key => Array.isArray(source[key]))) throw new Error('Не удалось прочитать старое расписание. Исходная копия сохранена.');
   const convert = item => ({ ...item, typeId: 'lesson', title: source.students.find(student => student.id === item.studentId)?.name || 'Урок', fields: { topic: item.notes || '', rate: source.students.find(student => student.id === item.studentId)?.rate || 0 }, color: source.students.find(student => student.id === item.studentId)?.color || 'violet', busy: true });
@@ -90,6 +98,7 @@ export function validateEvent(data, input) {
     const value = input.fields[field.id];
     if (field.required && (value == null || value === '' || Array.isArray(value) && !value.length || (field.type === 'checkbox' && value !== true))) throw new Error(`Заполни поле «${field.label}».`);
     if (value !== '' && value != null && field.type === 'number' && !Number.isFinite(Number(value))) throw new Error(`В поле «${field.label}» нужно число.`);
+    if (value && field.type === 'url' && !linkHref(value)) throw new Error(`В поле «${field.label}» нужна ссылка http:// или https://.`);
     if (value && field.type === 'date') addDays(value, 0);
     const previous = data.events.find(event => event.id === input.id) || data.series.find(series => series.id === input.seriesId);
     if (value && field.type === 'select' && !field.options.includes(value) && previous?.fields?.[field.id] !== value) throw new Error(`Выбери значение поля «${field.label}» из списка.`);
@@ -120,7 +129,7 @@ export function assertNoConflict(data, event, repeat = null) {
 }
 const upsert = (items, record) => [...items.filter(item => item.id !== record.id), record];
 function makeSeries(event, repeat, id = crypto.randomUUID()) {
-  const { date, seriesId, anchorDate, history, originalDate, originalStart, originalDuration, status, ghost, destinationDate, destinationStart, ...details } = event;
+  const { date, seriesId, anchorDate, history, originalDate, originalStart, originalDuration, status, ghost, destinationDate, destinationStart, snapshot, completedAt, endedAt, ...details } = event;
   return { ...details, id, from: date, until: repeat.until, intervalWeeks: repeat.intervalWeeks, weekday: weekdayOf(date) };
 }
 export function saveEvent(data, { values, original = null, repeat = null, scope = 'one' }) {
@@ -169,13 +178,21 @@ export function saveEvent(data, { values, original = null, repeat = null, scope 
   }
   return next;
 }
-export function saveStudent(data, student) { return { ...data, students: upsert(data.students, validateStudent(student)) }; }
+export function validateRecordDetails(details = []) {
+  const kept = details.filter(item => String(item.label || '').trim() || String(item.value || '').trim());
+  for (const item of kept) {
+    if (!item.label?.trim()) throw new Error('Дай название каждому сведению.');
+    if (item.type === 'url' && item.value && !linkHref(item.value)) throw new Error(`В поле «${item.label}» нужна ссылка http:// или https://.`);
+  }
+  return kept;
+}
+export function saveStudent(data, student) { return { ...data, students: upsert(data.students, { ...validateStudent(student), details: validateRecordDetails(student.details) }) }; }
 export function saveRecord(data, input) {
   if (!input.name?.trim() || input.name.length > 200) throw new Error('Укажи название до 200 символов.');
   if (!input.kind?.trim() || input.kind.length > 80 || input.kind === 'student') throw new Error('Укажи категорию записи. Для ученика используй карточку ученика.');
   const original = (data.records || []).find(item => item.id === input.id);
   if (original && original.kind !== input.kind && [...data.events, ...data.series].some(item => item.recordId === input.id)) throw new Error('У записи уже есть события. Сохрани её категорию или создай новую запись.');
-  const record = { ...input, name: input.name.trim(), kind: input.kind.trim(), details: (input.details || []).filter(item => item.label.trim() || item.value.trim()) };
+  const record = { ...input, name: input.name.trim(), kind: input.kind.trim(), details: validateRecordDetails(input.details) };
   if (record.details.some(item => !item.label.trim())) throw new Error('Дай название каждому сведению.');
   return { ...data, records: upsert(data.records || [], record) };
 }

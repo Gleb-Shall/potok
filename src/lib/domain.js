@@ -8,8 +8,8 @@ function parseDate(value) {
   return date;
 }
 
-export function todayISO() {
-  return new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Moscow' }).format(new Date());
+export function todayISO(now = new Date()) {
+  return new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Moscow' }).format(now);
 }
 
 export function addDays(value, count) {

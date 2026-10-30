@@ -109,3 +109,41 @@ body { color: var(--ink); }
 .save-shield { position: fixed; inset: 0; z-index: 10000; display: grid; place-items: center; background: #f5f6fc80; cursor: progress; }
 .save-shield span { padding: 20px 28px; background: white; box-shadow: 0 12px 60px #25214b26; border-radius: 18px; font-size: 17px; }
 @media (max-width: 700px) { .account-banner { align-items: flex-start; flex-direction: column; } .header-actions { flex-wrap: wrap; } }
+
+/* Links remain separate from the main card button, including in compact mode. */
+.external-link { color: #4d45ad; text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
+.external-link .icon { width: 13px; height: 13px; display: inline-block; vertical-align: middle; margin-left: 4px; flex-shrink: 0; }
+.external-link:hover { color: #30258a; }
+.external-link:focus-visible { outline: 2px solid #6b5ce7; outline-offset: 3px; border-radius: 3px; }
+.card-fields dd .external-link { font-weight: 650; }
+.card-record-links { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 12px 8px; }
+.card-link-chip { display: inline-flex; align-items: center; gap: 3px; max-width: 100%; min-height: 32px; padding: 5px 9px; border: 1px solid #bdb5dc; border-radius: 9px; background: #ffffffb3; font-size: 12px; font-weight: 650; text-decoration: none; }
+.compact-fields { padding: 5px 12px 9px; margin: 0; }
+.compact-fields > div { margin-top: 5px; }
+.detail-record-links .card-link-chip { margin: 0 8px 8px 0; font-size: 14px; }
+.record-detail-editor { padding: 14px; margin: 12px 0; border: 1px solid #ddddea; border-radius: 14px; background: #fafafe; }
+.record-detail-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.event-time-state { display: inline-flex; align-items: center; align-self: flex-start; gap: 5px; margin: 0 12px 8px; font-size: 11px; font-weight: 650; color: #686271; }
+.event-time-state .icon { width: 13px; height: 13px; }
+.event-time-state.done { color: #286147; }
+.event-card.is-past { border-left-style: dashed; }
+.day-column.is-past-day > .day-header { background: #f5f5f9; color: #666475; }
+.past-day-tag { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 500; }
+.past-day-tag .icon { width: 12px; height: 12px; }
+.event-history-panel { background: white; border: 1px solid #e5e4ef; border-radius: 20px; padding: 24px; }
+.history-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; }
+.history-toolbar .field { margin: 0; }
+.history-toolbar .field > span { font-size: 12px; }
+.history-summary { display: flex; flex-wrap: wrap; gap: 24px; padding: 16px 0; color: #666172; border-block: 1px solid #eceaf3; }
+.history-summary strong { color: #37324c; }
+.history-day { margin-top: 25px; }
+.history-day h2 { margin-bottom: 12px; font-size: 16px; }
+.history-event-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+.history-event-grid .event-card { margin: 0; }
+.history-complete { margin-top: 8px; }
+@media (max-width: 700px) { .event-history-panel { padding: 16px; } .history-event-grid { grid-template-columns: 1fr; } .card-link-chip { min-height: 36px; } }
+.event-card.is-done { opacity: 1; }
+.event-card.is-done .card-name { text-decoration: none; }
+.event-time-state.cancelled { color: #a23e46; }
+.preview-mode-switch { display: flex; gap: 8px; margin: 12px 0; }
+.preview-mode-switch [aria-pressed=true] { border-color: #6a5dcf; color: #5143b6; background: #efecff; }
