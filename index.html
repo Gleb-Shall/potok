@@ -4,6 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f4f6fb">
+    <style>:root{color-scheme:light;background:#faf9fe}:root.dark{color-scheme:dark;background:#15131c}</style>
+    <script>
+      (() => {
+        let theme = 'system';
+        try { theme = localStorage.getItem('potok:theme') || 'system'; } catch {}
+        const dark = theme === 'dark' || (theme !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.classList.toggle('dark', dark);
+      })();
+    </script>
     <meta name="description" content="Поток — события, записи и твой ритм. Планируй занятия и встречи, храни нужные сведения рядом и удобно переноси события.">
     <link rel="icon" href="/icon.svg" type="image/svg+xml">
     <title>Поток — события, записи и твой ритм</title>

@@ -8,6 +8,8 @@ import './landing.css';
 import './experience.css';
 import './sidebar.css';
 import './state-appearance.css';
+import './effects.css';
+import './theme.css';
 
 class AppBoundary extends Component {
   state = { error: null };

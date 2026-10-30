@@ -12,9 +12,11 @@
     "test:rules": "firebase emulators:exec --only firestore --project demo-potok \"node --test tests/rules/*.test.js\""
   },
   "dependencies": {
+    "@animate-ui/react": "^2.4.1",
     "@apple/mapkit-loader": "^1.0.0",
     "firebase": "^12.19.0",
     "maplibre-gl": "^6.16.0",
+    "motion": "^14.9.0",
     "preact": "^11.1.0"
   },
   "devDependencies": {

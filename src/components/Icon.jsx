@@ -1,4 +1,8 @@
 const paths = {
+  moon: '<path d="M20.8 13.1A8.7 8.7 0 0 1 10.9 3.2 8.7 8.7 0 1 0 20.8 13.1Z"/>',
+  monitor: '<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/>',
+  pause: '<path d="M8 5v14M16 5v14"/>',
+  play: '<path d="m8 4 12 8-12 8Z"/>',
   sidebar: '<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/>',
   login: '<path d="M14 4h5a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-5M3 12h12m-4-4 4 4-4 4"/>',
   down: '<path d="m6 9 6 6 6-6"/>',

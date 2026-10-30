@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'preact';
 import { act } from 'preact/test-utils';
 import { App } from '../src/App.jsx';
+import { FlipBoard } from '../src/components/FlipBoard.jsx';
 import { Site } from '../src/Site.jsx';
 import { connectFirebase } from '../src/lib/firebase-client.js';
 
@@ -13,6 +14,7 @@ vi.mock('../src/lib/firebase-client.js', () => ({
 let root;
 beforeEach(() => {
   vi.clearAllMocks();
+  document.documentElement.classList.remove('dark');
   localStorage.clear();
   history.replaceState({}, '', '/');
   vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
@@ -64,6 +66,26 @@ describe('separate public and personal entry points', () => {
     expect(root.querySelector('.sidebar-toggle').getAttribute('aria-expanded')).toBe('false');
     await act(() => root.querySelector('.sidebar-toggle').click());
     expect(localStorage.getItem('potok:sidebar-collapsed')).toBe('false');
+  });
+
+  it('restores a saved theme and persists the visible theme switch', async () => {
+    localStorage.setItem('potok:theme', 'dark');
+    await act(() => render(<Site/>, root));
+    expect(document.documentElement.classList.contains('dark')).toBe(true);
+    const toggle = root.querySelector('.theme-toggle');
+    await act(async () => { toggle.click(); });
+    expect(localStorage.getItem('potok:theme')).toBe('light');
+    expect(document.documentElement.classList.contains('dark')).toBe(false);
+  });
+
+  it('keeps the board readable without motion and lets users choose a scene', async () => {
+    vi.spyOn(window, 'matchMedia').mockImplementation(query => ({ media: query, matches: query.includes('reduced-motion'), addEventListener() {}, removeEventListener() {} }));
+    await act(() => render(<FlipBoard/>, root));
+    expect(root.querySelector('.flap-leaving')).toBeNull();
+    const change = [...root.querySelectorAll('button')].find(button => button.textContent === 'Перемены');
+    await act(() => change.click());
+    expect(root.querySelector('[role=img]').getAttribute('aria-label')).toContain('ПЛАНЫ МЕНЯЮТСЯ');
+    expect(root.querySelector('.flap-leaving')).toBeNull();
   });
 
   it('requires Google sign-in before showing personal records', async () => {
