@@ -2,6 +2,7 @@ node_modules/
 .firebase/
 *-debug.log
 .DS_Store
+dist/
 .env
 .env.*
 !.env.example

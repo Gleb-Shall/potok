@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { addDays, mondayOf, timeToMinutes, minutesToTime, validateStudent,
-  validateLesson, projectWeek, moveLesson, findConflict, findRecurringConflict } from '../public/domain.js';
+  validateLesson, projectWeek, moveLesson, findConflict, findRecurringConflict } from '../src/lib/domain.js';
 
 const student = { id: 'student-a', name: 'Тестовый ученик', subject: 'ЕГЭ', rate: 1500, contact: '', notes: '', color: 'violet' };
 const series = { id: 'weekly', studentId: 'student-a', from: '2026-10-26', until: '', weekday: 5, start: 1020, duration: 60, notes: '' };

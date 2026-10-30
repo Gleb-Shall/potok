@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createLocalStore } from '../public/store.js';
+import { createLocalStore } from '../src/lib/legacy-store.js';
 
 const empty = () => ({ students: [], series: [], lessons: [] });
 const student = { id: 'one', name: 'Пример', subject: 'Математика', color: 'green', rate: 1000, contact: '', notes: '' };
