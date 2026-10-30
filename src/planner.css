@@ -99,3 +99,13 @@ body { color: var(--ink); }
 }
 .events-map-view.is-fullscreen > .map-canvas-wrap { height: 100%; }
 @media (max-width: 760px) { .events-map-view.is-fullscreen .map-events { position: absolute; bottom: 14px; left: 14px; right: 14px; top: auto; width: auto; height: 250px; margin: 0; } }
+
+.account-banner { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; margin-bottom: 18px; background: #eeedff; border: 1px solid #d8d4ff; border-radius: 16px; font-size: 15px; }
+.account-banner.error { background: #fff0ef; border-color: #f4c9c5; color: #8c2925; }
+.account { min-width: 0; }
+.account > div { min-width: 0; }
+.account strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 154px; }
+.sidebar-bottom > .button { margin-top: 12px; width: 100%; }
+.save-shield { position: fixed; inset: 0; z-index: 10000; display: grid; place-items: center; background: #f5f6fc80; cursor: progress; }
+.save-shield span { padding: 20px 28px; background: white; box-shadow: 0 12px 60px #25214b26; border-radius: 18px; font-size: 17px; }
+@media (max-width: 700px) { .account-banner { align-items: flex-start; flex-direction: column; } .header-actions { flex-wrap: wrap; } }

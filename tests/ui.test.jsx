@@ -11,6 +11,8 @@ import MapView from '../src/components/MapView.jsx';
 import { defaultTypes, calendarRange } from '../src/lib/events.js';
 import { todayISO } from '../src/lib/domain.js';
 
+vi.mock('../src/lib/firebase-client.js', () => ({ connectFirebase: vi.fn(async () => ({ onAuth: callback => { callback(null); return () => {}; } })), explainFirebaseError: error => error.message }));
+
 // jsdom has no GPU. Stub the map SDK while exercising our map adapter,
 // search requests, component events and persistence with their real code.
 const mapSDK = vi.hoisted(() => ({ maps: [], markers: [] }));

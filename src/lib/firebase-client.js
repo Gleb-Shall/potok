@@ -1,3 +1,5 @@
+import { prepareWorkspace, readWorkspace } from './cloud-workspace.js';
+
 export const firebaseConfig = {
   apiKey: 'AIzaSyDZ8PfDofgUf8qth2LWZ3KlMiFTI1Sv_-U',
   authDomain: 'tutor-s-lesson-schedule-b392f.firebaseapp.com',
@@ -9,48 +11,55 @@ export const firebaseConfig = {
 
 let connection;
 export function connectFirebase() {
-  if (!connection) {
-    connection = loadFirebase().catch(error => { connection = undefined; throw error; });
-  }
+  if (!connection) connection = loadFirebase().catch(error => { connection = undefined; throw error; });
   return connection;
 }
 
 async function loadFirebase() {
-  const base = 'https://www.gstatic.com/firebasejs/13.1.0';
   const [appSDK, authSDK, dbSDK] = await Promise.all([
-    import(`${base}/firebase-app.js`), import(`${base}/firebase-auth.js`), import(`${base}/firebase-firestore.js`)
+    import('firebase/app'), import('firebase/auth'), import('firebase/firestore')
   ]);
-  const app = appSDK.initializeApp(firebaseConfig);
+  const app = appSDK.getApps().length ? appSDK.getApp() : appSDK.initializeApp(firebaseConfig);
   const auth = authSDK.getAuth(app);
+  auth.languageCode = 'ru';
   const db = dbSDK.getFirestore(app);
+  // Memory cache avoids retaining another account's private schedule on a shared device.
+  const workspace = uid => dbSDK.doc(db, 'users', uid, 'workspaces', 'main');
+  const provider = new authSDK.GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
   return {
-    onAuth: callback => authSDK.onAuthStateChanged(auth, callback),
-    signIn: () => authSDK.signInWithPopup(auth, new authSDK.GoogleAuthProvider()),
+    onAuth: (callback, onError) => authSDK.onAuthStateChanged(auth, callback, onError),
+    signIn: () => authSDK.signInWithPopup(auth, provider),
     signOut: () => authSDK.signOut(auth),
-    subscribe(uid, name, callback, onError) {
-      return dbSDK.onSnapshot(dbSDK.collection(db, 'users', uid, name), { includeMetadataChanges: true }, snapshot => {
-        callback(snapshot.docs.map(document => ({ ...document.data(), id: document.id })), {
-          pending: snapshot.metadata.hasPendingWrites, cached: snapshot.metadata.fromCache
-        });
+    subscribe(uid, callback, onError) {
+      return dbSDK.onSnapshot(workspace(uid), { includeMetadataChanges: true }, snapshot => {
+        try { callback(readWorkspace(snapshot.exists() ? snapshot.data() : null), !snapshot.metadata.fromCache); }
+        catch (error) { onError(error); }
       }, onError);
     },
-    async save(uid, collectionName, record) {
-      const { id, ...fields } = record;
-      await dbSDK.setDoc(dbSDK.doc(db, 'users', uid, collectionName, id), fields);
+    save(uid, data, expectedRevision) {
+      return dbSDK.runTransaction(db, async transaction => {
+        const reference = workspace(uid);
+        const snapshot = await transaction.get(reference);
+        const document = prepareWorkspace(data, expectedRevision, snapshot.exists() ? snapshot.data() : null);
+        transaction.set(reference, { ...document, updatedAt: dbSDK.serverTimestamp() });
+        return readWorkspace(document);
+      });
     }
   };
 }
 
 export function explainFirebaseError(error) {
   const messages = {
-    'permission-denied': 'Нет доступа к базе. Опубликуй правила Firestore из раздела «Подключение» и обнови страницу.',
-    'auth/unauthorized-domain': 'Этот адрес не разрешён для входа. В Firebase → Authentication → Settings → Authorized domains добавь localhost или 127.0.0.1 — тот адрес, по которому открыто приложение.',
-    'auth/operation-not-allowed': 'Включи Google в Firebase → Authentication → Sign-in method.',
+    'permission-denied': 'Нет доступа к расписанию. Попробуй выйти из аккаунта и войти снова.',
+    'auth/unauthorized-domain': 'Вход с этого адреса пока не разрешён в настройках Firebase Authentication.',
+    'auth/operation-not-allowed': 'Вход через Google не включён в Firebase Authentication.',
     'auth/popup-blocked': 'Браузер заблокировал окно входа. Разреши всплывающие окна для этого сайта и повтори вход.',
-    'auth/popup-closed-by-user': 'Окно входа закрыто. Нажми «Войти через Google», чтобы попробовать ещё раз.',
+    'auth/popup-closed-by-user': 'Окно входа закрыто. Можно попробовать ещё раз.',
+    'auth/cancelled-popup-request': 'Другое окно входа уже открыто.',
     'auth/network-request-failed': 'Не удалось связаться с Google. Проверь интернет и повтори вход.',
-    'unavailable': 'База временно недоступна. Проверь соединение и повтори действие.',
-    'resource-exhausted': 'Достигнут лимит Firebase. Проверь использование проекта в консоли.'
+    'unavailable': 'Нет связи с базой. Изменения не сохранены; проверь интернет и повтори действие.',
+    'resource-exhausted': 'Достигнут лимит Firebase. Попробуй позже или проверь использование проекта.'
   };
-  return messages[error.code] || `Не удалось выполнить действие. ${error.message || 'Проверь соединение и повтори попытку.'}`;
+  return messages[error.code] || error.message || 'Не удалось выполнить действие. Попробуй ещё раз.';
 }

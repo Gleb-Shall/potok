@@ -9,3 +9,5 @@ dist/
 *.pem
 *service-account*.json
 *serviceAccount*.json
+
+gha-creds-*.json
