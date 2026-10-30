@@ -2,7 +2,7 @@ import { prepareWorkspace, readWorkspace } from './cloud-workspace.js';
 
 export const firebaseConfig = {
   apiKey: 'AIzaSyDZ8PfDofgUf8qth2LWZ3KlMiFTI1Sv_-U',
-  authDomain: 'tutor-s-lesson-schedule-b392f.firebaseapp.com',
+  authDomain: 'potok-planner.web.app',
   projectId: 'tutor-s-lesson-schedule-b392f',
   storageBucket: 'tutor-s-lesson-schedule-b392f.firebasestorage.app',
   messagingSenderId: '461554263763',
