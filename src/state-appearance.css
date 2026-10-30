@@ -9,8 +9,8 @@
 .event-card[data-event-state="confirmed"] { opacity:1; }
 .event-card[data-event-state="confirmed"] .card-name { text-decoration:none; }
 
-/* Paint covers the entire surface, below all interactive content. The mask
-   leaves bristle tracks and an irregular outline; clipping reveals the stroke. */
+/* A real SVG stroke follows the Z-shaped route across the whole surface.
+   The layer stays below content and never intercepts interaction. */
 .event-card[data-state-effect="marker"]:is([data-event-state="elapsed"],[data-event-state="confirmed"]),
 .day-header[data-day-state="past"][data-state-effect="marker"],
 .mobile-day.is-past-picker-day {
@@ -19,17 +19,17 @@
   overflow:hidden;
   --marker-paint:#aaa1b2;
   --marker-opacity:.27;
+  --marker-duration:1900ms;
 }
-.event-card[data-state-effect="marker"]:is([data-event-state="elapsed"],[data-event-state="confirmed"])::before,
-.day-header[data-day-state="past"][data-state-effect="marker"]::before,
-.mobile-day.is-past-picker-day::before {
-  content:"";
+.marker-paint { display:none; }
+[data-state-effect="marker"] > .marker-paint {
+  display:block;
   position:absolute;
   inset:0;
+  width:100%;
+  height:100%;
   z-index:-1;
   pointer-events:none;
-  background-color:var(--marker-paint);
-  background-image:linear-gradient(176deg,transparent 0 33%,#ffffff24 33% 34%,transparent 34% 69%,#00000008 69% 70%,transparent 70%);
   opacity:var(--marker-opacity);
   -webkit-mask-image:url('./assets/marker-mask.svg');
   mask-image:url('./assets/marker-mask.svg');
@@ -37,40 +37,41 @@
   mask-size:100% 100%;
   -webkit-mask-repeat:no-repeat;
   mask-repeat:no-repeat;
-  animation:marker-fill-elapsed 1100ms cubic-bezier(.2,.65,.25,1) both;
 }
+.marker-paint path {
+  fill:none;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  stroke-dasharray:1;
+  stroke-dashoffset:0;
+  animation:marker-zigzag var(--marker-duration) linear both;
+}
+.marker-stroke { stroke:var(--marker-paint); stroke-width:22; }
+.marker-grain { stroke:white; stroke-width:.7; opacity:.4; }
+.marker-grain.fine { stroke-width:.4; opacity:.25; }
 .event-card[data-state-effect="marker"][data-event-state="elapsed"] { background-image:linear-gradient(#ffffff55,#ffffff55); border-left-color:#aaa0b1; }
 .event-card[data-state-effect="marker"][data-event-state="elapsed"] .card-name { color:#706975; }
 .event-card[data-state-effect="marker"][data-event-state="elapsed"] .card-time,
 .event-card[data-state-effect="marker"][data-event-state="elapsed"] .event-type-label { color:#7b7382; }
 .event-card[data-state-effect="marker"][data-event-state="confirmed"] { --marker-paint:#9ec98d; --marker-opacity:.42; border-left:3px solid #78a183; }
-.event-card[data-state-effect="marker"][data-event-state="confirmed"]::before { animation-name:marker-fill-confirmed; animation-duration:950ms; }
 .event-card[data-state-effect="marker"][data-event-state="confirmed"] .card-name { color:#3f6248; }
 .event-card[data-state-effect="marker"][data-event-state="confirmed"] .event-state-mark { border-radius:43% 56% 46% 54%; background:#cee7c7; }
-.event-card[data-state-effect="marker"][data-event-state="confirmed"] .event-state-mark path { stroke-dasharray:30; animation:state-check-draw 400ms 500ms ease-out both; }
+.event-card[data-state-effect="marker"][data-event-state="confirmed"] .event-state-mark path { stroke-dasharray:30; animation:state-check-draw 400ms 1450ms ease-out both; }
 
-.day-header[data-day-state="past"][data-state-effect="marker"] { --marker-opacity:.25; background:#faf9fc; border-bottom:1px solid #e3dee7; }
+.day-header[data-day-state="past"][data-state-effect="marker"] { --marker-opacity:.25; --marker-duration:1700ms; background:#faf9fc; border-bottom:1px solid #e3dee7; }
 .day-header[data-day-state="past"] > span,.day-header[data-day-state="past"] strong { color:#8a8292; }
-.mobile-day.is-past-picker-day { --marker-opacity:.2; color:#8a8292; }
+.mobile-day.is-past-picker-day { --marker-opacity:.2; --marker-duration:1400ms; color:#8a8292; }
 .mobile-day.is-past-picker-day.selected { --marker-opacity:.28; }
 @media (max-width:760px) {
   .day-column.mobile-selected .day-header[data-day-state="past"] { background:#faf9fc; }
 }
-@keyframes marker-fill-elapsed {
-  from { clip-path:polygon(0 0,0 0,0 100%,0 100%); }
-  65% { clip-path:polygon(0 0,76% 0,70% 100%,0 100%); }
-  to { clip-path:polygon(0 0,100% 0,100% 100%,0 100%); }
-}
-@keyframes marker-fill-confirmed {
-  from { clip-path:polygon(0 0,100% 0,100% 0,0 0); }
-  65% { clip-path:polygon(0 0,100% 0,100% 73%,0 80%); }
-  to { clip-path:polygon(0 0,100% 0,100% 100%,0 100%); }
+@keyframes marker-zigzag {
+  from { stroke-dashoffset:1; }
+  to { stroke-dashoffset:0; }
 }
 @keyframes state-check-draw { from { stroke-dashoffset:30; } to { stroke-dashoffset:0; } }
 @media (prefers-reduced-motion:reduce) {
   .event-card[data-state-effect],.event-card[data-state-effect] *,
   .day-header[data-state-effect],.day-header[data-state-effect] *,
-  .mobile-day.is-past-picker-day,
-  .event-card[data-state-effect]::before,.day-header[data-state-effect]::before,
-  .mobile-day.is-past-picker-day::before { animation:none!important; transition:none!important; }
+  .mobile-day.is-past-picker-day,.marker-paint path { animation:none!important; transition:none!important; }
 }

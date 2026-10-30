@@ -4,6 +4,7 @@ import { LinkedValue, ExternalLink, LinkedText } from './LinkedValue.jsx';
 import { linkHref, recordLinks } from '../lib/links.js';
 import { eventAppearance } from '../lib/state-appearance.js';
 import { dateLabel } from './UI.jsx';
+import { MarkerPaint } from './MarkerPaint.jsx';
 import { Icon } from './Icon.jsx';
 
 export function EventCard({ event, data, onOpen, onDragStart, onDragEnd, preview = false, onDelete, expanded = preview, onToggle, now = Date.now(), stateEffects }) {
@@ -22,6 +23,7 @@ export function EventCard({ event, data, onOpen, onDragStart, onDragEnd, preview
     if (eventObject.target.closest?.('a')) { eventObject.preventDefault(); return; }
     eventObject.dataTransfer.setData('text/plain', event.id); eventObject.dataTransfer.effectAllowed = 'move'; onDragStart?.(event.id);
   }} onDragEnd={onDragEnd}>
+    {appearance.effect === 'marker' && ['elapsed', 'confirmed'].includes(appearance.state) && <MarkerPaint key={appearance.state}/>}
     {preview ? <div class="card-open">{summary}</div> : <button type="button" class="card-open" onClick={() => onOpen(event.id)} aria-label={`${eventTitle(data, event)}, ${dateLabel(event.date)}, ${minutesToTime(event.start)}${appearance.icon ? `, ${appearance.label}` : ''}`}>{summary}</button>}
     {!expanded && compact.length > 0 && <dl class="card-fields compact-fields">{compact.map(field => <div key={field.id}><dt>{field.label}</dt><dd><LinkedValue field={field} value={event.fields[field.id]}/></dd></div>)}</dl>}
     {inheritedLinks.length > 0 && <div class="card-record-links" aria-label="Ссылки связанной записи">{inheritedLinks.map(link => <ExternalLink key={link.href} href={link.href} className="card-link-chip">{link.label}</ExternalLink>)}</div>}
