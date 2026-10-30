@@ -112,4 +112,10 @@ export function findConflict(candidate, lessons) {
     candidate.start + candidate.duration > lesson.start);
 }
 
-export function findRecurringConflict() { throw new Error('Not implemented'); }
+export function findRecurringConflict(candidate, data) {
+  const weekday = weekdayOf(candidate.date);
+  const overlaps = lesson => candidate.start < lesson.start + lesson.duration && candidate.start + candidate.duration > lesson.start;
+  const series = data.series.find(lesson => lesson.weekday === weekday && (!lesson.until || lesson.until >= candidate.date) && overlaps(lesson));
+  return series || data.lessons.find(lesson => lesson.date && lesson.date >= candidate.date &&
+    !['cancelled', 'pending'].includes(lesson.status) && weekdayOf(lesson.date) === weekday && overlaps(lesson));
+}
