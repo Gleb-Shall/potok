@@ -1,47 +1,76 @@
-/* State names express meaning; effect names describe replaceable treatments. */
+/* Meaning and effect stay separate so preferences can replace this treatment. */
 .event-card .card-time { gap:5px; }
 .card-time-icons { display:inline-flex; align-items:center; gap:5px; flex-shrink:0; }
 .event-state-mark { display:inline-grid; place-items:center; width:17px; height:17px; border-radius:50%; color:#817d88; flex-shrink:0; }
 .event-state-mark .icon { width:13px; height:13px; }
-.event-card[data-event-state="confirmed"] .event-state-mark { color:#3c7150; background:#dcebdd; }
+.event-card[data-event-state="confirmed"] .event-state-mark { color:#39734e; background:#dcebdd; }
 .event-card[data-event-state="cancelled"] .event-state-mark { color:#9b6065; background:#f3e2e4; }
 .event-card[data-event-state="elapsed"] { border-left-style:solid; }
 .event-card[data-event-state="confirmed"] { opacity:1; }
 .event-card[data-event-state="confirmed"] .card-name { text-decoration:none; }
 
+/* SVG brush passes are painted behind each line, hugging the text itself.
+   Clone decoration keeps wrapped titles highlighted line by line. */
+.state-marker-text { box-decoration-break:clone; -webkit-box-decoration-break:clone; }
 .event-card[data-state-effect="marker"][data-event-state="elapsed"] {
-  background-image:linear-gradient(#f5f4f2a6,#f5f4f2a6);
-  border-left-color:#b6b1bb;
+  background-image:linear-gradient(#fffdf83d,#fffdf83d);
+  border-left-color:#c3bda9;
 }
-.event-card[data-state-effect="marker"][data-event-state="elapsed"] .card-name { color:#77717d; }
+.event-card[data-state-effect="marker"][data-event-state="elapsed"] .card-name { color:#6f6973; }
 .event-card[data-state-effect="marker"][data-event-state="elapsed"] .card-time,
-.event-card[data-state-effect="marker"][data-event-state="elapsed"] .event-type-label { color:#817b87; }
-.event-card[data-state-effect="marker"] .card-name { position:relative; isolation:isolate; }
-.event-card[data-state-effect="marker"] .card-name::before {
-  content:""; position:absolute; inset:18% -3px 6%; z-index:-1;
-  transform:rotate(-1deg);
-  clip-path:polygon(0 10%,98% 0,100% 87%,2% 100%);
-  pointer-events:none;
+.event-card[data-state-effect="marker"][data-event-state="elapsed"] .event-type-label { color:#827b87; }
+.event-card[data-state-effect="marker"][data-event-state="confirmed"] { background-image:linear-gradient(#ecf5e630,#ecf5e630); border-left:3px solid #79a187; }
+.event-card[data-state-effect="marker"][data-event-state="confirmed"] .card-name { color:#3f6248; }
+.event-card[data-state-effect="marker"]:is([data-event-state="elapsed"],[data-event-state="confirmed"]) .state-marker-text {
+  background-image:var(--state-brush);
+  background-repeat:no-repeat;
+  background-position:left 60%;
+  background-size:100% 100%;
+  padding:0 .15em .04em;
+  margin-inline:-.15em;
+  animation:state-brush-sweep 650ms cubic-bezier(.22,.68,.25,1) both;
 }
-.event-card[data-state-effect="marker"][data-event-state="elapsed"] .card-name::before { background:#a49ca318; }
-.event-card[data-state-effect="marker"][data-event-state="confirmed"] { background-image:linear-gradient(#dcebd43d,#dcebd43d); border-left:3px solid #79a187; }
-.event-card[data-state-effect="marker"][data-event-state="confirmed"] .card-name { color:#46674e; }
-.event-card[data-state-effect="marker"][data-event-state="confirmed"] .card-name::before { background:#a5c99440; }
+.event-card[data-event-state="confirmed"][data-state-effect="marker"] .event-state-mark {
+  border-radius:43% 56% 46% 54%;
+  transform:rotate(-8deg);
+  background:#cde8c8;
+}
+.event-card[data-event-state="confirmed"][data-state-effect="marker"] .event-state-mark .icon { transform:rotate(8deg); }
+.event-card[data-event-state="confirmed"][data-state-effect="marker"] .event-state-mark path {
+  stroke-dasharray:30;
+  stroke-dashoffset:0;
+  animation:state-check-draw 400ms 230ms ease-out both;
+}
+@keyframes state-brush-sweep {
+  from { background-size:0% 100%; }
+  to { background-size:100% 100%; }
+}
+@keyframes state-check-draw {
+  from { stroke-dashoffset:30; }
+  to { stroke-dashoffset:0; }
+}
 
-/* Fade days, never their entire contents: a confirmed event stays distinct. */
-.day-header[data-day-state="past"][data-state-effect="marker"] { background:#f0eff2; border-bottom:1px solid #dedce3; }
-.day-header[data-day-state="past"] > span,
-.day-header[data-day-state="past"] strong { color:#93909a; }
-.day-header[data-day-state="past"][data-state-effect="marker"] strong { position:relative; isolation:isolate; }
-.day-header[data-day-state="past"][data-state-effect="marker"] strong::before { content:""; position:absolute; inset:25% -5px 10%; background:#a8a2ac1f; z-index:-1; transform:rotate(-5deg); clip-path:polygon(0 10%,98% 0,100% 88%,2% 100%); }
-.is-past-picker-day:not(.selected) { color:#96929d; }
-.is-past-picker-day:not(.selected) strong { position:relative; isolation:isolate; }
-.is-past-picker-day:not(.selected) strong::before { content:""; position:absolute; inset:20% -3px 10%; z-index:-1; background:#b3acb723; transform:rotate(-5deg); }
-@media (max-width:760px) {
-  .day-column.mobile-selected .day-header[data-day-state="past"] { background:#f0eff2; }
+/* A quieter brush on past dates, without dimming confirmed events below. */
+.day-header[data-day-state="past"][data-state-effect="marker"] { background:#f3f2f4; border-bottom:1px solid #e5e2e8; }
+.day-header[data-day-state="past"] > span,.day-header[data-day-state="past"] strong { color:#96909b; }
+.day-header[data-day-state="past"][data-state-effect="marker"] .state-marker-text,
+.is-past-picker-day:not(.selected) .state-marker-text {
+  background-image:var(--state-brush-day);
+  background-size:100% 100%;
+  background-repeat:no-repeat;
+  padding-inline:.13em;
+  margin-inline:-.13em;
 }
-/* Future animation effects must also honour this setting. */
+.is-past-picker-day:not(.selected) { color:#96929d; }
+@media (max-width:760px) {
+  .day-column.mobile-selected .day-header[data-day-state="past"] { background:#f3f2f4; }
+}
 @media (prefers-reduced-motion:reduce) {
   .event-card[data-state-effect],.event-card[data-state-effect] *,
   .day-header[data-state-effect],.day-header[data-state-effect] * { animation:none!important; transition:none!important; }
 }
+
+/* Brush palettes are independent from event type colours. */
+[data-event-state="elapsed"] { --state-brush:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20160%2032%22%20preserveAspectRatio%3D%22none%22%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%23edca57%22%20stroke-linecap%3D%22butt%22%3E%3Cpath%20d%3D%22M2%2020%20Q31%2015%2062%2017%20T157%2013%22%20stroke-width%3D%2217%22%20opacity%3D%22.48%22%2F%3E%3Cpath%20d%3D%22M4%2018%20Q42%2017%2082%2014%20T159%2014%22%20stroke-width%3D%2213%22%20opacity%3D%22.38%22%2F%3E%3Cpath%20d%3D%22M1%2026%20Q43%2021%2086%2023%20T156%2020%22%20stroke-width%3D%223%22%20opacity%3D%22.32%22%2F%3E%3C%2Fg%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22white%22%20stroke-width%3D%22.65%22%20opacity%3D%22.23%22%3E%3Cpath%20d%3D%22M9%2014%20Q49%2011%2089%2012%20T152%2010%22%2F%3E%3Cpath%20d%3D%22M3%2023%20Q49%2018%2096%2020%20T155%2017%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"); }
+[data-event-state="confirmed"] { --state-brush:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20160%2032%22%20preserveAspectRatio%3D%22none%22%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%238dcf8b%22%20stroke-linecap%3D%22butt%22%3E%3Cpath%20d%3D%22M2%2020%20Q31%2015%2062%2017%20T157%2013%22%20stroke-width%3D%2217%22%20opacity%3D%22.48%22%2F%3E%3Cpath%20d%3D%22M4%2018%20Q42%2017%2082%2014%20T159%2014%22%20stroke-width%3D%2213%22%20opacity%3D%22.38%22%2F%3E%3Cpath%20d%3D%22M1%2026%20Q43%2021%2086%2023%20T156%2020%22%20stroke-width%3D%223%22%20opacity%3D%22.32%22%2F%3E%3C%2Fg%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22white%22%20stroke-width%3D%22.65%22%20opacity%3D%22.23%22%3E%3Cpath%20d%3D%22M9%2014%20Q49%2011%2089%2012%20T152%2010%22%2F%3E%3Cpath%20d%3D%22M3%2023%20Q49%2018%2096%2020%20T155%2017%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"); }
+:root { --state-brush-day:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20160%2032%22%20preserveAspectRatio%3D%22none%22%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%23bcb4c4%22%20stroke-linecap%3D%22butt%22%3E%3Cpath%20d%3D%22M2%2020%20Q31%2015%2062%2017%20T157%2013%22%20stroke-width%3D%2217%22%20opacity%3D%22.48%22%2F%3E%3Cpath%20d%3D%22M4%2018%20Q42%2017%2082%2014%20T159%2014%22%20stroke-width%3D%2213%22%20opacity%3D%22.38%22%2F%3E%3Cpath%20d%3D%22M1%2026%20Q43%2021%2086%2023%20T156%2020%22%20stroke-width%3D%223%22%20opacity%3D%22.32%22%2F%3E%3C%2Fg%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22white%22%20stroke-width%3D%22.65%22%20opacity%3D%22.23%22%3E%3Cpath%20d%3D%22M9%2014%20Q49%2011%2089%2012%20T152%2010%22%2F%3E%3Cpath%20d%3D%22M3%2023%20Q49%2018%2096%2020%20T155%2017%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"); }
