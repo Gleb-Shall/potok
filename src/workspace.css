@@ -217,3 +217,11 @@ dialog h2 { font-size: 27px; }
   .directory-note { font-size: 13px; }
   .calendar-bottom .drag-hint { display: block; }
 }
+.map-source-switch { display: flex; gap: 5px; padding: 4px; border: 1px solid #e6eaf0; background: #f8f9fc; border-radius: 11px; margin-bottom: 12px; }
+.map-source-switch button { flex: 1; min-height: 35px; border: 0; background: none; border-radius: 8px; font-size: 13px; color: #7d889b; cursor: pointer; }
+.map-source-switch .active { color: #4c456c; background: white; box-shadow: 0 2px 6px #25384f12; font-weight: 600; }
+.map-view-source { position: absolute; top: 15px; left: 15px; width: 250px; z-index: 3; }
+.apple-map-error { position: absolute; inset: 30px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; gap: 10px; color: #7e899c; }
+.apple-map-error strong { font-size: 17px; color: #59677d; }
+.apple-map-error p { margin: 0; font-size: 14px; line-height: 1.7; max-width: 420px; }
+@media (max-width: 760px) { .map-view-source { top: 10px; left: 10px; width: 220px; } }

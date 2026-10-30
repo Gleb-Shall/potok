@@ -1,9 +1,11 @@
+import { getMapProvider } from './map-settings.js';
 export const validLocation = location => location && Number.isFinite(location.lat) && Number.isFinite(location.lng) && Math.abs(location.lat) <= 90 && Math.abs(location.lng) <= 180;
 
 const cache = new Map();
 const searchURL = import.meta.env.VITE_MAP_SEARCH_URL || 'https://photon.komoot.io/api/';
 
-export async function searchPlaces(query, signal) {
+export async function searchPlaces(query, signal, provider = getMapProvider()) {
+  if (provider === 'apple') return (await import('./apple-maps.js')).searchApplePlaces(query, signal);
   const key = query.trim();
   if (cache.has(key)) return cache.get(key);
   const url = new URL(searchURL);
@@ -24,4 +26,10 @@ export async function searchPlaces(query, signal) {
   if (cache.size >= 50) cache.delete(cache.keys().next().value);
   cache.set(key, matches);
   return matches;
+}
+
+export async function resolvePlace(suggestion, signal) {
+  if (validLocation(suggestion)) return suggestion;
+  if (suggestion.provider === 'apple') return (await import('./apple-maps.js')).resolveApplePlace(suggestion, signal);
+  throw new Error('Не удалось определить координаты места.');
 }

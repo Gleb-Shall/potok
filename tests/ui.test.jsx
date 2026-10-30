@@ -138,6 +138,7 @@ describe('critical user flows', () => {
     const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ features: [{ geometry: { coordinates: [30.3, 59.94] }, properties: { name: 'Учебный корпус', city: 'Санкт-Петербург' } }] }) });
     vi.stubGlobal('fetch', fetch);
     await mount(<MapPicker value={null} saved={[]} onChange={onChange} onClose={() => {}}/>);
+    await vi.waitFor(() => expect(mapSDK.maps.length).toBe(1));
     expect(mapSDK.maps[0].options.scrollZoom).toBe(true);
     expect(mapSDK.maps[0].options.cooperativeGestures).toBe(false);
     await input(root.querySelector('.place-search input'), 'Университет Санкт-Петербург');
@@ -153,6 +154,7 @@ describe('critical user flows', () => {
   it('selects a point from a map click without using place search', async () => {
     const onChange = vi.fn();
     await mount(<MapPicker value={null} saved={[]} onChange={onChange} onClose={() => {}}/>);
+    await vi.waitFor(() => expect(root.querySelector('.map-canvas')).toBeTruthy());
     await act(() => root.querySelector('.map-canvas').dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 100, clientY: 80 })));
     expect(root.querySelector('.place-marker')).toBeTruthy();
     await click(byText('Выбрать место'));
@@ -179,6 +181,7 @@ describe('critical user flows', () => {
     await mount(<MapPicker value={null} saved={[]} onChange={onChange} onClose={() => {}}/>);
     await input(root.querySelector('.place-search input'), 'Тест недоступного поиска');
     await vi.waitFor(() => expect(root.querySelector('[role="alert"]')?.textContent).toContain('Сеть недоступна'));
+    await vi.waitFor(() => expect(root.querySelector('.map-canvas')).toBeTruthy());
     await act(() => root.querySelector('.map-canvas').dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 140, clientY: 100 })));
     await click(byText('Выбрать место'));
     expect(onChange).toHaveBeenCalledOnce();

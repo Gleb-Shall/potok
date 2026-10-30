@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'preact/hooks';
-import { MapCanvas, validLocation } from './MapCanvas.jsx';
+import { MapCanvas, MapSourceSwitch, validLocation } from './MapCanvas.jsx';
 import { eventTitle, getType } from '../lib/events.js';
 import { dateLabel } from './UI.jsx';
 import { minutesToTime } from '../lib/domain.js';
+import { useMapProvider } from '../lib/map-settings.js';
 import { Icon } from './Icon.jsx';
 
 export default function MapView({ events, data, onOpen }) {
+  const [provider, setProvider] = useMapProvider();
   const [selected, setSelected] = useState('');
   const points = useMemo(() => {
     const groups = new Map();
@@ -18,7 +20,7 @@ export default function MapView({ events, data, onOpen }) {
   }, [events]);
   const place = points.find(point => point.id === selected);
   const list = place ? place.events : points.flatMap(point => point.events).sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start);
-  return <section class="events-map-view"><MapCanvas points={points} onSelect={setSelected}/><aside class="map-events"><header><span class="section-caption">СОБЫТИЯ ЗА ВЫБРАННЫЙ ПЕРИОД</span><h3>{place?.label || 'Места событий'}</h3>{place && <button type="button" class="text-button" onClick={() => setSelected('')}>Все места</button>}</header>
+  return <section class="events-map-view"><div class="map-view-source"><MapSourceSwitch provider={provider} onChange={setProvider}/></div><MapCanvas provider={provider} points={points} onSelect={setSelected}/><aside class="map-events"><header><span class="section-caption">СОБЫТИЯ ЗА ВЫБРАННЫЙ ПЕРИОД</span><h3>{place?.label || 'Места событий'}</h3>{place && <button type="button" class="text-button" onClick={() => setSelected('')}>Все места</button>}</header>
     {list.map(event => <button type="button" class="map-event-row" key={event.id} onClick={() => onOpen(event.id)}><span class="map-event-date">{dateLabel(event.date)} · {minutesToTime(event.start)}</span><strong>{eventTitle(data, event)}</strong><small>{getType(data, event.typeId).icon} {getType(data, event.typeId).name} · {event.location.label}</small><Icon name="right"/></button>)}
     {!list.length && <p class="empty-copy">У событий за этот период ещё нет мест. Добавь место в редакторе события — здесь появится метка.</p>}
     <p class="quiet-note">Без места: {events.filter(event => !validLocation(event.location)).length}</p>
