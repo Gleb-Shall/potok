@@ -27,7 +27,7 @@ it('compact card opens meeting and record board links separately from its main b
  const links=[...root.querySelectorAll('a')];expect(links.map(a=>a.textContent)).toEqual(['Телемост','Доска']);
  expect(links.every(a=>a.target==='_blank'&&a.rel.includes('noopener')&&!a.closest('button'))).toBe(true);
  links[0].addEventListener('click',e=>e.preventDefault());await act(()=>links[0].click());expect(open).not.toHaveBeenCalled();
- expect(root.textContent).toContain('Время прошло');expect(root.textContent).not.toContain('Проведено');
+ expect(root.textContent).not.toContain('Время прошло');expect(root.querySelector('.event-card').dataset.eventState).toBe('elapsed');expect(root.querySelector('.event-state-mark').getAttribute('aria-label')).toContain('не подтверждено');
 });
 it('hidden event fields and hidden record links stay hidden in compact cards',async()=>{
  const data=base();data.types[1].fields.push({id:'call',label:'Телемост',type:'url',showOnCard:false,showCompact:false});data.records[0].details[0].showOnCard=false;
@@ -70,9 +70,9 @@ it('app ends repeats without losing earlier meetings after reopening storage',as
  expect(projectWeek(saved,addDays(today,-14),7).events).toHaveLength(1);expect(saved.series[0].snapshot.record.name).toBe('Математика');
  await click('История');expect(root.textContent).toContain('Прошедшее время не означает');
 });
-it('past-day badges and unconfirmed-time markers appear without automatic completion',async()=>{
+it('past days use visual states without automatic completion',async()=>{
  const data=base();const yesterday=addDays(todayISO(),-1);data.events=[{...event(),date:yesterday,anchorDate:yesterday}];localStorage.setItem('tutor-schedule:personal:v2',JSON.stringify(data));localStorage.setItem('tutor-schedule:mode','personal');
- await mount(<App/>);expect(root.querySelectorAll('.past-day-tag').length).toBeGreaterThan(0);
+ await mount(<App/>);expect(root.querySelectorAll('[data-day-state="past"]').length).toBeGreaterThan(0);expect(root.querySelector('.past-day-tag')).toBeNull();
  const saved=JSON.parse(localStorage.getItem('tutor-schedule:personal:v2'));expect(saved.events[0].status).toBe('planned');
 });
 
@@ -80,4 +80,18 @@ it('event-specific board link overrides the common board link with the same labe
  const data=base();data.types[1].fields.push({id:'board',label:'Доска',type:'url',showOnCard:true,showCompact:true});
  await mount(<EventCard data={data} event={{...event(),fields:{board:'https://board.example.com/one-lesson'}}} expanded={false} now={now} onOpen={()=>{}}/>);
  expect(root.querySelectorAll('a')).toHaveLength(1);expect(root.querySelector('a').href).toBe('https://board.example.com/one-lesson');
+});
+
+it('keeps confirmed and elapsed treatments distinct and replaceable',async()=>{
+ const data=base();
+ await mount(<EventCard data={data} event={{...event(),status:'done'}} now={now} expanded={false} onOpen={()=>{}}/>);
+ expect(root.querySelector('.event-card').dataset.eventState).toBe('confirmed');
+ expect(root.querySelector('.event-state-mark').getAttribute('aria-label')).toBe('Проведение подтверждено');
+ expect(root.querySelector('.event-time-state')).toBeNull();
+ await mount(<EventCard data={data} event={event()} now={now} stateEffects={{elapsed:'plain'}} expanded={false} onOpen={()=>{}}/>);
+ expect(root.querySelector('.event-card').dataset.eventState).toBe('elapsed');
+ expect(root.querySelector('.event-card').dataset.stateEffect).toBe('plain');
+ await mount(<EventCard data={data} event={event()} now={now-4*3600000} expanded={false} onOpen={()=>{}}/>);
+ expect(root.querySelector('.event-card').dataset.eventState).toBe('planned');
+ expect(root.querySelector('.event-state-mark')).toBeNull();
 });

@@ -7,6 +7,7 @@ import './planner.css';
 import './landing.css';
 import './experience.css';
 import './sidebar.css';
+import './state-appearance.css';
 
 class AppBoundary extends Component {
   state = { error: null };

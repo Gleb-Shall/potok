@@ -1,0 +1,47 @@
+/* State names express meaning; effect names describe replaceable treatments. */
+.event-card .card-time { gap:5px; }
+.card-time-icons { display:inline-flex; align-items:center; gap:5px; flex-shrink:0; }
+.event-state-mark { display:inline-grid; place-items:center; width:17px; height:17px; border-radius:50%; color:#817d88; flex-shrink:0; }
+.event-state-mark .icon { width:13px; height:13px; }
+.event-card[data-event-state="confirmed"] .event-state-mark { color:#3c7150; background:#dcebdd; }
+.event-card[data-event-state="cancelled"] .event-state-mark { color:#9b6065; background:#f3e2e4; }
+.event-card[data-event-state="elapsed"] { border-left-style:solid; }
+.event-card[data-event-state="confirmed"] { opacity:1; }
+.event-card[data-event-state="confirmed"] .card-name { text-decoration:none; }
+
+.event-card[data-state-effect="marker"][data-event-state="elapsed"] {
+  background-image:linear-gradient(#f5f4f2a6,#f5f4f2a6);
+  border-left-color:#b6b1bb;
+}
+.event-card[data-state-effect="marker"][data-event-state="elapsed"] .card-name { color:#77717d; }
+.event-card[data-state-effect="marker"][data-event-state="elapsed"] .card-time,
+.event-card[data-state-effect="marker"][data-event-state="elapsed"] .event-type-label { color:#817b87; }
+.event-card[data-state-effect="marker"] .card-name { position:relative; isolation:isolate; }
+.event-card[data-state-effect="marker"] .card-name::before {
+  content:""; position:absolute; inset:18% -3px 6%; z-index:-1;
+  transform:rotate(-1deg);
+  clip-path:polygon(0 10%,98% 0,100% 87%,2% 100%);
+  pointer-events:none;
+}
+.event-card[data-state-effect="marker"][data-event-state="elapsed"] .card-name::before { background:#a49ca318; }
+.event-card[data-state-effect="marker"][data-event-state="confirmed"] { background-image:linear-gradient(#dcebd43d,#dcebd43d); border-left:3px solid #79a187; }
+.event-card[data-state-effect="marker"][data-event-state="confirmed"] .card-name { color:#46674e; }
+.event-card[data-state-effect="marker"][data-event-state="confirmed"] .card-name::before { background:#a5c99440; }
+
+/* Fade days, never their entire contents: a confirmed event stays distinct. */
+.day-header[data-day-state="past"][data-state-effect="marker"] { background:#f0eff2; border-bottom:1px solid #dedce3; }
+.day-header[data-day-state="past"] > span,
+.day-header[data-day-state="past"] strong { color:#93909a; }
+.day-header[data-day-state="past"][data-state-effect="marker"] strong { position:relative; isolation:isolate; }
+.day-header[data-day-state="past"][data-state-effect="marker"] strong::before { content:""; position:absolute; inset:25% -5px 10%; background:#a8a2ac1f; z-index:-1; transform:rotate(-5deg); clip-path:polygon(0 10%,98% 0,100% 88%,2% 100%); }
+.is-past-picker-day:not(.selected) { color:#96929d; }
+.is-past-picker-day:not(.selected) strong { position:relative; isolation:isolate; }
+.is-past-picker-day:not(.selected) strong::before { content:""; position:absolute; inset:20% -3px 10%; z-index:-1; background:#b3acb723; transform:rotate(-5deg); }
+@media (max-width:760px) {
+  .day-column.mobile-selected .day-header[data-day-state="past"] { background:#f0eff2; }
+}
+/* Future animation effects must also honour this setting. */
+@media (prefers-reduced-motion:reduce) {
+  .event-card[data-state-effect],.event-card[data-state-effect] *,
+  .day-header[data-state-effect],.day-header[data-state-effect] * { animation:none!important; transition:none!important; }
+}
