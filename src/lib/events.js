@@ -74,6 +74,21 @@ export function projectWeek(data, start, dayCount = 7) {
   const sorted = list => list.sort((a, b) => (a.date || '').localeCompare(b.date || '') || a.start - b.start);
   return { events: sorted(events), ghosts: sorted(ghosts), pending };
 }
+export function isEventMoved(event) {
+  const date = event.originalDate || event.anchorDate || event.date;
+  return event.status === 'pending' || event.date !== date || event.start !== (event.originalStart ?? event.start);
+}
+export function restoreMove(data, event) {
+  if (event.status === 'done') throw new Error('Сначала восстанови проведённое событие.');
+  const date = event.originalDate || event.anchorDate || event.date;
+  const start = event.originalStart ?? event.start;
+  const duration = event.originalDuration ?? event.duration;
+  if (!date) throw new Error('Исходное время события не найдено.');
+  const restored = moveEvent(event, date, start, duration);
+  restored.status = 'planned';
+  assertNoConflict(data, restored);
+  return { ...data, events: upsert(data.events, restored) };
+}
 export function moveEvent(event, date, start, duration) {
   const changed = date !== event.date || start !== event.start || duration !== event.duration;
   if (!changed) return { ...event };

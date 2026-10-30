@@ -44,7 +44,7 @@
 .dark .lesson-card .card-name { color:#e0d5ec; }
 .dark .lesson-card :is(.card-time,.event-type-label,.card-expand,.card-bottom,.card-place,.card-note) { color:#baa9cb; }
 .dark .card-controls { background:#ffffff05; }
-.dark .event-card[data-state-effect="marker"][data-event-state="elapsed"] { background-image:linear-gradient(#17141f55,#17141f55); --marker-paint:#c2b8d5; --marker-opacity:.15; }
+.dark .event-card[data-state-effect="marker"][data-event-state="elapsed"] { background-image:linear-gradient(#17141f55,#17141f55); --marker-paint:#f4a442; --marker-opacity:.34; }
 .dark .event-card[data-state-effect="marker"][data-event-state="elapsed"] :is(.card-name,.card-time,.event-type-label) { color:#b6aabd; }
 .dark .event-card[data-state-effect="marker"][data-event-state="confirmed"] { --marker-paint:#86c67f; --marker-opacity:.23; }
 .dark .event-card[data-state-effect="marker"][data-event-state="confirmed"] .card-name { color:#c4e5b9; }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { defaultTypes, calendarRange, projectWeek, saveMove, moveEvent, saveEvent, validateEvent, saveRecord, getRecord, normalizeData, fieldDisplay } from '../src/lib/events.js';
+import { restoreMove, isEventMoved, defaultTypes, calendarRange, projectWeek, saveMove, moveEvent, saveEvent, validateEvent, saveRecord, getRecord, normalizeData, fieldDisplay } from '../src/lib/events.js';
 import { persistData, loadData } from '../src/lib/storage.js';
 
 const base = () => ({ version: 2, revision: 0, students: [], records: [], types: defaultTypes(), series: [], events: [] });
@@ -96,4 +96,27 @@ test('editing current and future repeats keeps past events and moved exceptions'
   assert.equal(projectWeek(edited, '2026-11-02').events[0].start, 660);
   assert.equal(projectWeek(edited, '2026-11-09').events[0].date, '2026-11-15');
   assert.equal(projectWeek(edited, '2026-11-09').events[0].start, 900);
+});
+
+test('returning a moved occurrence restores its slot without losing context or audit history', () => {
+ const data=recurring();
+ const original=projectWeek(data, '2026-10-26', 14).events[0];
+ original.notes='Keep this note'; original.fields={room:'204'};
+ const moved=saveMove(data, original, '2026-11-03', 720);
+ const restored=restoreMove(moved, moved.events[0]);
+ const projection=projectWeek(restored, '2026-10-26', 14);
+ assert.equal(isEventMoved(restored.events[0]),false);
+ assert.equal(projection.ghosts.length,0);
+ assert.equal(restored.events[0].start,original.start);
+ assert.equal(restored.events[0].notes,'Keep this note');
+ assert.equal(restored.events[0].fields.room,'204');
+ assert.equal(restored.events[0].history.length,2);
+ assert.equal(projection.events.length,2);
+});
+test('returning a moved event rejects an occupied original slot', () => {
+ const original=event();
+ const moved=saveMove(base(),original,'2026-11-03',720);
+ const occupied={...moved,events:[...moved.events,event({id:'other'})]};
+ assert.throws(()=>restoreMove(occupied,moved.events[0]),/Пересечение/);
+ assert.equal(occupied.events[0].date,'2026-11-03');
 });

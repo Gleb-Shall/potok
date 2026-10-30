@@ -1,0 +1,18 @@
+/* Surface colour and state paint carry meaning without a left-hand stripe. */
+.lesson-card.event-card,.event-card[data-state-effect][data-event-state],.lp-preview-card,.linked-record-summary { border-left:0; }
+.lesson-card.event-card { box-shadow:inset 0 0 0 1px #66517a0a; }
+.event-card.is-being-dragged { opacity:.28; transform:scale(.97); box-shadow:inset 0 0 0 1px #9477bd66; }
+.event-drag-preview { position:fixed!important; left:-10000px!important; top:0!important; opacity:.96!important; transform:rotate(3deg)!important; box-shadow:0 16px 36px #24143744!important; pointer-events:none; }
+.is-dragging-event .day-column { transition:background-color .18s ease-out; }
+.day-column.drop-target { background:#f0e8fa!important; outline:2px solid #ad8bd6; outline-offset:-2px; border-radius:10px; }
+.drop-preview { display:flex; align-items:center; justify-content:center; gap:7px; padding:15px 8px; min-height:66px; border:2px dashed #ad8bd6; border-radius:12px; background:#ffffff80; color:#8060a0; animation:drop-slot-in .2s cubic-bezier(.23,1,.32,1) both; }
+.drop-preview strong { font-size:11px; font-weight:550; line-height:1.5; }
+.drop-preview .icon { width:18px; height:18px; flex:none; }
+.ghost-card.is-return-target { outline:2px dashed #a27acc; outline-offset:3px; background:#e6d7f64d; }
+.return-hint { font-size:11px; font-weight:650; color:#8a60af; text-decoration:none; }
+.pending-panel.drop-target { background:#f0e8fa!important; outline:2px dashed #ad8bd6; border-radius:15px; }
+.dark .day-column.drop-target,.dark .pending-panel.drop-target { background:#3b294c!important; }
+.dark .drop-preview { background:#281c3580; color:#d2b3eb; border-color:#9770b9; }
+.dark .return-hint { color:#d2b3eb; }
+@keyframes drop-slot-in { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+@media (prefers-reduced-motion:reduce) { .event-card.is-being-dragged { transform:none; }.event-drag-preview { transform:none!important; }.drop-preview { animation:none; }.is-dragging-event .day-column { transition:none; } }

@@ -49,11 +49,11 @@
 .marker-stroke { stroke:var(--marker-paint); stroke-width:22; }
 .marker-grain { stroke:white; stroke-width:.7; opacity:.4; }
 .marker-grain.fine { stroke-width:.4; opacity:.25; }
-.event-card[data-state-effect="marker"][data-event-state="elapsed"] { background-image:linear-gradient(#ffffff55,#ffffff55); border-left-color:#aaa0b1; }
+.event-card[data-state-effect="marker"][data-event-state="elapsed"] { --marker-paint:#f4a442; --marker-opacity:.4; background-image:linear-gradient(#ffffff55,#ffffff55);  }
 .event-card[data-state-effect="marker"][data-event-state="elapsed"] .card-name { color:#706975; }
 .event-card[data-state-effect="marker"][data-event-state="elapsed"] .card-time,
 .event-card[data-state-effect="marker"][data-event-state="elapsed"] .event-type-label { color:#7b7382; }
-.event-card[data-state-effect="marker"][data-event-state="confirmed"] { --marker-paint:#9ec98d; --marker-opacity:.42; border-left:3px solid #78a183; }
+.event-card[data-state-effect="marker"][data-event-state="confirmed"] { --marker-paint:#9ec98d; --marker-opacity:.42;  }
 .event-card[data-state-effect="marker"][data-event-state="confirmed"] .card-name { color:#3f6248; }
 .event-card[data-state-effect="marker"][data-event-state="confirmed"] .event-state-mark { border-radius:43% 56% 46% 54%; background:#cee7c7; }
 .event-card[data-state-effect="marker"][data-event-state="confirmed"] .event-state-mark path { stroke-dasharray:30; animation:state-check-draw 400ms 1450ms ease-out both; }
