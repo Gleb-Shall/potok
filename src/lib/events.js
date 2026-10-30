@@ -1,6 +1,10 @@
-import { addDays, mondayOf, weekdayOf, timeToMinutes, validateStudent } from './domain.js';
+import { addDays, mondayOf, weekdayOf, validateStudent } from './domain.js';
 
-export const FIELD_TYPES = { text: 'Текст', textarea: 'Длинный текст', number: 'Число', date: 'Дата', select: 'Список', checkbox: 'Флажок' };
+export const FIELD_TYPES = { text: 'Текст', textarea: 'Длинный текст', number: 'Число', date: 'Дата', select: 'Один вариант', multiselect: 'Несколько вариантов', checkbox: 'Флажок' };
+export const RECORD_KINDS = { student: 'Ученик', person: 'Человек', course: 'Предмет', place: 'Место', project: 'Проект' };
+export const recordKind = type => type.recordKind ?? (type.linkStudent ? 'student' : type.id === 'class' ? 'course' : type.id === 'personal' ? 'any' : '');
+export const allRecords = data => [...data.students.map(item => ({ ...item, kind: 'student' })), ...(data.records || [])];
+export const getRecord = (data, event) => allRecords(data).find(item => item.id === (event.recordId || event.studentId));
 export const COLOR_NAMES = { violet: 'Сиреневый', blue: 'Голубой', green: 'Зелёный', peach: 'Персиковый', pink: 'Розовый' };
 const field = (id, label, type = 'text', extra = {}) => ({ id, label, type, required: false, showOnCard: true, archived: false, options: [], ...extra });
 export function defaultTypes() {
@@ -15,7 +19,7 @@ export function getStudent(data, id) { return data.students.find(student => stud
 export function eventTitle(data, event) { return event.title || getStudent(data, event.studentId)?.name || 'Событие'; }
 export function eventColor(data, event) { return event.color || getType(data, event.typeId).color || 'violet'; }
 export function eventMatches(data, event, query, typeId = '') {
-  const text = [eventTitle(data, event), getType(data, event.typeId).name, getStudent(data, event.studentId)?.name, ...Object.values(event.fields || {})].join(' ').toLocaleLowerCase('ru');
+  const text = [eventTitle(data, event), getType(data, event.typeId).name, getRecord(data, event)?.name, event.location?.label, ...Object.values(event.fields || {})].join(' ').toLocaleLowerCase('ru');
   return (!typeId || event.typeId === typeId) && text.includes(query.toLocaleLowerCase('ru'));
 }
 export const daysBetween = (from, to) => Math.round((Date.parse(to + 'T00:00:00Z') - Date.parse(from + 'T00:00:00Z')) / 86400000);
@@ -23,11 +27,12 @@ export const daysBetween = (from, to) => Math.round((Date.parse(to + 'T00:00:00Z
 export function normalizeData(source) {
   if (source?.version === 2) {
     if (!['students', 'types', 'series', 'events'].every(key => Array.isArray(source[key]))) throw new Error('Неизвестный формат данных. Исходная копия сохранена.');
-    return structuredClone(source);
+    if (source.records !== undefined && !Array.isArray(source.records)) throw new Error('Не удалось прочитать общие записи. Исходная копия сохранена.');
+    return { ...structuredClone(source), records: structuredClone(source.records || []) };
   }
   if (!source || !['students', 'series', 'lessons'].every(key => Array.isArray(source[key]))) throw new Error('Не удалось прочитать старое расписание. Исходная копия сохранена.');
   const convert = item => ({ ...item, typeId: 'lesson', title: source.students.find(student => student.id === item.studentId)?.name || 'Урок', fields: { topic: item.notes || '', rate: source.students.find(student => student.id === item.studentId)?.rate || 0 }, color: source.students.find(student => student.id === item.studentId)?.color || 'violet', busy: true });
-  return { version: 2, students: structuredClone(source.students), types: defaultTypes(), series: source.series.map(item => ({ ...convert(item), intervalWeeks: 1 })), events: source.lessons.map(convert) };
+  return { version: 2, students: structuredClone(source.students), records: [], types: defaultTypes(), series: source.series.map(item => ({ ...convert(item), intervalWeeks: 1 })), events: source.lessons.map(convert) };
 }
 
 export function seriesOccurs(series, date) {
@@ -38,13 +43,13 @@ function occurrence(series, date) {
   const { from, until, weekday, intervalWeeks, archived, id, ...details } = series;
   return { ...details, id: `${id}:${date}`, seriesId: id, anchorDate: date, date, status: 'planned', history: [] };
 }
-export function projectWeek(data, start) {
-  const end = addDays(start, 6);
+export function projectWeek(data, start, dayCount = 7) {
+  const end = addDays(start, dayCount - 1);
   const inWeek = date => date && date >= start && date <= end;
   const stored = new Map(data.events.map(event => [event.id, event]));
   const all = new Map();
   for (const series of data.series) {
-    for (let day = 0; day < 7; day++) {
+    for (let day = 0; day < dayCount; day++) {
       const date = addDays(start, day);
       if (seriesOccurs(series, date)) { const item = occurrence(series, date); all.set(item.id, stored.get(item.id) || item); }
     }
@@ -75,14 +80,20 @@ export function validateEvent(data, input) {
   const type = data.types.find(item => item.id === input.typeId);
   if (!type) throw new Error('Выбери существующий тип события.');
   if (type.requireStudent && !data.students.some(student => student.id === input.studentId)) throw new Error('Для этого типа нужен ученик. Сначала добавь его в разделе «Ученики».');
+  const linked = getRecord(data, input);
+  const kind = recordKind(type);
+  if (type.requireRecord && !linked) throw new Error('Выбери связанную запись.');
+  if (linked && kind && kind !== 'any' && linked.kind !== kind) throw new Error('Связанная запись не подходит этому типу события.');
+  if (input.location && (!Number.isFinite(input.location.lat) || !Number.isFinite(input.location.lng) || Math.abs(input.location.lat) > 90 || Math.abs(input.location.lng) > 180)) throw new Error('Выбери корректную точку на карте.');
   if ((input.notes || '').length > 5000) throw new Error('Заметка слишком длинная.');
   for (const field of type.fields.filter(item => !item.archived)) {
     const value = input.fields[field.id];
-    if (field.required && (value == null || value === '' || (field.type === 'checkbox' && value !== true))) throw new Error(`Заполни поле «${field.label}».`);
+    if (field.required && (value == null || value === '' || Array.isArray(value) && !value.length || (field.type === 'checkbox' && value !== true))) throw new Error(`Заполни поле «${field.label}».`);
     if (value !== '' && value != null && field.type === 'number' && !Number.isFinite(Number(value))) throw new Error(`В поле «${field.label}» нужно число.`);
     if (value && field.type === 'date') addDays(value, 0);
     const previous = data.events.find(event => event.id === input.id) || data.series.find(series => series.id === input.seriesId);
     if (value && field.type === 'select' && !field.options.includes(value) && previous?.fields?.[field.id] !== value) throw new Error(`Выбери значение поля «${field.label}» из списка.`);
+    if (field.type === 'multiselect' && value != null && (!Array.isArray(value) || value.some(item => !field.options.includes(item) && !previous?.fields?.[field.id]?.includes(item)))) throw new Error(`Выбери варианты поля «${field.label}» из списка.`);
   }
   return { ...input, title: input.title.trim() };
 }
@@ -155,17 +166,43 @@ export function saveEvent(data, { values, original = null, repeat = null, scope 
   return next;
 }
 export function saveStudent(data, student) { return { ...data, students: upsert(data.students, validateStudent(student)) }; }
+export function saveRecord(data, input) {
+  if (!input.name?.trim() || input.name.length > 200) throw new Error('Укажи название до 200 символов.');
+  if (!input.kind?.trim() || input.kind.length > 80 || input.kind === 'student') throw new Error('Укажи категорию записи. Для ученика используй карточку ученика.');
+  const original = (data.records || []).find(item => item.id === input.id);
+  if (original && original.kind !== input.kind && [...data.events, ...data.series].some(item => item.recordId === input.id)) throw new Error('У записи уже есть события. Сохрани её категорию или создай новую запись.');
+  const record = { ...input, name: input.name.trim(), kind: input.kind.trim(), details: (input.details || []).filter(item => item.label.trim() || item.value.trim()) };
+  if (record.details.some(item => !item.label.trim())) throw new Error('Дай название каждому сведению.');
+  return { ...data, records: upsert(data.records || [], record) };
+}
 export function saveType(data, input) {
   if (!input.name.trim() || input.name.length > 80) throw new Error('Укажи название типа до 80 символов.');
   if (data.types.some(type => type.id !== input.id && type.name.toLocaleLowerCase('ru') === input.name.trim().toLocaleLowerCase('ru'))) throw new Error('Тип с таким названием уже существует.');
   for (const field of input.fields) {
     if (!field.label.trim()) throw new Error('У каждого поля должно быть название.');
-    if (field.type === 'select' && !field.archived && !field.options.length) throw new Error(`Добавь варианты для поля «${field.label}».`);
+    if (['select', 'multiselect'].includes(field.type) && !field.archived && !field.options.length) throw new Error(`Добавь варианты для поля «${field.label}».`);
   }
   const type = { ...input, name: input.name.trim(), version: (input.version || 0) + 1 };
   return { ...data, types: upsert(data.types, type) };
 }
 export function fieldDisplay(field, value) {
   if (value === undefined || value === null || value === '') return '';
-  return field.type === 'checkbox' ? value ? 'Да' : 'Нет' : String(value);
+  return field.type === 'checkbox' ? value ? 'Да' : 'Нет' : Array.isArray(value) ? value.join(' · ') : String(value);
+}
+
+export function calendarRange(anchor, view) {
+  const first = anchor.slice(0, 7) + '-01';
+  const nextMonth = new Date(first + 'T00:00:00Z');
+  nextMonth.setUTCMonth(nextMonth.getUTCMonth() + 1);
+  const start = view === 'month' ? mondayOf(first) : mondayOf(anchor);
+  const count = view === 'month' ? Math.ceil(daysBetween(start, nextMonth.toISOString().slice(0, 10)) / 7) * 7 : view === 'fortnight' ? 14 : 7;
+  return { start, count, end: addDays(start, count - 1) };
+}
+
+export function saveMove(data, event, date, start) {
+  addDays(date, 0);
+  if (!Number.isInteger(start) || start < 0 || start + event.duration > 1440) throw new Error('Событие должно закончиться в тот же день.');
+  const moved = moveEvent(event, date, start, event.duration);
+  assertNoConflict(data, moved);
+  return { ...data, events: upsert(data.events, moved) };
 }

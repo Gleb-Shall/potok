@@ -7,13 +7,17 @@
     "dev": "vite --host 127.0.0.1 --port 4173 --strictPort",
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort",
-    "test": "node --test --experimental-test-coverage tests/*.test.js"
+    "test": "node --test --experimental-test-coverage tests/*.test.js",
+    "test:ui": "vitest run --environment jsdom tests/ui.test.jsx"
   },
   "dependencies": {
+    "leaflet": "^1.9.4",
     "preact": "^11.1.0"
   },
   "devDependencies": {
     "@preact/preset-vite": "^2.10.6",
-    "vite": "^8.3.5"
+    "jsdom": "^29.1.1",
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5"
   }
 }

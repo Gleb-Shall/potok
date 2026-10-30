@@ -2,6 +2,7 @@ import { Component, render } from 'preact';
 import { App } from './App.jsx';
 import './styles.css';
 import './editor.css';
+import './workspace.css';
 
 class AppBoundary extends Component {
   state = { error: null };
