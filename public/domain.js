@@ -111,3 +111,5 @@ export function findConflict(candidate, lessons) {
     !['cancelled', 'pending'].includes(lesson.status) && candidate.start < lesson.start + lesson.duration &&
     candidate.start + candidate.duration > lesson.start);
 }
+
+export function findRecurringConflict() { throw new Error('Not implemented'); }

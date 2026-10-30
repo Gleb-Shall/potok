@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { addDays, mondayOf, timeToMinutes, minutesToTime, validateStudent,
-  validateLesson, projectWeek, moveLesson, findConflict } from '../public/domain.js';
+  validateLesson, projectWeek, moveLesson, findConflict, findRecurringConflict } from '../public/domain.js';
 
 const student = { id: 'student-a', name: 'Тестовый ученик', subject: 'ЕГЭ', rate: 1500, contact: '', notes: '', color: 'violet' };
 const series = { id: 'weekly', studentId: 'student-a', from: '2026-10-26', until: '', weekday: 5, start: 1020, duration: 60, notes: '' };
@@ -93,4 +93,19 @@ test('overlap detection allows adjacent lessons and ignores the edited lesson', 
   assert.equal(findConflict({ ...lesson, id: 'new', start: 1080 }, [lesson]), undefined);
   assert.equal(findConflict({ ...lesson, id: 'new', start: 1050 }, [lesson]).id, lesson.id);
   assert.equal(findConflict(lesson, [lesson]), undefined);
+});
+
+test('a new recurring slot detects a one-off conflict in a later week', () => {
+  const candidate = { id: 'new', studentId: 'student-a', date: '2026-10-30', start: 600, duration: 60 };
+  const once = { id: 'future', studentId: 'student-a', date: '2026-11-13', start: 630, duration: 60, status: 'planned' };
+  assert.equal(findRecurringConflict(candidate, { series: [], lessons: [once] }).id, 'future');
+  assert.equal(findRecurringConflict(candidate, { series: [], lessons: [{ ...once, status: 'cancelled' }] }), undefined);
+  assert.equal(findRecurringConflict(candidate, { series: [], lessons: [{ ...once, date: '2026-10-23' }] }), undefined);
+});
+
+test('a new recurring slot checks future series and ignores ones that already ended', () => {
+  const candidate = { id: 'new', studentId: 'student-a', date: '2026-10-30', start: 1020, duration: 60 };
+  assert.equal(findRecurringConflict(candidate, { series: [{ ...series, from: '2026-11-06' }], lessons: [] }).id, 'weekly');
+  assert.equal(findRecurringConflict(candidate, { series: [{ ...series, until: '2026-10-23' }], lessons: [] }), undefined);
+  assert.equal(findRecurringConflict(candidate, { series: [{ ...series, start: 1080 }], lessons: [] }), undefined);
 });
