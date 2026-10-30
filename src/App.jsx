@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { lazy, Suspense } from 'preact/compat';
+import { Sidebar } from './components/Sidebar.jsx';
 import { Brand } from './components/Brand.jsx';
 import { WorkspaceEntry } from './components/WorkspaceEntry.jsx';
 import { MobileNav } from './components/MobileNav.jsx';
@@ -25,7 +26,6 @@ import { loadData, demoData, exportData } from './lib/storage.js';
 import { useWorkspace } from './hooks/useWorkspace.js';
 import { explainFirebaseError } from './lib/firebase-client.js';
 
-const NAV = [['schedule', 'calendar', 'Расписание'], ['students', 'users', 'Записи'], ['types', 'sliders', 'Шаблоны'], ['transfers', 'arrows', 'Переносы'], ['history', 'history', 'История']];
 const TITLES = { schedule: 'Расписание', students: 'Записи', types: 'Шаблоны', transfers: 'Переносы', history: 'История событий', settings: 'Настройки' };
 const SUBTITLES = { schedule: 'Твоё время. Всё на своих местах.', students: 'Люди, предметы и проекты — общие сведения для твоих событий', types: 'Выбери, какие поля нужны твоим событиям', transfers: 'Новое время и вся история изменений', history: 'Прошедшие события и отметки о проведении', settings: 'Твоё пространство и данные' };
 
@@ -44,6 +44,15 @@ export function App({ initialMode, demoOnly = false, requireAccount = false, onH
   const { data, mode } = workspace.session;
   const { account, stale } = workspace;
   const [view, setView] = useState('schedule');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    const saved = localStorage.getItem('potok:sidebar-collapsed');
+    return saved === null ? window.innerWidth <= 1050 : saved === 'true';
+  });
+  const toggleSidebar = () => setSidebarCollapsed(previous => {
+    const next = !previous;
+    localStorage.setItem('potok:sidebar-collapsed', String(next));
+    return next;
+  });
   const [week, setWeek] = useState(today);
   const [rangeView, setRangeView] = useState('week');
   const [mapView, setMapView] = useState(false);
@@ -184,7 +193,7 @@ export function App({ initialMode, demoOnly = false, requireAccount = false, onH
 
   if (requireAccount && (!account.user || !account.ready)) return <WorkspaceEntry account={account} onSignIn={workspace.signIn} onRetry={workspace.reconnect} onSignOut={()=>attempt(workspace.signOut)} onHome={onHome} onDemo={onDemo}/>;
   const body = view === 'schedule' ? Schedule() : view === 'students' ? Students() : view === 'types' ? Types() : view === 'transfers' ? Transfers() : view === 'history' ? <HistoryView data={data} now={now} onOpen={event => setDialog({ kind: 'event-details', event })} onStatus={statusEvent}/> : Settings();
-  return <><div class="layout"><aside class="sidebar"><Brand href={onHome?'/':'#'} onClick={event=>{event.preventDefault();if(onHome)onHome();else switchView('schedule');}}/><div class="workspace-label">ЛИЧНОЕ ПРОСТРАНСТВО</div><nav aria-label="Разделы">{NAV.map(([id, icon, label]) => <button key={id} class={`nav-item ${view === id ? 'active' : ''}`} aria-current={view === id ? 'page' : undefined} onClick={() => switchView(id)}><Icon name={icon}/><span>{label}</span>{id === 'transfers' && projection.pending.length > 0 && <span class="nav-count amber">{projection.pending.length}</span>}</button>)}</nav><div class="sidebar-note"><span class="tiny-spark">✳</span><p>Освободи голову.<br/>Планы уже здесь.</p></div><div class="sidebar-bottom"><button class={`nav-item ${view === 'settings' ? 'active' : ''}`} onClick={() => switchView('settings')}><Icon name="settings"/><span>Настройки</span></button><div class="account"><span class="account-avatar">{account.user ? initials(account.user.displayName || account.user.email) : 'Я'}</span><div><strong>{account.user?.displayName || 'Моё расписание'}</strong><small><span class="status-dot"/>{account.user ? 'Google-аккаунт' : 'На этом устройстве'}</small></div></div>{!account.user && <Button kind="small secondary" disabled={account.loading} onClick={demoOnly && onPersonal ? onPersonal : workspace.signIn}>{account.loading ? 'Подключение…' : 'Войти через Google'}</Button>}</div></aside>
+  return <><div class={`layout ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}><Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} view={view} onChange={switchView} pending={projection.pending.length} account={account} onSignIn={demoOnly && onPersonal ? onPersonal : workspace.signIn} onHome={onHome}/>
     <main class="main"><div class="mobile-workspace-header"><Brand onClick={event=>{event.preventDefault();onHome?.();}}/><button class="mobile-profile" aria-label="Настройки аккаунта" onClick={()=>switchView('settings')}>{account.user?initials(account.user.displayName||account.user.email):'Я'}</button></div><header class="page-header"><div><p class="eyebrow">МОЁ ПРОСТРАНСТВО <span class="workspace-breadcrumb">/ {mode==='demo'?'Демо':'Личное'}</span></p><h1>{TITLES[view]}</h1><p class="subtitle">{SUBTITLES[view]}</p></div><div class="header-actions"><span class="mode-chip">{mode === 'demo' ? 'Демо' : mode === 'cloud' ? 'В аккаунте' : 'Локально'}</span>{!account.user && <Button disabled={account.loading} onClick={demoOnly && onPersonal ? onPersonal : workspace.signIn}>Войти через Google</Button>}<button class="icon-button" aria-label="Настройки" onClick={() => switchView('settings')}><Icon name="settings"/></button><Button kind="primary" icon="plus" onClick={() => view === 'students' ? setDialog({ kind: 'record-choice' }) : view === 'types' ? setDialog({ kind: 'type-editor' }) : newEvent()}>{view === 'students' ? 'Добавить запись' : view === 'types' ? 'Создать тип' : 'Добавить событие'}</Button></div></header>
     {mode === 'demo' && <div class="demo-banner"><Icon name="info"/><span>Деморасписание с вымышленными данными. Пробуй карточки, поля и переносы.</span><button class="text-button" onClick={() => attempt(() => switchMode('personal'))}>Создать своё <Icon name="arrow"/></button></div>}
     {account.error && <div class="account-banner error" role="alert"><span>{account.error}</span><Button onClick={workspace.reconnect}>Подключиться заново</Button></div>}

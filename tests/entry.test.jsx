@@ -48,6 +48,24 @@ describe('separate public and personal entry points', () => {
     expect(connectFirebase).not.toHaveBeenCalled();
   });
 
+  it('remembers a collapsed sidebar and keeps icon navigation usable', async () => {
+    await act(() => render(<App initialMode="demo" demoOnly/>, root));
+    const toggle = root.querySelector('.sidebar-toggle');
+    if (toggle.getAttribute('aria-expanded') === 'false') await act(() => toggle.click());
+    await act(() => toggle.click());
+    expect(root.querySelector('.layout').classList.contains('sidebar-collapsed')).toBe(true);
+    expect(localStorage.getItem('potok:sidebar-collapsed')).toBe('true');
+    const records = root.querySelector('#workspace-navigation [aria-label="Записи"]');
+    expect(records.dataset.tooltip).toBe('Записи');
+    await act(() => records.click());
+    expect(root.querySelector('h1').textContent).toBe('Записи');
+    await act(() => render(null, root));
+    await act(() => render(<App initialMode="demo" demoOnly/>, root));
+    expect(root.querySelector('.sidebar-toggle').getAttribute('aria-expanded')).toBe('false');
+    await act(() => root.querySelector('.sidebar-toggle').click());
+    expect(localStorage.getItem('potok:sidebar-collapsed')).toBe('false');
+  });
+
   it('requires Google sign-in before showing personal records', async () => {
     await act(() => render(<App initialMode="personal" requireAccount/>, root));
     await act(async () => {});
