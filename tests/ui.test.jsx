@@ -11,6 +11,35 @@ import MapView from '../src/components/MapView.jsx';
 import { defaultTypes, calendarRange } from '../src/lib/events.js';
 import { todayISO } from '../src/lib/domain.js';
 
+// jsdom has no GPU. Stub the map SDK while exercising our map adapter,
+// search requests, component events and persistence with their real code.
+const mapSDK = vi.hoisted(() => ({ maps: [], markers: [] }));
+vi.mock('maplibre-gl', () => ({
+  setWorkerUrl: vi.fn(),
+  Map: class {
+    constructor(options) {
+      this.options = options; this.handlers = new Map(); this.container = options.container;
+      this.click = () => this.fire('click', { lngLat: { lat: 59.94, lng: 30.3 } });
+      this.container.addEventListener('click', this.click); mapSDK.maps.push(this);
+      this.easeTo = vi.fn(); this.fitBounds = vi.fn();
+    }
+    on(name, handler) { this.handlers.set(name, handler); }
+    fire(name, value) { this.handlers.get(name)?.(value); }
+    resize() {}
+    isStyleLoaded() { return true; }
+    remove() { this.container.removeEventListener('click', this.click); }
+  },
+  Marker: class {
+    constructor(options) { this.options = options; this.handlers = new Map(); mapSDK.markers.push(this); }
+    setLngLat(value) { this.position = value; return this; }
+    getLngLat() { return { lng: this.position[0], lat: this.position[1] }; }
+    addTo(map) { map.container.append(this.options.element); return this; }
+    on(name, handler) { this.handlers.set(name, handler); return this; }
+    remove() { this.options.element.remove(); }
+  },
+  LngLatBounds: class { extend() { return this; } },
+}));
+
 let root;
 const base = () => ({ version: 2, students: [], records: [{ id: 'course', kind: 'course', name: 'Математика', color: 'blue', details: [{ id: 'room', label: 'Корпус', value: 'Главный' }] }], types: defaultTypes(), events: [], series: [], revision: 0 });
 const sample = () => ({ id: 'test-event', typeId: 'class', title: 'Тестовая пара', date: todayISO(), anchorDate: todayISO(), start: 600, duration: 90, fields: { room: '204' }, status: 'planned', busy: true, history: [] });
@@ -22,6 +51,7 @@ const submit = async form => { await act(() => form.dispatchEvent(new Event('sub
 beforeEach(() => {
   root = document.createElement('div'); document.body.append(root);
   localStorage.clear();
+  mapSDK.maps.length = 0; mapSDK.markers.length = 0;
   HTMLDialogElement.prototype.showModal = function () { this.open = true; };
   HTMLDialogElement.prototype.close = function () { this.open = false; };
   vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
@@ -103,16 +133,16 @@ describe('critical user flows', () => {
     expect(onAdvanced).toHaveBeenCalledWith({ date: '2026-11-03', start: '14:30' });
     expect(onSave).not.toHaveBeenCalled();
   });
-  it('loads a real map, selects a searched place and confirms a named pin', async () => {
+  it('shows suggestions while typing and confirms a named place through the map adapter', async () => {
     const onChange = vi.fn();
     const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ features: [{ geometry: { coordinates: [30.3, 59.94] }, properties: { name: 'Учебный корпус', city: 'Санкт-Петербург' } }] }) });
     vi.stubGlobal('fetch', fetch);
     await mount(<MapPicker value={null} saved={[]} onChange={onChange} onClose={() => {}}/>);
-    expect(root.querySelector('.leaflet-container')).toBeTruthy();
+    expect(mapSDK.maps[0].options.scrollZoom).toBe(true);
+    expect(mapSDK.maps[0].options.cooperativeGestures).toBe(false);
     await input(root.querySelector('.place-search input'), 'Университет Санкт-Петербург');
-    await submit(root.querySelector('.place-search'));
-    expect(fetch).toHaveBeenCalledOnce();
     await vi.waitFor(() => expect(root.querySelector('.place-results button')).toBeTruthy());
+    expect(fetch).toHaveBeenCalledOnce();
     await click(root.querySelector('.place-results button'));
     expect(root.querySelector('.place-floating-label').textContent).toContain('Учебный корпус');
     expect(root.querySelector('.place-marker')).toBeTruthy();
@@ -120,7 +150,7 @@ describe('critical user flows', () => {
     await click(byText('Выбрать место'));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ lat: 59.94, lng: 30.3, label: 'Мой корпус' }));
   });
-  it('selects a point by clicking a real map without using place search', async () => {
+  it('selects a point from a map click without using place search', async () => {
     const onChange = vi.fn();
     await mount(<MapPicker value={null} saved={[]} onChange={onChange} onClose={() => {}}/>);
     await act(() => root.querySelector('.map-canvas').dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 100, clientY: 80 })));
@@ -148,7 +178,6 @@ describe('critical user flows', () => {
     const onChange = vi.fn();
     await mount(<MapPicker value={null} saved={[]} onChange={onChange} onClose={() => {}}/>);
     await input(root.querySelector('.place-search input'), 'Тест недоступного поиска');
-    await submit(root.querySelector('.place-search'));
     await vi.waitFor(() => expect(root.querySelector('[role="alert"]')?.textContent).toContain('Сеть недоступна'));
     await act(() => root.querySelector('.map-canvas').dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 140, clientY: 100 })));
     await click(byText('Выбрать место'));

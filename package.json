@@ -11,7 +11,7 @@
     "test:ui": "vitest run --environment jsdom tests/ui.test.jsx"
   },
   "dependencies": {
-    "leaflet": "^1.9.4",
+    "maplibre-gl": "^6.16.0",
     "preact": "^11.1.0"
   },
   "devDependencies": {
@@ -19,5 +19,6 @@
     "jsdom": "^29.1.1",
     "vite": "^8.3.5",
     "vitest": "^5.0.5"
-  }
+  },
+  "version": "0.2.0-alpha.1"
 }
