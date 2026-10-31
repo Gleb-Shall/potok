@@ -1,0 +1,17 @@
+{
+  "observed_on": "2026-10-31",
+  "site": "https://format.obys.agency/",
+  "assets": {
+    "javascript": {
+      "url": "https://format.obys.agency/assets/index-CzAHO6hM.js",
+      "bytes": 257696,
+      "sha256": "88c3ba72cae2663359669a93f6a12d0c4c2ba6e4c36f74586c969c7c19f31310"
+    },
+    "stylesheet": {
+      "url": "https://format.obys.agency/assets/index-D1Q7NR-y.css",
+      "bytes": 54589,
+      "sha256": "961aaa31d6a2abe3941da7679f10964bd2c8c2fa043e1f1d08e05397064722c5"
+    }
+  },
+  "note": "Public source inspected for research. No third-party bundle copied into product or committed here."
+}

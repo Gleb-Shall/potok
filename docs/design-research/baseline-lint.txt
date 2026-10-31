@@ -1,0 +1,39 @@
+TASTESKILL · LINT   3 file(s)
+
+FAIL
+  [gradient] Gradient fill. Use a flat colour or a real image (a neutral scrim over a photo is the one exception).  (8×)
+      src/landing-experiment.css:4  linear-gradient(
+      src/landing-experiment.css:7  linear-gradient(
+      src/landing-experiment.css:46  linear-gradient(
+      src/landing-experiment.css:54  radial-gradient(
+      src/landing-experiment.css:66  linear-gradient(
+      src/landing-experiment.css:67  radial-gradient(
+      … 2 more
+  [hairline] Thin rule / divider line. Separate with space, tone or scale; lines belong to real tables and form fields.  (6×)
+      src/landing-experiment.css:7  height:1px
+      src/landing-experiment.css:58  border-bottom:1px
+      src/landing-experiment.css:60  border-top:1px
+      src/landing-experiment.css:69  border-bottom:1px
+      src/landing-journey.css:12  border-bottom:1px
+      src/landing-journey.css:41  border-bottom:1px
+  [shadow] Shadow. Elements at rest carry none; only real overlays (menu, dialog, sticky bar) may.  (8×)
+      src/landing-experiment.css:16  box-shadow:
+      src/landing-experiment.css:38  box-shadow:
+      src/landing-experiment.css:39  box-shadow:
+      src/landing-experiment.css:46  drop-shadow(
+      src/landing-experiment.css:56  box-shadow:
+      src/landing-experiment.css:60  box-shadow:
+      … 2 more
+
+WARN
+  [outlined-box] A 1px outlined box. Prefer a filled surface or no box.  (11×)
+      src/landing-experiment.css:11  border:1px solid
+      src/landing-experiment.css:16  border:1px solid
+      src/landing-experiment.css:25  border:1px solid
+      src/landing-experiment.css:38  border:1px solid
+      src/landing-experiment.css:46  border:1px solid
+      src/landing-experiment.css:56  border:1px solid
+      … 5 more
+
+RESULT: 22 FAIL, 11 WARN — fix the FAILs before rendering.
+Interface fragments marked data-ui keep their own borders and shadows. Any other line that must keep a flagged pattern for a real reason can carry the comment taste-skill-ignore.
