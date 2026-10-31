@@ -1,62 +1,71 @@
-import { useState } from 'preact/hooks';
-import { EventCard } from '../EventCard.jsx';
-import { EventEditor } from '../EventEditor.jsx';
-import { EventDetails } from '../EventDetails.jsx';
-import { MoveEditor } from '../MoveEditor.jsx';
-import { TypeEditor } from '../TypeEditor.jsx';
-import { RecordEditor } from '../RecordEditor.jsx';
-import { StudentEditor } from '../StudentEditor.jsx';
+import { useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { Icon } from '../Icon.jsx';
-import { dateLabel, initials } from '../UI.jsx';
-import { addDays, mondayOf, todayISO } from '../../lib/domain.js';
-import { allRecords, defaultTypes, projectWeek, restoreMove } from '../../lib/events.js';
-import { setEventStatus } from '../../lib/event-history.js';
+import { dateLabel } from '../UI.jsx';
+import { addDays, minutesToTime } from '../../lib/domain.js';
+import { projectWeek, restoreMove, saveMove } from '../../lib/events.js';
+import { landingData } from './demo-data.js';
+export { landingData } from './demo-data.js';
 
-export function landingData() {
-  const start=addDays(mondayOf(todayISO()),7);
-  const types=defaultTypes();
-  types[0].fields.push({id:'call',label:'Встреча',type:'url',showOnCard:true,showCompact:true,options:[]});
-  return {version:2,revision:0,types,students:[{id:'anna',name:'Анна',subject:'Математика · ЕГЭ',rate:1800,color:'violet',contact:'anna@example.com',details:[{id:'board',label:'Доска',value:'https://example.com/board',type:'url',showOnCard:true}]}],records:[{id:'course',kind:'course',name:'Линейная алгебра',subtitle:'Семинар · университет',color:'blue',details:[{id:'teacher',label:'Преподаватель',value:'Ирина Волкова',type:'text'},{id:'room',label:'Аудитория',value:'204',type:'text'}]}],series:[],events:[
-    {id:'algebra',typeId:'class',recordId:'course',title:'Линейная алгебра',date:start,anchorDate:start,start:600,duration:90,color:'blue',status:'planned',fields:{teacher:'Ирина Волкова',room:'204'},history:[]},
-    {id:'lesson',typeId:'lesson',recordId:'anna',studentId:'anna',title:'Занятие с Анной',date:addDays(start,1),anchorDate:addDays(start,1),start:900,duration:60,color:'violet',status:'planned',fields:{topic:'Производные',rate:1800,call:'https://example.com/call'},history:[]},
-    {id:'walk',typeId:'personal',title:'Прогулка у воды',date:addDays(start,2),anchorDate:addDays(start,2),start:1080,duration:60,color:'green',status:'planned',fields:{description:'Час без телефона'},history:[]},
-  ]};
-}
+// FLIP runs only after a deliberate move; the rest of the page has no layout loop.
 export function ProductDemo() {
-  const [data,setData]=useState(landingData);
-  const [tab,setTab]=useState('calendar');
-  const [dialog,setDialog]=useState(null);
-  const [dragging,setDragging]=useState('');
-  const [over,setOver]=useState('');
-  const [message,setMessage]=useState('Попробуй перенести занятие с Анной на другой день.');
-  const [expanded,setExpanded]=useState({});
-  const start=data.events.find(event=>event.id==='algebra')?.anchorDate || addDays(mondayOf(todayISO()),7);
-  const days=[start,addDays(start,1),addDays(start,2)];
-  const projection=projectWeek(data,start,3);
-  const find=id=>data.events.find(event=>event.id===id);
-  const save=(next,text)=>{setData(next);setDialog(null);if(text)setMessage(text);return true;};
-  const saveRecord=(next,text,record)=>{setData(next);setMessage(text);const back=dialog.returnTo;setDialog(back?{...back,draft:{...back.draft,recordId:record.id,studentId:record.kind==='student'||dialog.kind==='student'?record.id:'',title:back.draft.title||record.name,color:record.color}}:null);return true;};
-  const close=()=>setDialog(dialog?.returnTo||null);
-  const newRecord=(category,draft)=>setDialog({kind:category==='student'?'student':'record',category,returnTo:{...dialog,draft}});
-  const restore=event=>{try{save(restoreMove(data,event),'Перенос отменён. Событие снова на исходном месте.');}catch(error){setMessage(error.message);}};
-  const stopDrag=()=>{setDragging('');setOver('');};
-  const drop=(input,date)=>{input.preventDefault();const event=find(dragging);stopDrag();if(!event||event.date===date)return;if(event.originalDate===date){restore(event);return;}setDialog({kind:'move',event,date});};
-  const open=id=>setDialog({kind:'detail',event:find(id)});
-  const records=allRecords(data);
-  return <div class="product-demo" id="try" data-ui>
-    <div class="product-demo-bar"><div class="demo-workspace"><span class="demo-workspace-dot"/>Моё пространство <span>Пример</span></div><button class="demo-reset" onClick={()=>{setData(landingData());setExpanded({});setMessage('Пример восстановлен. Можно пробовать снова.');}}>Сбросить пример <Icon name="repeat"/></button></div>
-    <div class="product-demo-tabs" role="tablist" aria-label="Возможности Потока">{[['calendar','Календарь'],['records','Записи'],['templates','Шаблоны']].map(([id,label])=><button key={id} role="tab" aria-selected={tab===id} aria-controls={`product-panel-${id}`} id={`product-tab-${id}`} onClick={()=>setTab(id)}>{label}</button>)}</div>
-    <div role="tabpanel" id={`product-panel-${tab}`} aria-labelledby={`product-tab-${tab}`} class="product-demo-content">
-      {tab==='calendar'&&<><div class="demo-calendar-title"><div><h2>Место для твоих планов</h2><span>{dateLabel(start)} — {dateLabel(days[2])}</span></div><button class="demo-add" onClick={()=>setDialog({kind:'event',date:start})}><Icon name="plus"/>Событие</button></div><div class="demo-calendar-grid">{days.map(date=><section key={date} data-demo-day={date} class={`demo-day ${over===date?'demo-day-over':''}`} onDragOver={input=>{if(dragging){input.preventDefault();input.dataTransfer.dropEffect='move';setOver(date);}}} onDragLeave={input=>{if(!input.currentTarget.contains(input.relatedTarget))setOver('');}} onDrop={input=>drop(input,date)}><header><span>{dateLabel(date,{weekday:'long'})}</span><strong>{Number(date.slice(8))}</strong></header><div class="demo-day-events">{projection.ghosts.filter(event=>event.date===date).map(event=><EventCard key={`ghost-${event.id}`} event={event} data={data} onOpen={open} canRestore={dragging===event.id} onRestoreDrop={()=>{stopDrag();restore(find(event.id));}}/>)}{projection.events.filter(event=>event.date===date).map(event=><EventCard key={event.id} event={event} data={data} onOpen={open} onToggle={id=>setExpanded(previous=>({...previous,[id]:!previous[id]}))} expanded={!!expanded[event.id]} isDragging={dragging===event.id} onDragStart={setDragging} onDragEnd={stopDrag}/>)}{over===date&&dragging&&<div class="demo-drop-place">Отпусти карточку здесь</div>}<button class="demo-add-slot" onClick={()=>setDialog({kind:'event',date})}><Icon name="plus"/>Добавить событие</button></div></section>)}</div></>}
-      {tab==='records'&&<div class="demo-directory"><div class="demo-calendar-title"><div><h2>Общие сведения — рядом</h2><span>Измени запись: новые сведения появятся в связанных событиях.</span></div></div>{records.map(record=><button class="demo-record-row" key={record.id} onClick={()=>setDialog({kind:record.kind==='student'?'student':'record',record})}><span class={`record-initials color-${record.color}`}>{initials(record.name)}</span><span><strong>{record.name}</strong><small>{record.subject||record.subtitle}</small></span><span>{record.kind==='student'?'Ученик':'Предмет'}</span><Icon name="right"/></button>)}</div>}
-      {tab==='templates'&&<div class="demo-directory"><div class="demo-calendar-title"><div><h2>Твои события, твои поля</h2><span>Открой шаблон и настрой видимость полей в карточке.</span></div></div>{data.types.map(type=><button class="demo-template-row" key={type.id} onClick={()=>setDialog({kind:'template',type})}><span>{type.icon}</span><strong>{type.name}</strong><small>{type.fields.filter(field=>!field.archived).map(field=>field.label).join(', ')||'Основные поля'}</small><Icon name="sliders"/></button>)}</div>}
-    </div>
-    <div class="product-demo-foot"><span role="status">{message}</span><span>Вымышленные данные · изменения только в этом примере</span></div>
-    {dialog?.kind==='move'&&<MoveEditor data={data} event={dialog.event} date={dialog.date} onClose={()=>setDialog(null)} onSave={save} onAdvanced={draft=>setDialog({kind:'event',event:dialog.event,date:draft.date,draft:{start:draft.start}})}/>}
-    {dialog?.kind==='detail'&&<EventDetails data={data} event={dialog.event} onClose={()=>setDialog(null)} onEdit={()=>setDialog({...dialog,kind:'event'})} onMove={()=>setDialog({...dialog,kind:'move'})} onStatus={status=>save(setEventStatus(data,dialog.event,status),'Статус события изменён')} onRecord={record=>setDialog({kind:'record',record})} onStudent={student=>setDialog({kind:'student',record:student})}/>}
-    {dialog?.kind==='event'&&<EventEditor data={data} original={dialog.event} draft={dialog.draft} date={dialog.date||dialog.event?.date||start} typeId={dialog.event?.typeId||'personal'} onClose={close} onSave={save} onNewStudent={draft=>newRecord('student',draft)} onNewRecord={newRecord}/>}
-    {dialog?.kind==='template'&&<TypeEditor data={data} original={dialog.type} onSave={save} onClose={()=>setDialog(null)}/>}
-    {dialog?.kind==='record'&&<RecordEditor data={data} original={dialog.record} category={dialog.category} onSave={saveRecord} onClose={close}/>}
-    {dialog?.kind==='student'&&<StudentEditor data={data} original={dialog.record} onSave={saveRecord} onClose={close}/>}
+  const [data, setData] = useState(landingData);
+  const [dragging, setDragging] = useState('');
+  const [over, setOver] = useState('');
+  const [message, setMessage] = useState('Перетащи карточку. На телефоне нажми на стрелку в ней.');
+  const surface = useRef(null);
+  const positions = useRef(new Map());
+  const interaction = useRef(null);
+  const start = data.events[0].anchorDate;
+  const days = [start, addDays(start,1), addDays(start,2)];
+  const projection = projectWeek(data,start,3);
+  const moved = data.events.some(event => event.date !== event.anchorDate);
+
+  useLayoutEffect(() => {
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const moved = interaction.current;
+    surface.current.querySelectorAll('[data-card-id]').forEach(node => {
+      const before = positions.current.get(node.dataset.cardId);
+      if (moved?.id === node.dataset.cardId) {
+        if (moved.focus) node.querySelector('button')?.focus({preventScroll:true});
+        const grid = surface.current.querySelector('.toy-grid');
+        if (grid.scrollWidth > grid.clientWidth) node.scrollIntoView?.({block:'nearest',inline:'center',behavior:reduced?'auto':'smooth'});
+      }
+      if (reduced || !before || !node.animate) return;
+      const after = node.getBoundingClientRect();
+      node.animate([
+        { transform:`translate(${before.left-after.left}px,${before.top-after.top}px) rotate(-2deg) scale(1.025)` },
+        { transform:'translate(0,0) rotate(0) scale(1)' },
+      ], { duration:540, easing:'cubic-bezier(.22,1,.36,1)' });
+    });
+    positions.current.clear();
+    interaction.current = null;
+  }, [data]);
+
+  const update = (id, date) => {
+    setDragging(''); setOver('');
+    const event = data.events.find(item => item.id === id);
+    if (!event || event.date === date) return;
+    interaction.current = {id,focus:document.activeElement?.closest?.('[data-card-id]')?.dataset.cardId === id};
+    surface.current.querySelectorAll('[data-card-id]').forEach(node => positions.current.set(node.dataset.cardId,node.getBoundingClientRect()));
+    try {
+      const returning = date === event.anchorDate;
+      setData(returning ? restoreMove(data,event) : saveMove(data,event,date,event.start));
+      setMessage(returning ? 'Карточка вернулась. Перенос отменён.' : `${event.title} — ${dateLabel(date)}. Остальные планы на месте.`);
+    } catch (error) { positions.current.clear(); interaction.current=null; setMessage(error.message); }
+  };
+
+  return <div class="product-demo calendar-toy" id="try" ref={surface} data-ui>
+    <div class="product-demo-bar"><span class="toy-label"><i/>Три дня в Потоке</span><div class="toy-actions">{moved && <button onClick={() => { setData(landingData()); setMessage('Все карточки снова на своих местах.'); }}><Icon name="repeat"/>Сначала</button>}<span>{dateLabel(start)} — {dateLabel(days[2])}</span></div></div>
+    <div class="toy-grid">{days.map((date,index) => <section key={date} data-demo-day={date} class={`toy-day ${over===date?'toy-day-over':''}`} onDragOver={input => { if(dragging) { input.preventDefault(); input.dataTransfer.dropEffect='move'; setOver(date); } }} onDragLeave={input => { if(!input.currentTarget.contains(input.relatedTarget)) setOver(''); }} onDrop={input => { input.preventDefault(); update(dragging,date); }}>
+      <header><span>{['Понедельник','Вторник','Среда'][index]}</span><strong>{Number(date.slice(8))}</strong></header>
+      <div class="toy-day-content">
+        {projection.ghosts.filter(event => event.date===date).map(event => <button key={`ghost-${event.id}`} class="toy-origin ghost-card" onClick={() => update(event.id,date)}><Icon name="arrows"/><span>Раньше здесь<br/><strong>{event.title}</strong></span><Icon name="repeat"/></button>)}
+        {projection.events.filter(event => event.date===date).map(event => <article key={event.id} data-card-id={event.id} class={`toy-event event-card color-${event.color} ${dragging===event.id?'toy-dragging':''}`} draggable onDragStart={input => { input.dataTransfer.setData('text/plain',event.id); input.dataTransfer.effectAllowed='move'; setDragging(event.id); }} onDragEnd={() => { setDragging(''); setOver(''); }}>
+          <div><time>{minutesToTime(event.start)}–{minutesToTime(event.start+event.duration)}</time><span class="toy-grip" aria-hidden="true">⠿</span></div><h3>{event.title}</h3><footer><span>{event.typeId==='class'?'Учёба':event.typeId==='lesson'?'Занятие':'Для себя'}</span><button aria-label={`Перенести «${event.title}» на следующий день примера`} onClick={() => update(event.id,days[(index+1)%3])}><Icon name="arrow"/></button></footer>
+        </article>)}
+        <div class={`toy-drop ${over===date?'toy-drop-active':''}`} aria-hidden="true"><Icon name="plus"/><span>{over===date?'Отпускай':'Здесь есть место'}</span></div>
+      </div>
+    </section>)}</div>
+    <div class="product-demo-foot"><span role="status">{message}</span><span>Только пример. Без сохранения.</span></div>
   </div>;
 }
