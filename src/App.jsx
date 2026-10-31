@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { lazy, Suspense } from 'preact/compat';
+import { RecordsDirectory } from './components/RecordsDirectory.jsx';
+import { TemplateBrowser } from './components/TemplateBrowser.jsx';
 import { ThemeControl } from './components/ThemeControl.jsx';
 import { MarkerPaint } from './components/MarkerPaint.jsx';
 import { Sidebar } from './components/Sidebar.jsx';
 import { Brand } from './components/Brand.jsx';
 import { WorkspaceEntry } from './components/WorkspaceEntry.jsx';
 import { MobileNav } from './components/MobileNav.jsx';
-import { TemplateTile } from './components/TemplateTile.jsx';
 import { Icon } from './components/Icon.jsx';
-import { Button, Search, Check, dateLabel, initials, money, dayNames, longDays } from './components/UI.jsx';
+import { Button, Search, Check, dateLabel, initials, dayNames, longDays } from './components/UI.jsx';
 import { HistoryView } from './components/HistoryView.jsx';
 import { StopSeriesDialog } from './components/StopSeriesDialog.jsx';
 import { DEFAULT_STATE_EFFECTS } from './lib/state-appearance.js';
@@ -24,13 +25,13 @@ import { RecordEditor, RecordDetails } from './components/RecordEditor.jsx';
 import { Modal } from './components/UI.jsx';
 const MapView = lazy(() => import('./components/MapView.jsx'));
 import { addDays, todayISO, weekdayOf, minutesToTime } from './lib/domain.js';
-import { getType, getStudent, projectWeek, eventTitle, eventColor, eventMatches, moveEvent, restoreMove, isEventMoved, assertNoConflict, normalizeData, calendarRange, allRecords, RECORD_KINDS, recordKind } from './lib/events.js';
+import { getType, getStudent, projectWeek, eventTitle, eventColor, eventMatches, moveEvent, restoreMove, isEventMoved, assertNoConflict, normalizeData, calendarRange, recordKind } from './lib/events.js';
 import { loadData, demoData, exportData } from './lib/storage.js';
 import { useWorkspace } from './hooks/useWorkspace.js';
 import { explainFirebaseError } from './lib/firebase-client.js';
 
 const TITLES = { schedule: 'Расписание', students: 'Записи', types: 'Шаблоны', transfers: 'Переносы', history: 'История событий', settings: 'Настройки' };
-const SUBTITLES = { schedule: 'Твоё время. Всё на своих местах.', students: 'Люди, предметы и проекты — общие сведения для твоих событий', types: 'Выбери, какие поля нужны твоим событиям', transfers: 'Новое время и вся история изменений', history: 'Прошедшие события и отметки о проведении', settings: 'Твоё пространство и данные' };
+const SUBTITLES = { schedule: 'Встречи, занятия и время для себя.', students: 'Люди, предметы и проекты — общие сведения для твоих событий', types: 'Выбери, какие поля нужны твоим событиям', transfers: 'Новое время и вся история изменений', history: 'Прошедшие события и отметки о проведении', settings: 'Твоё пространство и данные' };
 
 export function App({ initialMode, demoOnly = false, requireAccount = false, onHome, onPersonal, onDemo } = {}) {
   const [now, setNow] = useState(() => Date.now());
@@ -166,23 +167,10 @@ export function App({ initialMode, demoOnly = false, requireAccount = false, onH
       </section><section class={`pending-panel ${dropTarget === 'pending' ? 'drop-target' : ''}`} {...dropProps('pending')}><div class="pending-heading"><span class="pending-symbol"><Icon name="arrows"/></span><div><h2>Ждут нового времени <span class="count-pill">{projection.pending.length}</span></h2><p>Сюда можно перетащить событие, если новая дата ещё не известна</p></div></div>{projection.pending.length ? <div class="pending-cards">{projection.pending.map(pendingCard)}</div> : <span class="all-good"><Icon name="check"/>Все события на своих местах</span>}</section></>;
   }
   function Students() {
-    const records = allRecords(data);
-    const filtered = records.filter(record => (!recordFilter || record.kind === recordFilter) && `${record.name} ${record.subject || record.subtitle || ''}`.toLocaleLowerCase('ru').includes(query.toLocaleLowerCase('ru')));
-    const categories = [...new Set(records.map(record=>record.kind))];
-    return <section class="students-panel record-directory"><div class="section-toolbar"><div><span class="section-caption">ПОСТОЯННЫЕ СВЕДЕНИЯ</span><h2>Те, с кем связаны планы <span class="count-pill">{records.length}</span></h2></div><Search value={query} onChange={setQuery} placeholder="Поиск записей"/></div>
-      <div class="directory-filters" aria-label="Категории записей"><button aria-pressed={!recordFilter} onClick={()=>setRecordFilter('')}>Все записи <span>{records.length}</span></button>{categories.map(kind=><button key={kind} aria-pressed={recordFilter===kind} onClick={()=>setRecordFilter(kind)}>{RECORD_KINDS[kind]||kind}<span>{records.filter(record=>record.kind===kind).length}</span></button>)}</div>
-      <p class="directory-note"><Icon name="info"/>Одна запись — много событий. Сохрани общие сведения здесь, чтобы не заполнять их заново в каждой встрече.</p>
-      <div class="student-grid">{filtered.map(record => { const active=data.series.filter(series=>!series.archived&&(!series.until||series.until>=today)&&(series.recordId||series.studentId)===record.id).length; return <button class="student-tile record-directory-card" key={record.id} onClick={()=>setDialog(record.kind==='student'?{kind:'student-details',student:record}:{kind:'record-details',record})}>
-        <span class="record-card-top"><span class={`student-avatar large color-${record.color}`}>{initials(record.name)}</span><span class="record-kind-label">{RECORD_KINDS[record.kind]||record.kind}</span><Icon name="right"/></span><strong>{record.name}</strong><span class="record-subtitle">{record.subject||record.subtitle||'Общие сведения'}</span>
-        <span class="record-detail-preview">{record.details?.length ? record.details.slice(0,2).map((item,index)=><span key={item.id||index}><small>{item.label}</small><span>{item.type==='url'?'Ссылка сохранена ↗':item.value||'Не заполнено'}</span></span>) : <span><small>{record.kind==='student'?'Контакт':'Сведения'}</small><span>{record.contact||'Можно добавить в карточке'}</span></span>}</span>
-        <span class="student-tile-footer"><span>{active?`${active} расписаний`:'Пока без повторов'}</span>{record.kind==='student'&&<span>{money(record.rate)} <small>/ занятие</small></span>}</span></button>; })}
-        {!filtered.length&&<div class="empty-state"><span class="empty-state-icon"><Icon name="users"/></span><h3>{query||recordFilter?'Записей не нашлось':'Здесь начнётся твоя картотека'}</h3><p>{query||recordFilter?'Попробуй другой запрос или категорию.':'Добавь ученика, предмет или проект. Всё нужное будет под рукой в связанных событиях.'}</p><Button kind="primary" icon="plus" onClick={()=>setDialog({kind:'record-choice'})}>Добавить запись</Button></div>}</div></section>;
+    return <RecordsDirectory data={data} today={today} query={query} onQuery={setQuery} filter={recordFilter} onFilter={setRecordFilter} onOpen={record=>setDialog(record.kind==='student'?{kind:'student-details',student:record}:{kind:'record-details',record})} onAdd={()=>setDialog({kind:'record-choice'})}/>;
   }
   function Types() {
-    return <section class="students-panel templates-directory"><div class="section-toolbar"><div><span class="section-caption">КОНСТРУКТОР КАРТОЧЕК</span><h2>Каждому событию — свой вид</h2></div><Check checked={showArchived} onChange={setShowArchived}>Показать архивные</Check></div>
-      <div class="template-explainer"><span><Icon name="sliders"/></span><div><strong>Настрой один раз. Используй в расписании.</strong><p>Выбери поля, цвет и то, что видно в свёрнутой карточке. Постоянные сведения о людях и предметах хранятся в записях.</p></div></div>
-      <div class="template-gallery">{data.types.filter(type=>showArchived||!type.archived).map(type=><TemplateTile key={type.id} data={data} type={type} onEdit={()=>setDialog({kind:'type-editor',original:type})} onCopy={()=>setDialog({kind:'type-editor',original:{...structuredClone(type),id:crypto.randomUUID(),name:`${type.name} (копия)`,archived:false,version:0}})} onDelete={()=>setDeletion({kind:'type',value:type})} onArchive={()=>attempt(()=>commit({...data,types:data.types.map(item=>item.id===type.id?{...item,archived:!item.archived}:item)},type.archived?'Тип возвращён из архива':'Шаблон в архиве. Старые события сохранены.'))}/>)}<button class="new-template-tile" onClick={()=>setDialog({kind:'type-editor'})}><span><Icon name="plus"/></span><strong>Твой тип события</strong><small>Создай карточку под свои планы</small></button></div>
-    </section>;
+    return <TemplateBrowser data={data} showArchived={showArchived} onArchived={setShowArchived} onEdit={type=>setDialog({kind:'type-editor',original:type})} onCopy={type=>setDialog({kind:'type-editor',original:{...structuredClone(type),id:crypto.randomUUID(),name:`${type.name} (копия)`,archived:false,version:0}})} onDelete={type=>setDeletion({kind:'type',value:type})} onArchive={type=>attempt(()=>commit({...data,types:data.types.map(item=>item.id===type.id?{...item,archived:!item.archived}:item)},type.archived?'Шаблон возвращён из архива':'Шаблон в архиве. Старые события сохранены.'))} onAdd={()=>setDialog({kind:'type-editor'})}/>;
   }
   function Transfers() {
     const changed = data.events.filter(event => event.history?.length || event.status === 'cancelled').sort((a, b) => (b.history?.at(-1)?.at || '').localeCompare(a.history?.at(-1)?.at || ''));

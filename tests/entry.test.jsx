@@ -32,9 +32,9 @@ afterEach(async () => {
 describe('separate public and personal entry points', () => {
   it('keeps the landing disconnected from Firebase and opens isolated demo', async () => {
     await act(() => render(<Site/>, root));
-    expect(root.textContent).toContain('Твоё время.');
+    expect(root.textContent).toContain('Планы меняются.');
     expect(connectFirebase).not.toHaveBeenCalled();
-    const demo = [...root.querySelectorAll('a')].find(link => link.textContent.includes('Попробовать демо'));
+    const demo = [...root.querySelectorAll('a')].find(link => link.textContent.includes('Открыть полную демоверсию'));
     await act(async () => { demo.click(); });
     expect(location.pathname).toBe('/demo');
     expect(connectFirebase).not.toHaveBeenCalled();

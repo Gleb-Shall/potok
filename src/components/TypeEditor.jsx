@@ -27,14 +27,14 @@ export function TypeEditor({ data, original, onSave, onClose, onDelete }) {
     } catch (error) { setError(error.message); }
   };
   return <Modal title={original ? 'Редактор типа карточки' : 'Свой тип события'} eyebrow="КОНСТРУКТОР КАРТОЧЕК" subtitle="Выбери поля, порядок и то, что видно прямо в расписании." wide onClose={onClose}>
-    <form onSubmit={submit} class="type-builder-form"><div class="builder-layout"><div class="builder-main">
+    <form onSubmit={submit} class="type-builder-form"><div class="builder-layout"><div class="builder-main"><section class="builder-settings"><h3>Основные настройки</h3>
       <div class="template-basics"><Field label="Название типа" value={type.name} onChange={value => change('name', value)} required maxLength="80" placeholder="Например, Тренировка"/><Select label="Значок" value={type.icon} onChange={value => change('icon', value)}>{['◇', '✎', '▤', '◷', '✦', '●', '♧', '⌂'].map(icon => <option key={icon}>{icon}</option>)}</Select></div>
       <Field label="Как назвать основное поле" value={type.titleLabel} onChange={value => change('titleLabel', value)} required maxLength="80" placeholder="Например, Предмет или Название встречи"/>
       <Colors value={type.color} onChange={value => change('color', value)}/>
       <Select label="Связь с общей записью" value={type.recordKind} onChange={value => change('recordKind', value)}><option value="">Без связи</option><option value="any">Любая запись</option>{[...new Set([...Object.keys(RECORD_KINDS), ...(data.records || []).map(item => item.kind)])].map(kind => <option key={kind} value={kind}>{RECORD_KINDS[kind] || kind}</option>)}</Select>
       {type.recordKind && <Check checked={type.requireRecord} onChange={value => change('requireRecord', value)}>Связанная запись обязательна</Check>}
       <Check checked={type.enableLocation} onChange={value => change('enableLocation', value)}>Можно выбрать место на карте</Check>
-      <div class="builder-heading"><h3>Дополнительные поля</h3><Button icon="plus" onClick={addField}>Добавить поле</Button></div>
+      </section><div class="builder-heading"><h3>Дополнительные поля</h3><Button icon="plus" onClick={addField}>Добавить поле</Button></div>
       <p class="quiet-note">Название, дата, время, повторения и переносы есть у всех событий. Ниже — твои дополнительные поля.</p>
       <div class="builder-fields">{type.fields.map((field, index) => <section key={field.id} class={`builder-field ${field.archived ? 'field-archived' : ''}`}>
         <div class="builder-field-header"><span>Поле {index + 1}{field.archived ? ' · скрыто' : ''}</span><div><button type="button" class="icon-button" aria-label={`Поднять поле ${index + 1}`} disabled={index === 0} onClick={() => reorder(field.id, -1)}>↑</button><button type="button" class="icon-button" aria-label={`Опустить поле ${index + 1}`} disabled={index === type.fields.length - 1} onClick={() => reorder(field.id, 1)}>↓</button><button type="button" class="text-button" onClick={() => updateField(field.id, { archived: !field.archived, required: false })}>{field.archived ? 'Вернуть' : 'Скрыть'}</button></div></div>
@@ -43,7 +43,7 @@ export function TypeEditor({ data, original, onSave, onClose, onDelete }) {
         {!field.archived && <div class="field-flags"><Check checked={field.required} onChange={value => updateField(field.id, { required: value })}>Обязательное</Check><Check checked={field.showCompact ?? (field.type === 'url' && field.showOnCard !== false)} onChange={value => updateField(field.id, { showCompact: value })}>В свёрнутой карточке</Check><Check checked={field.showOnCard} onChange={value => updateField(field.id, { showOnCard: value })}>В развёрнутой карточке</Check></div>}
         {used(field) && <small class="quiet-note">Формат поля зафиксирован: в событиях уже есть значения. Можно переименовать или скрыть поле — данные сохранятся.</small>}
       </section>)}</div>
-      </div><aside class="template-preview"><span class="section-caption">ПРИМЕР КАРТОЧКИ</span><div class="preview-mode-switch"><Button onClick={() => setCompactPreview(true)} aria-pressed={compactPreview}>Свёрнутая</Button><Button onClick={() => setCompactPreview(false)} aria-pressed={!compactPreview}>Развёрнутая</Button></div><EventCard event={preview} data={previewData} preview expanded={!compactPreview}/></aside></div>
+      </div><aside class="template-preview"><h3>В расписании</h3><p class="builder-preview-copy">Сразу видно, как настройки меняют карточку.</p><div class="preview-mode-switch"><Button onClick={() => setCompactPreview(true)} aria-pressed={compactPreview}>Свёрнутая</Button><Button onClick={() => setCompactPreview(false)} aria-pressed={!compactPreview}>Развёрнутая</Button></div><EventCard event={preview} data={previewData} preview expanded={!compactPreview}/></aside></div>
       <ErrorMessage error={error}/><FormFooter onClose={onClose} label="Сохранить шаблон">{data.types.some(item => item.id === original?.id) && onDelete && <Button icon="trash" kind="text-button danger-text delete-action" onClick={onDelete}>Удалить шаблон</Button>}</FormFooter>
     </form>
   </Modal>;

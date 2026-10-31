@@ -9,8 +9,9 @@ import './experience.css';
 import './sidebar.css';
 import './state-appearance.css';
 import './effects.css';
-import './theme.css';
 import './drag.css';
+import './fonts.css';
+import './design-system.css';
 
 class AppBoundary extends Component {
   state = { error: null };

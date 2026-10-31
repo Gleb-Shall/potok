@@ -1,12 +1,14 @@
 # Визуальные материалы Потока
 
-Все изменения этой итерации подготовлены локально, без публикации.
+Новая визуальная система и рабочий пример на лендинге описаны в [DESIGN_DIRECTION.md](DESIGN_DIRECTION.md).
 
 ## Использовано
 
 - [Animate UI skill](https://github.com/imskyleen/animate-ui/blob/main/skills/animate-ui/SKILL.md): прочитаны основной навык, каталог, правила, рекомендации по CSS-токенам и воспроизведению эффектов. Используется официальный `ThemeToggler` из `@animate-ui/react/primitives/effects/theme-toggler`: View Transition на 700 мс, плавное раскрытие слева направо, мгновенная смена при reduced motion или отсутствии поддержки браузера. Уровень — как в указанном примере. Иконка использует CSS-аналог `transition.spin` (300 мс, ease.out). Постоянные анимации останавливаются вне экрана, в скрытой вкладке и при reduced motion.
 - [Aceternity Text Flipping Board](https://ui.aceternity.com/components/text-flipping-board): изучен открытый исходник. Конструкция разделённых половинок адаптирована для Preact и CSS; добавлены кириллица, короткий перебор символов, три примера, пауза и остановка вне экрана. Звук не добавлен. [Условия использования Aceternity](https://ui.aceternity.com/licence).
 - [React Bits SpotlightCard](https://reactbits.dev/components/spotlight-card): адаптирован приём подсветки через CSS-переменные координат указателя. Без постоянного цикла отрисовки, без обновления состояния компонентов при движении мыши; на сенсорных устройствах эффект не запускается. Исходник: https://github.com/DavidHDev/react-bits/blob/main/src/content/Components/SpotlightCard/SpotlightCard.jsx. Лицензия сохранена в `licenses/react-bits.txt`.
+
+- [React Bits Threads](https://reactbits.dev/backgrounds/threads): интерактивный WebGL-фон лендинга. Адаптирован к Preact, загружается отдельно, поддерживает паузу и reduced motion.
 
 ## Темы
 

@@ -1,0 +1,11 @@
+import { useState } from 'preact/hooks';
+import { TemplateTile } from './TemplateTile.jsx';
+import { Icon } from './Icon.jsx';
+import { Check } from './UI.jsx';
+const fieldCount = count => `${count} ${({one:'поле',few:'поля',many:'полей',other:'полей'})[new Intl.PluralRules('ru').select(count)]}`;
+export function TemplateBrowser({data,showArchived,onArchived,onEdit,onCopy,onArchive,onDelete,onAdd}) {
+  const [selected,setSelected]=useState('');
+  const types=data.types.filter(type=>showArchived||!type.archived);
+  const active=types.find(type=>type.id===selected)||types[0];
+  return <section class="template-browser"><div class="directory-toolbar"><div><h2>Карточки событий</h2><p>Выбери шаблон, чтобы посмотреть его вид и настроить поля.</p></div><Check checked={showArchived} onChange={onArchived}>Показать архивные</Check></div><div class="template-browser-layout"><div class="template-browser-list">{types.map(type=><article class={`template-gallery-card template-list-item ${active?.id===type.id?'selected':''}`} key={type.id}><button class="template-list-select" onClick={()=>setSelected(type.id)} aria-pressed={active?.id===type.id}><span>{type.icon}</span><span><h3>{type.name}</h3><small>{fieldCount(type.fields.filter(field=>!field.archived).length)}{type.archived?' · Архив':''}</small></span></button><details class="tile-actions-menu"><summary aria-label={`Другие действия с шаблоном «${type.name}»`}><Icon name="more"/></summary><div><button onClick={()=>onCopy(type)}>Создать копию</button><button onClick={()=>onArchive(type)}>{type.archived?'Вернуть из архива':'В архив'}</button><button class="danger-text" onClick={()=>onDelete(type)}>Удалить шаблон</button></div></details></article>)}<button class="template-new-row" onClick={onAdd}><Icon name="plus"/>Создать свой шаблон</button></div><div class="template-preview-panel">{active?<><div class="template-preview-heading"><h3>В расписании</h3><span>Предпросмотр</span></div><TemplateTile key={active.id} type={active} data={data} onEdit={()=>onEdit(active)} onCopy={()=>onCopy(active)} onArchive={()=>onArchive(active)} onDelete={()=>onDelete(active)}/><p class="template-preview-note">В карточке остаётся главное. Дополнительные сведения раскрываются по нажатию.</p></>:<p>Создай шаблон, чтобы настроить свою карточку.</p>}</div></div></section>;
+}
