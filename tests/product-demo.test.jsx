@@ -22,6 +22,8 @@ afterEach(async () => { await mount(null); root.remove(); vi.restoreAllMocks(); 
 it('moves immediately without an editor, preserves origin and returns the card without persistence', async () => {
   const stored={...localStorage};
   await mount(<ProductDemo/>);
+  expect([...root.querySelectorAll('.toy-day > header')].map(node => node.textContent)).toEqual(['Понедельник','Вторник','Среда']);
+  expect(root.querySelector('.product-demo-bar')).toBeNull();
   const days=[...root.querySelectorAll('[data-demo-day]')];
   await drag(days[1].querySelector('.event-card'),'dragstart');
   await drag(days[2],'drop');

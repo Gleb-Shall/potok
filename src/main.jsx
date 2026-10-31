@@ -13,6 +13,7 @@ import './drag.css';
 import './fonts.css';
 import './design-system.css';
 import './landing-experiment.css';
+import './landing-journey.css';
 
 class AppBoundary extends Component {
   state = { error: null };

@@ -42,7 +42,7 @@ export function EventStudio() {
     } catch (failure) { setError(failure.message); }
   };
   return <section class={`event-studio motion-scene ${motion.active?'scene-active':''}`} id="editor" ref={motion.ref}>
-    <div class="experiment-heading"><h2>А теперь —<br/>сделай её своей.</h2><p>Время, цвет, детали.<br/>Карточка обновляется сразу.</p></div>
+    <div class="experiment-heading"><h2>Настрой карточку.</h2><p>Выбери поля, цвет и время.<br/>Карточка обновится сразу.</p></div>
     <div class="studio-stage" data-ui><form class="studio-form" onSubmit={submit} aria-label="Пример редактора события">
       <div class="studio-presets" role="group" aria-label="Вид события">{Object.entries(PRESETS).map(([id,preset]) => <button type="button" key={id} aria-pressed={values.typeId===id} onClick={() => change({...preset,typeId:id,studentId:preset.studentId||'',recordId:preset.recordId||''})}>{preset.label}</button>)}</div>
       <Field label="Название" value={values.title} required maxLength={100} onChange={title => change({title})}/>
@@ -53,7 +53,7 @@ export function EventStudio() {
       {error && <p class="studio-error" role="alert">{error}</p>}
       <button class={`studio-save ${saved?'studio-saved':''}`} type="submit"><Icon name={saved?'check':'arrow'}/>{saved?'Готово. Карточка обновлена':'Применить в примере'}</button>
     <a class="studio-preview-jump" href="#studio-preview">Посмотреть карточку <Icon name="down"/></a>
-    </form><div class="studio-canvas" id="studio-preview"><svg class="studio-orbits" viewBox="0 0 600 650" fill="none" aria-hidden="true"><ellipse cx="300" cy="325" rx="250" ry="100"/><ellipse cx="300" cy="325" rx="250" ry="100" transform="rotate(60 300 325)"/><ellipse cx="300" cy="325" rx="250" ry="100" transform="rotate(120 300 325)"/></svg><span class="studio-caption">Так это выглядит в расписании</span><div class={`studio-live-card ${saved?'studio-card-saved':''}`}><EventCard data={data} event={event} preview expanded/></div><span class="studio-note"><i/>Меняется сразу, пока ты печатаешь</span><div class="studio-time-strip" aria-hidden="true"><span>{values.start||'15:00'}</span><i/><span>{eventEnd(values.start,values.duration)||minutesToTime(start+60)}</span></div></div></div>
-    <p class="experiment-footnote">Можно поиграть: данные этого примера никуда не сохраняются.</p>
+    </form><div class="studio-canvas" id="studio-preview"><svg class="studio-orbits" viewBox="0 0 600 650" fill="none" aria-hidden="true"><ellipse cx="300" cy="325" rx="250" ry="100"/><ellipse cx="300" cy="325" rx="250" ry="100" transform="rotate(60 300 325)"/><ellipse cx="300" cy="325" rx="250" ry="100" transform="rotate(120 300 325)"/></svg><div class={`studio-live-card ${saved?'studio-card-saved':''}`}><EventCard data={data} event={event} preview expanded/></div><div class="studio-time-strip" aria-hidden="true"><span>{values.start||'15:00'}</span><i/><span>{eventEnd(values.start,values.duration)||minutesToTime(start+60)}</span></div></div></div>
+
   </section>;
 }

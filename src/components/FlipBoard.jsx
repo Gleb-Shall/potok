@@ -34,20 +34,24 @@ function FlapCell({ target, index, active }) {
     <i class="flap-seam"/>
   </span>;
 }
-export function FlipBoard() {
+export function FlipBoard({ allowCustom = false }) {
   const [scene, setScene] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [draft,setDraft] = useState('ВЕЧЕР ДЛЯ СЕБЯ');
+  const [custom,setCustom] = useState('');
+  const rows = scene === 3 ? ['СЕГОДНЯ В ПЛАНАХ',custom,'ЭТО МОЁ ВРЕМЯ'] : SCENES[scene];
   const motion = useMotionVisibility();
   const active = motion.active && !paused;
   useEffect(() => {
     if (!active) return;
-    const timer = setInterval(() => setScene(value => (value + 1) % SCENES.length), 6500);
+    const timer = setInterval(() => setScene(value => (value + 1) % (custom ? SCENES.length+1 : SCENES.length)), 6500);
     return () => clearInterval(timer);
-  }, [active]);
+  }, [active,custom]);
   return <section class="lp-board-section" ref={motion.ref} aria-label="Табло планов">
     <div class="lp-board-copy"><span class="lp-eyebrow">МЕСТО ДЛЯ ВСЕХ ПЛАНОВ</span><h2>Каждый день —<br/>новая история.</h2><p>Учёба, занятия и время для себя. Собери свой день, а если планы поменяются — дай им новое время.</p></div>
-    <div class="flip-board-wrap"><div class="flip-board" role="img" aria-label={SCENES[scene].join('. ')}><div class="flip-board-grid">{SCENES[scene].flatMap(row => [...rowText(row)]).map((target, index) => <FlapCell key={index} target={target} index={index} active={active}/>)}</div><div class="flip-board-brand"><span>ПОТОК / ТВОЙ ДЕНЬ</span><i/><span>ЕСТЬ МЕСТО ДЛЯ ГЛАВНОГО</span></div></div>
-      <div class="flip-board-controls"><div role="group" aria-label="Пример на табло">{['Твой день', 'Перемены', 'Свой ритм'].map((label, index) => <button type="button" key={label} aria-pressed={scene === index} onClick={() => setScene(index)}>{label}</button>)}</div><button type="button" class="board-pause" aria-label={paused ? 'Продолжить анимацию табло' : 'Приостановить анимацию табло'} aria-pressed={paused} onClick={() => setPaused(!paused)}><Icon name={paused ? 'play' : 'pause'}/></button></div>
+    <div class="flip-board-wrap"><div class="flip-board" role="img" aria-label={rows.join('. ')}><div class="flip-board-grid">{rows.flatMap(row => [...rowText(row)]).map((target, index) => <FlapCell key={index} target={target} index={index} active={active}/>)}</div><div class="flip-board-brand"><span>ПОТОК</span><i/></div></div>
+      <div class="flip-board-controls"><div role="group" aria-label="Пример на табло">{['Твой день', 'Перемены', 'Свой ритм'].map((label, index) => <button type="button" key={label} aria-pressed={scene === index} onClick={() => setScene(index)}>{label}</button>)}{custom && <button type="button" aria-pressed={scene===3} onClick={() => {setScene(3);setPaused(false);}}>Твой план</button>}</div><button type="button" class="board-pause" aria-label={paused ? 'Продолжить анимацию табло' : 'Приостановить анимацию табло'} aria-pressed={paused} onClick={() => setPaused(!paused)}><Icon name={paused ? 'play' : 'pause'}/></button></div>
+      {allowCustom && <form class="board-message" onSubmit={input => { input.preventDefault(); const message=draft.trim().toLocaleUpperCase('ru'); if(!message)return; setCustom(message); setScene(3); setPaused(false); }}><label><span>Что напишем на табло?</span><input aria-label="Текст на табло" value={draft} maxLength={18} required onInput={input => setDraft(input.currentTarget.value)} autoComplete="off"/></label><button type="submit" aria-label="Показать свой текст на табло"><Icon name="arrow"/></button></form>}
     </div>
   </section>;
 }

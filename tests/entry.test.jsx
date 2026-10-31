@@ -88,6 +88,15 @@ describe('separate public and personal entry points', () => {
     expect(root.querySelector('.flap-leaving')).toBeNull();
   });
 
+  it('shows the visitor’s own message on the flipping board', async () => {
+    await act(() => render(<FlipBoard allowCustom/>,root));
+    const input=root.querySelector('[aria-label="Текст на табло"]');
+    await act(() => { input.value='Мой новый проект'; input.dispatchEvent(new Event('input',{bubbles:true})); });
+    await act(() => root.querySelector('.board-message').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+    expect(root.querySelector('[role=img]').getAttribute('aria-label')).toContain('МОЙ НОВЫЙ ПРОЕКТ');
+    expect([...root.querySelectorAll('button')].find(button => button.textContent==='Твой план').getAttribute('aria-pressed')).toBe('true');
+  });
+
   it('requires Google sign-in before showing personal records', async () => {
     await act(() => render(<App initialMode="personal" requireAccount/>, root));
     await act(async () => {});
