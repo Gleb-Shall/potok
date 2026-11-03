@@ -23,8 +23,6 @@
 .flow-nav-open { display:flex; gap:20px; align-items:center; }
 .flow-hero { position:relative; min-height:100svh; display:grid; place-items:center; padding:125px 24px 120px; }
 .flow-hero-copy { position:relative; z-index:2; text-align:center; opacity:var(--hero-copy,1); }
-.flow-hero { cursor:grab; }
-.flow-hero[data-dragging=true] { cursor:grabbing; user-select:none; }
 .flow-hero a { cursor:pointer; }
 .flow-hero h1 { font-size:clamp(100px,21vw,340px); font-weight:600; line-height:.82; letter-spacing:-.075em; margin:0 0 35px -.05em; }
 .flow-hero-copy p { font-size:20px; line-height:1.4; margin:0 0 26px; font-weight:400; }
