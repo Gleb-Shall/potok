@@ -1,10 +1,10 @@
 import { useEffect, useRef } from 'preact/hooks';
 
-export function LandingWorld({ root, paused, event }) {
+export function LandingWorld({ root, paused, event, data }) {
   const canvas = useRef(null);
   const controller = useRef(null);
-  const latest = useRef({ paused, event });
-  latest.current = { paused, event };
+  const latest = useRef({ paused, event, data });
+  latest.current = { paused, event, data };
   useEffect(() => {
     let disposed = false;
     const element = root.current;
@@ -25,6 +25,6 @@ export function LandingWorld({ root, paused, event }) {
       controller.current = null;
     };
   }, [root]);
-  useEffect(() => { controller.current?.invalidate(); }, [paused, event]);
+  useEffect(() => { controller.current?.invalidate(); }, [paused, event, data]);
   return <canvas class="flow-world" ref={canvas} aria-hidden="true"/>;
 }

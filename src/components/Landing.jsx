@@ -35,7 +35,7 @@ export function Landing({ navigate }) {
   };
   const apply=({event,types})=>setData(current=>saveEvent({...current,types},{values:event,original:current.events.find(item=>item.id===event.id),scope:'one',repeat:null}));
   return <div class="flow-landing" ref={root} data-world="pending">
-    <LandingWorld root={root} paused={paused} event={preview||selected}/>
+    <LandingWorld root={root} paused={paused} event={preview||selected} data={data}/>
     <a class="skip-link" href="#calendar" onClick={anchor('calendar')}>Перейти к календарю</a>
     <header class="flow-nav"><Brand/><nav aria-label="О Потоке"><a href="#calendar" onClick={anchor('calendar')}>Календарь</a><a href="#editor" onClick={anchor('editor')}>Карточки</a></nav><a class="flow-nav-open" href="/app" onClick={go('/app')}>Открыть Поток <Icon name="right"/></a></header>
     <main>
