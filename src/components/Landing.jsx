@@ -6,6 +6,7 @@ import { EventStudio } from './landing/EventStudio.jsx';
 import { RecordNetwork } from './landing/RecordNetwork.jsx';
 import { LandingWorld } from './landing/world/LandingWorld.jsx';
 import { STORY_STOPS } from './landing/world/story-time.js';
+import { FlowPlayground } from './landing/FlowPlayground.jsx';
 import { saveEvent } from '../lib/events.js';
 
 function RibbonPoster() {
@@ -65,7 +66,7 @@ export function Landing({ navigate }) {
       </section>
       <section class="flow-flight flow-records-flight" data-flight="records" aria-label="Связанные записи"><div class="flow-sticky-stage"><div class="flow-connections flow-content" id="records" data-flight-panel tabIndex={-1}><RecordNetwork/></div></div></section>
       </div></div>
-      <section class="flow-close flow-content"><div><h2>Освободи место<br/>для своих планов.</h2><a class="flow-primary" href="/app" onClick={go('/app')}>Открыть Поток <Icon name="arrow"/></a><a class="flow-demo-link" href="/demo" onClick={go('/demo')}>Открыть полную демоверсию <Icon name="right"/></a></div><div class="flow-close-object" aria-hidden="true"><span/><span/><span/></div></section>
+      <section class="flow-close flow-content"><div><h2>Освободи место<br/>для своих планов.</h2><a class="flow-primary" href="/app" onClick={go('/app')}>Открыть Поток <Icon name="arrow"/></a><a class="flow-demo-link" href="/demo" onClick={go('/demo')}>Открыть полную демоверсию <Icon name="right"/></a></div><FlowPlayground paused={paused}/></section>
     </main>
     <footer class="flow-footer flow-content"><span class="flow-footer-name">ПОТОК</span><div><span>События, записи и время.</span><a href="#landing-main">К началу <Icon name="down"/></a></div></footer>
   </div>;

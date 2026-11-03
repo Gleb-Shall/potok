@@ -52,7 +52,10 @@ export function paintSurface(element, canvas, pixelRatio = 1.5) {
       if ((path.getAttribute('stroke') || node.getAttribute('stroke')) !== 'none') ctx.stroke(shape);
     }
     for (const circle of node.querySelectorAll('circle')) {
-      ctx.beginPath(); ctx.arc(Number(circle.getAttribute('cx')), Number(circle.getAttribute('cy')), Number(circle.getAttribute('r')), 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(Number(circle.getAttribute('cx')), Number(circle.getAttribute('cy')), Number(circle.getAttribute('r')), 0, Math.PI * 2);
+      const circleStyle = getComputedStyle(circle);
+      if (circleStyle.fill !== 'none') { ctx.fillStyle = circleStyle.fill; ctx.fill(); }
+      if (circleStyle.stroke !== 'none') ctx.stroke();
     }
     ctx.restore();
   }
@@ -72,7 +75,7 @@ export function paintSurface(element, canvas, pixelRatio = 1.5) {
     if (node.nodeType === Node.TEXT_NODE) { paintText(node, getComputedStyle(node.parentElement)); return; }
     if (node.nodeType !== Node.ELEMENT_NODE || node.classList.contains('sr-only')) return;
     const style = getComputedStyle(node);
-    if (style.display === 'none' || node.getAttribute('aria-hidden') === 'true' && !node.matches('svg,.toy-grip')) return;
+    if (style.display === 'none' || node !== element && node.getAttribute('aria-hidden') === 'true' && !node.matches('svg,.toy-grip')) return;
     const rect = box(node);
     if (!rect.width || !rect.height) return;
     ctx.save();

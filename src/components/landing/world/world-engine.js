@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { paintSurface } from './dom-surface.js';
 
-import { STORY, clamp, progress, smooth } from './story-time.js';
+import { STORY, progress, smooth } from './story-time.js';
 const FINAL_DISTANCE = 13.5;
 
 function createSurface() {
@@ -66,7 +66,14 @@ function makeRibbon(index, color) {
   faceGeometry.setAttribute('uv',geometry.getAttribute('uv'));faceGeometry.setIndex(frontIndices);
   const face=new THREE.Mesh(faceGeometry,new THREE.MeshBasicMaterial({map:surface.texture,transparent:true,side:THREE.DoubleSide,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1,toneMapped:false}));
   face.frustumCulled=false;face.renderOrder=1;
-  let last=-1;
+  const loop = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-5, -2, -4), new THREE.Vector3(-1, 3.8, -2),
+    new THREE.Vector3(4.8, 1.5, 1), new THREE.Vector3(2, -3.5, 2.5),
+    new THREE.Vector3(-3.8, -.5, 1), new THREE.Vector3(-1, 3, -4),
+    new THREE.Vector3(5, -.8, -3),
+  ], true, 'catmullrom', .45);
+  const center = new THREE.Vector3(), tangent = new THREE.Vector3(), across = new THREE.Vector3(), depth = new THREE.Vector3();
+  const axes = ['x', 'y', 'z'];
   return {mesh,face,surface,
     setTarget(rect,factor,width,height){
       for(let step=0;step<=segments;step++)for(let c=0;c<4;c++){
@@ -75,12 +82,30 @@ function makeRibbon(index, color) {
         target[offset+1]=(height/2-rect.top-rect.height*step/segments)*factor;
         target[offset+2]=v===1?0:-.14;
       }
-      last=-1;
     },
-    morph(value){
-      if(Math.abs(value-last)<.00001)return;last=value;
-      const buffer=geometry.getAttribute('position');
-      for(let i=0;i<initial.length;i++)buffer.array[i]=THREE.MathUtils.lerp(initial[i],target[i],value);
+    fly(p, pointer, drag){
+      const launch = smooth(0, .24, p), land = smooth(.35, 1, p);
+      const buffer = geometry.getAttribute('position');
+      for (let step = 0; step <= segments; step++) {
+        const t = step / segments, u = (t * .68 + p * 1.45 + index * .13) % 1;
+        loop.getPoint(u, center); loop.getTangent(u, tangent);
+        across.set(-tangent.y, tangent.x, 0).normalize();
+        if (across.lengthSq() < .01) across.set(1, 0, 0);
+        depth.crossVectors(tangent, across).normalize();
+        const twist = Math.sin(u * Math.PI * 2 + p * 4 + index) * .9;
+        const taper = 1 - smooth(.88, 1, t);
+        for (let c = 0; c < 4; c++) {
+          const [side, edge] = corners[c], offset = (step * 4 + c) * 3;
+          const bend = Math.exp(-((initial[offset] - pointer.x * 6) ** 2 + (initial[offset + 1] - pointer.y * 4) ** 2) / 14) * (1 - launch);
+          for (let axis = 0; axis < 3; axis++) {
+            const key = axes[axis];
+            const displacement = axis === 0 ? pointer.x * .8 + drag.x : axis === 1 ? pointer.y * 1.4 + drag.y : .8;
+            const original = initial[offset + axis] + bend * displacement;
+            const flying = center[key] + side * .65 * taper * (across[key] * Math.cos(twist) + depth[key] * Math.sin(twist)) + edge * .07 * (depth[key] * Math.cos(twist) - across[key] * Math.sin(twist));
+            buffer.array[offset + axis] = THREE.MathUtils.lerp(THREE.MathUtils.lerp(original, flying, launch), target[offset + axis], land);
+          }
+        }
+      }
       buffer.needsUpdate=true;geometry.computeVertexNormals();
     }
   };
@@ -119,8 +144,10 @@ export function createWorld(canvas, root, getState) {
   const panels = flights.map(node => node.querySelector('[data-flight-panel]'));
   const media = window.matchMedia('(prefers-reduced-motion: reduce)');
   const pointer = { x: 0, y: 0 }, eased = { x: 0, y: 0 };
+  const drag = { active: false, x: 0, y: 0, targetX: 0, targetY: 0, startX: 0, startY: 0 };
   let frame = 0, disposed = false, lost = false, width = 1, height = 1, lastTime = 0;
   let layoutDirty = true, surfacesDirty = true, storyTop = 0, enhanced = false, texturePhase = '';
+  let animatedScroll = scrollY;
   let dayNodes = [], calendarNodes = [], editorNodes = [], recordNodes = [];
   let calendarRects = [], editorRects = [], recordRects = [];
 
@@ -137,7 +164,7 @@ export function createWorld(canvas, root, getState) {
     const selected = cards.find(node => node.dataset.cardId === getState().event?.id) || cards[1];
     const others = cards.filter(node => node !== selected);
     calendarNodes = [others[0], selected, others[1]].filter(Boolean);
-    editorNodes = [panels[1].querySelector('.studio-form'), panels[1].querySelector('.studio-live-card .event-card')];
+    editorNodes = [panels[1].querySelector('.studio-form'), panels[1].querySelector('.studio-live-card .event-card'), panels[1].querySelector('.studio-orbit')];
     recordNodes = [panels[2].querySelector('.network-source'), ...panels[2].querySelectorAll('.network-event')];
     calendarRects = calendarNodes.map(rect); editorRects = editorNodes.map(rect); recordRects = recordNodes.map(rect);
     layoutDirty = false; surfacesDirty = true;
@@ -147,19 +174,15 @@ export function createWorld(canvas, root, getState) {
     if (phase === 'entry' || phase === 'hero') dayNodes.forEach((node, i) => { days[i].face.material.map = days[i].surface.update(node, ratio); });
     if (phase === 'calendar-editor') panels3d.forEach((panel, i) => {
       panel.front.material.map = panel.source.update(calendarNodes[i], ratio);
-      panel.back.material.map = panel.destination.update(editorNodes[i === 0 ? 0 : 1], ratio);
+      panel.back.material.map = panel.destination.update(editorNodes[i], ratio);
     });
     if (phase === 'editor-records') panels3d.forEach((panel, i) => {
-      panel.front.material.map = panel.source.update(editorNodes[i === 0 ? 0 : 1], ratio);
+      panel.front.material.map = panel.source.update(editorNodes[i], ratio);
       panel.back.material.map = panel.destination.update(recordNodes[i], ratio);
     });
     texturePhase = phase; surfacesDirty = false;
   }
-  const behindPreview = () => {
-    const r = editorRects[1];
-    return { left: r.left + r.width * .08, top: r.top + 14, width: r.width * .84, height: r.height * .94 };
-  };
-  function bridge(t, outgoing, incoming, kind) {
+  function bridge(t, outgoing, incoming) {
     const gather = smooth(0, .43, t), spread = smooth(.43, 1, t);
     const f = factor();
     panels3d.forEach((panel, i) => {
@@ -179,8 +202,8 @@ export function createWorld(canvas, root, getState) {
         -.001 + arc * (i === 1 ? .35 : -.18));
       panel.group.scale.set(box.width * f, box.height * f, 1);
       panel.group.rotation.set(arc * (i - 1) * .1, Math.PI * turn, arc * (i - 1) * -.075);
-      const opacity = i !== 2 ? 1 : kind === 'calendar-editor' ? 1 - smooth(.68, .96, t) : smooth(0, .2, t);
-      panel.front.material.opacity = opacity; panel.back.material.opacity = opacity;
+      panel.front.material.opacity = 1; panel.back.material.opacity = 1;
+      panel.group.position.z -= i === 2 ? smooth(.6, 1, t) * .006 : 0;
       panel.group.visible = true;
     });
     camera.position.set(Math.sin(t * Math.PI) * .45, 0, FINAL_DISTANCE - Math.sin(t * Math.PI) * .35);
@@ -198,13 +221,16 @@ export function createWorld(canvas, root, getState) {
     root.dataset.motionPaused = String(paused);
     const active = !reduced && width >= 1000 && height >= 690;
     if (active !== enhanced) {
-      enhanced = active; root.dataset.storyReady = String(active); layoutDirty = true;
+      enhanced = active; root.dataset.storyReady = String(active); layoutDirty = true; animatedScroll = scrollY;
     }
     if (layoutDirty) measure();
-    const s = (scrollY - storyTop) / height;
+    const dt = Math.min(.05, (time - lastTime) / 1000 || .016); lastTime = time;
+    animatedScroll += (scrollY - animatedScroll) * (reduced ? 1 : 1 - Math.exp(-dt * 18));
+    if (Math.abs(scrollY - animatedScroll) < .08) animatedScroll = scrollY;
+    const s = (animatedScroll - storyTop) / height;
     let mode = 'none';
-    if (scrollY < hero.getBoundingClientRect().bottom + scrollY) mode = 'hero';
-    else if (enhanced && s < STORY.calendarIn) mode = 'entry';
+    if (enhanced && s >= STORY.entryStart && s < STORY.calendarIn) mode = 'entry';
+    else if (s < 0) mode = 'hero';
     else if (enhanced && s > STORY.calendarOut && s < STORY.editorIn) mode = 'calendar-editor';
     else if (enhanced && s > STORY.editorOut && s < STORY.recordsIn) mode = 'editor-records';
     const calendarLive = !enhanced || s >= STORY.calendarIn && s <= STORY.calendarOut;
@@ -215,56 +241,66 @@ export function createWorld(canvas, root, getState) {
     const live = [calendarLive, editorLive, recordsLive];
     const show = [!enhanced || s < STORY.editorIn, !enhanced || s >= STORY.calendarOut && s < STORY.recordsIn, !enhanced || s >= STORY.editorOut];
     flights.forEach((node, i) => { node.style.visibility = show[i] ? 'visible' : 'hidden'; panels[i].inert = !live[i]; });
-    const p = progress(0, STORY.calendarIn, s);
+    const p = progress(STORY.entryStart, STORY.calendarIn, s);
     const ce = progress(STORY.calendarOut, STORY.editorIn, s);
     const er = progress(STORY.editorOut, STORY.recordsIn, s);
     story.style.setProperty('--calendar-copy', String(smooth(.91, .99, p) * (1 - smooth(0, .2, ce))));
     story.style.setProperty('--calendar-shell', String(1 - smooth(0, .28, ce)));
     story.style.setProperty('--editor-copy', String(smooth(.83, .99, ce) * (1 - smooth(0, .2, er))));
     story.style.setProperty('--records-copy', String(smooth(.83, .99, er)));
+    root.style.setProperty('--hero-copy', String(enhanced ? 1 - smooth(STORY.entryStart, .04, s) : 1));
     const wipe = (from, to, value) => {
       if (value <= 0) return from;
       if (value >= 1) return to;
       const edge = value * 140 - 20;
       return 'linear-gradient(115deg,' + to + ' ' + edge + '%,' + from + ' ' + (edge + .1) + '%)'; // taste-skill-ignore: a moving hard edge between two flat fields, without a colour blend.
     };
-    story.style.setProperty('--story-paper', er > 0 ? wipe('#1c211b', '#d8e1c7', smooth(.12, .8, er)) : wipe('#f4f4ef', '#1c211b', smooth(.12, .8, ce)));
+    story.style.setProperty('--story-paper', er > 0 ? wipe('#1c211b', '#f4f4ef', smooth(.12, .8, er)) : wipe('#f4f4ef', '#1c211b', smooth(.12, .8, ce)));
 
-    const dt = Math.min(.05, (time - lastTime) / 1000 || .016); lastTime = time;
     const damping = 1 - Math.exp(-dt * 7);
     eased.x += ((reduced ? 0 : pointer.x) - eased.x) * damping;
     eased.y += ((reduced ? 0 : pointer.y) - eased.y) * damping;
+    drag.x += ((reduced ? 0 : drag.targetX) - drag.x) * damping;
+    drag.y += ((reduced ? 0 : drag.targetY) - drag.y) * damping;
     ribbons.visible = mode === 'hero' || mode === 'entry';
     panels3d.forEach(panel => { panel.group.visible = false; });
     if (mode !== 'none' && (surfacesDirty || texturePhase !== mode)) paint(mode);
     if (ribbons.visible) {
-      const morph = mode === 'entry' ? smooth(.45, .94, p) : 0;
+      const morph = mode === 'entry' ? smooth(.35, 1, p) : 0;
       const travel = mode === 'entry' ? Math.sin(Math.PI * p) : 0;
-      // Travel along the ribbons before landing them; the print arrives only once flat.
-      const forward = mode === 'entry' ? smooth(0, .62, p) * (1 - morph) : 0;
-      ribbons.position.set(-8 * forward, -1.3 * (1 - morph) + travel * .6, -3 * forward);
-      ribbons.rotation.set(.12 * (1 - morph), (-.18 + travel * .28) * (1 - morph), -.19 * (1 - morph));
+      ribbons.position.set(0, -1.3 * (1 - morph), 0);
+      ribbons.rotation.set((.12 + eased.y * .13) * (1 - morph), (-.18 + eased.x * .22) * (1 - morph), (-.19 + drag.x * .035) * (1 - morph));
       ribbons.scale.setScalar(width < 760 ? .63 : 1);
       days.forEach(day => {
-        day.morph(morph);
-        day.face.material.opacity = mode === 'entry' ? smooth(.945, .985, p) : 0;
-        day.mesh.material.opacity = mode === 'entry' ? 1 - smooth(.945, .985, p) : 1;
+        day.fly(mode === 'entry' ? p : 0, eased, drag);
+        day.face.material.opacity = mode === 'entry' ? smooth(.975, .995, p) : 0;
+        day.mesh.material.opacity = mode === 'entry' ? 1 - smooth(.975, .995, p) : 1;
       });
-      camera.position.set(eased.x * .45 * (1 - morph) - travel * 1.8, eased.y * .3 * (1 - morph) + travel * .6,
-        (width < 760 ? 13 : FINAL_DISTANCE) - travel * 3.5);
-      camera.lookAt(-3 * forward, -.1 * (1 - morph), 0);
+      camera.position.set(eased.x * .7 * (1 - morph), eased.y * .5 * (1 - morph),
+        (width < 760 ? 13 : FINAL_DISTANCE) - travel * 1.7);
+      camera.lookAt(0, -.1 * (1 - morph), 0);
     }
-    if (mode === 'calendar-editor') bridge(ce, calendarRects, [editorRects[0], editorRects[1], behindPreview()], mode);
-    if (mode === 'editor-records') bridge(er, [editorRects[0], editorRects[1], behindPreview()], recordRects, mode);
+    if (mode === 'calendar-editor') bridge(ce, calendarRects, editorRects, mode);
+    if (mode === 'editor-records') bridge(er, editorRects, recordRects, mode);
     canvas.style.opacity = mode === 'none' ? '0' : '1'; root.dataset.camera = mode;
     canvas.style.clipPath = 'none';
     if (mode !== 'none') renderer.render(scene, camera);
-    const settling = Math.abs(eased.x - (reduced ? 0 : pointer.x)) + Math.abs(eased.y - (reduced ? 0 : pointer.y)) > .002;
-    if (mode === 'hero' && !reduced && settling) frame = requestAnimationFrame(draw);
+    const settling = Math.abs(eased.x - (reduced ? 0 : pointer.x)) + Math.abs(eased.y - (reduced ? 0 : pointer.y)) + Math.abs(drag.x - drag.targetX) + Math.abs(drag.y - drag.targetY) > .002;
+    if (!reduced && (Math.abs(scrollY - animatedScroll) > .08 || (mode === 'hero' || mode === 'entry') && settling)) frame = requestAnimationFrame(draw);
   }
   function invalidate() { if (!disposed && !lost && !frame && !document.hidden) frame = requestAnimationFrame(draw); }
   function refresh() { layoutDirty = true; surfacesDirty = true; invalidate(); }
-  function onPointer(event) { pointer.x = (event.clientX / width - .5) * 2; pointer.y = (.5 - event.clientY / height) * 2; invalidate(); }
+  function onPointer(event) {
+    pointer.x = (event.clientX / width - .5) * 2; pointer.y = (.5 - event.clientY / height) * 2;
+    if (drag.active) { drag.targetX = (event.clientX - drag.startX) / width * 6; drag.targetY = (drag.startY - event.clientY) / height * 5; }
+    invalidate();
+  }
+  function onGrab(event) {
+    if (event.pointerType !== 'mouse' || event.target.closest('a,button,input')) return;
+    drag.active = true; drag.startX = event.clientX; drag.startY = event.clientY;
+    hero.setPointerCapture(event.pointerId); hero.dataset.dragging = 'true';
+  }
+  function onRelease() { drag.active = false; drag.targetX = 0; drag.targetY = 0; hero.dataset.dragging = 'false'; invalidate(); }
   function onVisibility() { if (document.hidden) { cancelAnimationFrame(frame); frame = 0; } else invalidate(); }
   function restorePanels() {
     root.dataset.storyReady = 'false';
@@ -274,6 +310,7 @@ export function createWorld(canvas, root, getState) {
   function onLost(event) { event.preventDefault(); lost = true; cancelAnimationFrame(frame); frame = 0; root.dataset.world = 'fallback'; restorePanels(); }
   window.addEventListener('scroll', invalidate, { passive: true }); window.addEventListener('resize', resize); window.addEventListener('pointermove', onPointer, { passive: true });
   root.addEventListener('input', refresh); root.addEventListener('click', refresh);
+  hero.addEventListener('pointerdown', onGrab); hero.addEventListener('pointerup', onRelease); hero.addEventListener('pointercancel', onRelease); hero.addEventListener('lostpointercapture', onRelease);
   document.addEventListener('visibilitychange', onVisibility); media.addEventListener('change', refresh); canvas.addEventListener('webglcontextlost', onLost);
   root.dataset.world = 'ready'; resize();
   const observer = new ResizeObserver(refresh); observer.observe(root); panels.forEach(panel => observer.observe(panel));
@@ -282,6 +319,7 @@ export function createWorld(canvas, root, getState) {
     disposed = true; cancelAnimationFrame(frame); observer.disconnect();
     window.removeEventListener('scroll', invalidate); window.removeEventListener('resize', resize); window.removeEventListener('pointermove', onPointer);
     root.removeEventListener('input', refresh); root.removeEventListener('click', refresh);
+    hero.removeEventListener('pointerdown', onGrab); hero.removeEventListener('pointerup', onRelease); hero.removeEventListener('pointercancel', onRelease); hero.removeEventListener('lostpointercapture', onRelease);
     document.removeEventListener('visibilitychange', onVisibility); media.removeEventListener('change', refresh); canvas.removeEventListener('webglcontextlost', onLost);
     const geometries = new Set(), materials = new Set(), textures = new Set();
     scene.traverse(object => {

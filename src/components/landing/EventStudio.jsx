@@ -7,6 +7,7 @@ import { eventEnd, updateTiming } from '../../lib/timing.js';
 import { saveEvent } from '../../lib/events.js';
 import { useMotionVisibility } from '../../hooks/useMotionVisibility.js';
 import { landingData } from './demo-data.js';
+import { OrbitSketch } from './OrbitSketch.jsx';
 
 const PRESETS = {
   lesson:{ label:'Занятие', title:'Занятие с Анной', color:'violet', recordId:'anna', studentId:'anna', topic:'Производные' },
@@ -57,7 +58,7 @@ export function EventStudio({ data: providedData, selectedEvent, onApply, onPrev
       {error && <p class="studio-error" role="alert">{error}</p>}
       <button class={`studio-save ${saved?'studio-saved':''}`} type="submit"><Icon name={saved?'check':'arrow'}/>{saved?'Готово. Карточка обновлена':'Применить в примере'}</button>
     <a class="studio-preview-jump" href="#studio-preview">Посмотреть карточку <Icon name="down"/></a>
-    </form><div class="studio-canvas" id="studio-preview"><svg class="studio-orbits" viewBox="0 0 600 650" fill="none" aria-hidden="true"><ellipse cx="300" cy="325" rx="250" ry="100"/><ellipse cx="300" cy="325" rx="250" ry="100" transform="rotate(60 300 325)"/><ellipse cx="300" cy="325" rx="250" ry="100" transform="rotate(120 300 325)"/></svg><div class={`studio-live-card ${saved?'studio-card-saved':''}`}><EventCard data={data} event={event} preview expanded/></div><div class="studio-time-strip" aria-hidden="true"><span>{values.start||'15:00'}</span><i/><span>{eventEnd(values.start,values.duration)||minutesToTime(start+60)}</span></div></div></div>
+    </form><div class="studio-canvas" id="studio-preview"><OrbitSketch/><div class={`studio-live-card ${saved?'studio-card-saved':''}`}><EventCard data={data} event={event} preview expanded/></div><div class="studio-time-strip" aria-hidden="true"><span>{values.start||'15:00'}</span><i/><span>{eventEnd(values.start,values.duration)||minutesToTime(start+60)}</span></div></div></div>
 
   </section>;
 }
