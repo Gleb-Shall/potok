@@ -1,4 +1,5 @@
 import { prepareWorkspace, readWorkspace } from './cloud-workspace.js';
+import { createAccountSession } from './account-session.js';
 
 export const firebaseConfig = {
   apiKey: 'AIzaSyDZ8PfDofgUf8qth2LWZ3KlMiFTI1Sv_-U',
@@ -10,6 +11,8 @@ export const firebaseConfig = {
 };
 
 let connection;
+let sessionClient;
+export const getFirebaseSession = () => sessionClient?.getSession();
 export function connectFirebase() {
   if (!connection) connection = loadFirebase().catch(error => { connection = undefined; throw error; });
   return connection;
@@ -22,17 +25,20 @@ async function loadFirebase() {
   const app = appSDK.getApps().length ? appSDK.getApp() : appSDK.initializeApp(firebaseConfig);
   const auth = authSDK.getAuth(app);
   auth.languageCode = 'ru';
-  const db = dbSDK.getFirestore(app);
-  // Memory cache avoids retaining another account's private schedule on a shared device.
+  const db = dbSDK.initializeFirestore(app, {
+    localCache: typeof indexedDB === 'undefined' ? dbSDK.memoryLocalCache() : dbSDK.persistentLocalCache({ tabManager: dbSDK.persistentMultipleTabManager() })
+  });
   const workspace = uid => dbSDK.doc(db, 'users', uid, 'workspaces', 'main');
   const provider = new authSDK.GoogleAuthProvider();
   provider.setCustomParameters({ prompt: 'select_account' });
-  return {
+  sessionClient = createAccountSession({
     onAuth: (callback, onError) => authSDK.onAuthStateChanged(auth, callback, onError),
     signIn: () => authSDK.signInWithPopup(auth, provider),
     signOut: () => authSDK.signOut(auth),
     subscribe(uid, callback, onError) {
       return dbSDK.onSnapshot(workspace(uid), { includeMetadataChanges: true }, snapshot => {
+        // An absent cached document is not proof that this workspace is empty.
+        if (snapshot.metadata.fromCache && !snapshot.exists()) return;
         try { callback(readWorkspace(snapshot.exists() ? snapshot.data() : null), !snapshot.metadata.fromCache); }
         catch (error) { onError(error); }
       }, onError);
@@ -46,7 +52,8 @@ async function loadFirebase() {
         return readWorkspace(document);
       });
     }
-  };
+  });
+  return sessionClient;
 }
 
 export function explainFirebaseError(error) {

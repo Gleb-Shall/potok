@@ -5,7 +5,7 @@ import { act } from 'preact/test-utils';
 import { useWorkspace } from '../src/hooks/useWorkspace.js';
 import { emptyData } from '../src/lib/storage.js';
 const connection = vi.hoisted(() => ({ onAuth: vi.fn(), subscribe: vi.fn(), save: vi.fn() }));
-vi.mock('../src/lib/firebase-client.js', () => ({ connectFirebase: vi.fn(async () => connection), explainFirebaseError: e => e.message }));
+vi.mock('../src/lib/firebase-client.js', () => ({ connectFirebase: vi.fn(async () => connection), getFirebaseSession: () => undefined, explainFirebaseError: e => e.message }));
 let root, auth, snapshot;
 const data = revision => ({ ...emptyData(), records: [], revision });
 function Harness() {
@@ -24,7 +24,7 @@ beforeEach(async () => {
  await act(() => render(<Harness/>,root));
  await act(() => auth({uid:'alice'})); await act(() => snapshot(data(3),true));
 });
-afterEach(async () => {await act(()=>render(null,root));root.remove();vi.unstubAllGlobals();});
+afterEach(async () => {await act(()=>render(null,root));root.remove();vi.unstubAllGlobals();vi.restoreAllMocks();});
 it('freezes remote changes while editing and uses old revision for conflict detection',async () => {
  await click('edit');await act(()=>snapshot(data(4),true));
  expect(status()).toBe('cloud:3:false:true');
@@ -50,4 +50,19 @@ it('blocks cloud writes offline and keeps visible data',async () => {
  await act(()=>window.dispatchEvent(new Event('offline')));
  await click('save');expect(connection.save).not.toHaveBeenCalled();expect(status()).toBe('cloud:3:false:false');
  expect(root.textContent).toContain('Нет интернета');
+});
+it('opens cached data before the server responds but blocks writes until confirmed', async () => {
+ await act(()=>auth({uid:'bob'}));
+ await act(()=>snapshot(data(2),false));
+ expect(status()).toBe('cloud:2:false:false');
+ await click('save');expect(connection.save).not.toHaveBeenCalled();
+ expect(root.textContent).toContain('Дождись загрузки');
+ await act(()=>snapshot(data(3),true));
+ connection.save.mockResolvedValue(data(4));
+ await click('save');expect(connection.save).toHaveBeenCalledWith('bob',expect.anything(),3);
+ expect(status()).toBe('cloud:4:false:false');
+});
+it('ignores older cache data delivered after a newer server snapshot', async () => {
+ await act(()=>snapshot(data(2),false));
+ expect(status()).toBe('cloud:3:false:false');
 });

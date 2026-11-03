@@ -4,7 +4,7 @@ import { act } from 'preact/test-utils';
 import { App } from '../src/App.jsx';
 import { defaultTypes } from '../src/lib/events.js';
 const connection = vi.hoisted(() => ({ onAuth: vi.fn(), signIn: vi.fn(), signOut: vi.fn(), subscribe: vi.fn(), save: vi.fn() }));
-vi.mock('../src/lib/firebase-client.js', () => ({ connectFirebase: vi.fn(async () => connection), explainFirebaseError: e => e.message }));
+vi.mock('../src/lib/firebase-client.js', () => ({ connectFirebase: vi.fn(async () => connection), getFirebaseSession: () => undefined, explainFirebaseError: e => e.message }));
 let root, auth, snapshot;
 const empty = () => ({ version: 2, revision: 0, students: [], records: [], types: defaultTypes(), series: [], events: [] });
 const click = async text => { const button = [...root.querySelectorAll('button')].find(b => b.textContent.includes(text)); expect(button).toBeTruthy(); await act(() => button.click()); };
@@ -31,7 +31,7 @@ describe('account workspace', () => {
  it('never calls a cached snapshot synchronized before the server responds', async () => {
   await act(() => auth({ uid: 'alice', email: 'alice@example.com' }));
   await act(() => snapshot({ ...empty(), revision: 1 }, false));
-  expect(root.textContent).toContain('Загружаем личное расписание');
+  expect(root.textContent).toContain('Показана сохранённая копия');
   await act(() => snapshot({ ...empty(), revision: 1 }, true));
   expect(root.textContent).toContain('Синхронизировано с аккаунтом');
  });

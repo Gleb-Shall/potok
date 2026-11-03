@@ -10,7 +10,7 @@ import { HistoryView } from '../src/components/HistoryView.jsx';
 import { LinkedText } from '../src/components/LinkedValue.jsx';
 import { defaultTypes, projectWeek } from '../src/lib/events.js';
 import { addDays, todayISO, weekdayOf } from '../src/lib/domain.js';
-vi.mock('../src/lib/firebase-client.js', () => ({ connectFirebase: vi.fn(async () => ({ onAuth: callback => { callback(null); return () => {}; } })), explainFirebaseError: error => error.message }));
+vi.mock('../src/lib/firebase-client.js', () => ({ connectFirebase: vi.fn(async () => ({ onAuth: callback => { callback(null); return () => {}; } })), getFirebaseSession: () => undefined, explainFirebaseError: error => error.message }));
 let root;
 const now=Date.parse('2026-10-30T12:00:00+03:00');
 const base=()=>({version:2,revision:0,students:[],records:[{id:'course',kind:'course',name:'Математика',color:'blue',details:[{id:'board',label:'Доска',type:'url',value:'https://board.example.com/course'}]}],types:defaultTypes(),series:[],events:[]});

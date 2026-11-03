@@ -9,7 +9,7 @@ import { connectFirebase } from '../src/lib/firebase-client.js';
 const connection = vi.hoisted(() => ({ onAuth: vi.fn(), signIn: vi.fn() }));
 vi.mock('../src/lib/firebase-client.js', () => ({
   connectFirebase: vi.fn(async () => connection),
-  explainFirebaseError: error => error.message,
+  getFirebaseSession: () => undefined, explainFirebaseError: error => error.message,
 }));
 let root;
 beforeEach(() => {
@@ -30,14 +30,31 @@ afterEach(async () => {
 });
 
 describe('separate public and personal entry points', () => {
-  it('keeps the landing disconnected from Firebase and opens isolated demo', async () => {
+  it('does not flash Google sign-in while restoring an existing session', async () => {
+    let auth, snapshot;
+    connection.onAuth.mockImplementation(callback => { auth = callback; return vi.fn(); });
+    connection.subscribe = vi.fn((_uid, callback) => { snapshot = callback; return vi.fn(); });
+    await act(() => render(<App initialMode="personal" requireAccount/>, root));
+    expect(root.querySelector('.google-signin')).toBeNull();
+    expect(root.textContent).toContain('Открываем твоё пространство');
+    await act(() => auth({ uid: 'alice' }));
+    expect(root.querySelector('.google-signin')).toBeNull();
+    await act(() => snapshot({ version: 2, revision: 1, students: [], records: [], types: [], series: [], events: [] }, false));
+    expect(root.querySelector('.workspace-entry')).toBeNull();
+    expect(root.querySelector('.layout')).not.toBeNull();
+    expect(root.textContent).toContain('Показана сохранённая копия');
+    expect(connection.signIn).not.toHaveBeenCalled();
+  });
+  it('warms the saved session on the landing without starting Google sign-in', async () => {
     await act(() => render(<Site/>, root));
     expect(root.textContent).toContain('Планы меняются.');
-    expect(connectFirebase).not.toHaveBeenCalled();
+    expect(connectFirebase).toHaveBeenCalledOnce();
+    expect(connection.signIn).not.toHaveBeenCalled();
     const demo = [...root.querySelectorAll('a')].find(link => link.textContent.includes('Открыть полную демоверсию'));
     await act(async () => { demo.click(); });
     expect(location.pathname).toBe('/demo');
-    expect(connectFirebase).not.toHaveBeenCalled();
+    expect(connectFirebase).toHaveBeenCalledOnce();
+    expect(connection.signIn).not.toHaveBeenCalled();
   });
 
   it('never connects demo to a signed-in user’s cloud workspace', async () => {

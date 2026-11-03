@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { connectFirebase, explainFirebaseError } from '../lib/firebase-client.js';
+import { connectFirebase, getFirebaseSession, explainFirebaseError } from '../lib/firebase-client.js';
 import { loadData, persistData, emptyData } from '../lib/storage.js';
 
 export function useWorkspace(editing, { initialMode, demoOnly = false } = {}) {
+  const cached = demoOnly ? null : getFirebaseSession();
   const [session, updateSession] = useState(() => {
     const mode = initialMode || (localStorage.getItem('tutor-schedule:mode') === 'personal' ? 'personal' : 'demo');
+    if (cached?.user && cached.data && mode !== 'demo') return { mode: 'cloud', data: cached.data };
     return { mode, data: loadData(mode) };
   });
-  const [account, setAccount] = useState({ user: null, loading: true, error: '', ready: false, saving: false, online: navigator.onLine });
+  const [account, setAccount] = useState(() => ({ user: cached?.user || null, loading: !cached?.resolved, authResolved: Boolean(cached?.resolved), hasData: Boolean(cached?.user && cached.data), error: '', ready: Boolean(cached?.user && cached.data && cached.fromServer), saving: false, online: navigator.onLine }));
   const [stale, setStale] = useState(false);
   const latest = useRef({ session, account, editing });
   latest.current = { session, account, editing };
@@ -21,7 +23,7 @@ export function useWorkspace(editing, { initialMode, demoOnly = false } = {}) {
   useEffect(() => {
     if (demoOnly) { setAccount(state => ({ ...state, loading: false })); return; }
     let active = true, unsubscribeAuth, unsubscribeData;
-    const fail = error => { if (active) setAccount(state => ({ ...state, loading: false, ready: false, error: explainFirebaseError(error) })); };
+    const fail = error => { if (active) setAccount(state => ({ ...state, loading: false, ready: false, hasData: error.code === 'permission-denied' ? false : state.hasData, error: explainFirebaseError(error) })); };
     connectFirebase().then(connection => {
       if (!active) return;
       client.current = connection;
@@ -30,22 +32,28 @@ export function useWorkspace(editing, { initialMode, demoOnly = false } = {}) {
         unsubscribeData?.(); remote.current = null; currentUid.current = user?.uid || null;
         setStale(false);
         saving.current = false;
-        setAccount(state => ({ ...state, user, loading: false, ready: false, saving: false, error: '' }));
+        setAccount(state => ({ ...state, user, loading: false, authResolved: true, hasData: false, ready: false, saving: false, error: '' }));
         if (!user) {
           if (latest.current.session.mode === 'cloud') setSession({ mode: 'personal', data: loadData('personal') });
           return;
         }
         setSession({ mode: 'cloud', data: { ...emptyData(), records: [], revision: 0 } });
         unsubscribeData = connection.subscribe(user.uid, (data, fromServer) => {
-          if (!active || currentUid.current !== user.uid || !fromServer) return;
+          if (!active || currentUid.current !== user.uid) return;
+          // Late cache events must not replace a newer server-confirmed revision.
+          if (remote.current && data.revision < remote.current.revision) return;
           remote.current = data;
-          setAccount(state => ({ ...state, ready: true, error: '' }));
+          setAccount(state => ({ ...state, hasData: true, ready: fromServer, error: '' }));
           const current = latest.current;
           if (current.session.mode !== 'cloud') return;
           if (saving.current?.uid !== user.uid && current.editing && data.revision !== (current.session.data.revision || 0)) setStale(true);
           else if (saving.current?.uid !== user.uid) { setSession({ mode: 'cloud', data }); setStale(false); }
         }, fail);
-      }, fail);
+      }, error => {
+        if (!active) return;
+        currentUid.current = null;
+        setAccount(state => ({ ...state, user: null, hasData: false, authResolved: false, loading: false, ready: false, error: explainFirebaseError(error) }));
+      });
     }).catch(fail);
     return () => { active = false; unsubscribeAuth?.(); unsubscribeData?.(); currentUid.current = null; };
   }, [retry, demoOnly]);
