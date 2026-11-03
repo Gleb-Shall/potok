@@ -5,6 +5,7 @@ import { ProductDemo, landingData } from './landing/ProductDemo.jsx';
 import { EventStudio } from './landing/EventStudio.jsx';
 import { RecordNetwork } from './landing/RecordNetwork.jsx';
 import { LandingWorld } from './landing/world/LandingWorld.jsx';
+import { STORY_STOPS } from './landing/world/story-time.js';
 import { saveEvent } from '../lib/events.js';
 
 function RibbonPoster() {
@@ -27,8 +28,9 @@ export function Landing({ navigate }) {
     if(!target)return;
     event.preventDefault();
     const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const sticky=flight&&getComputedStyle(flight.querySelector('.flow-sticky-stage')).position==='sticky';
-    const destination=sticky&&root.current.dataset.world==='ready'&&!reduced?flight.offsetTop+Math.max(0,flight.offsetHeight-window.innerHeight):target.getBoundingClientRect().top+window.scrollY;
+    const story=root.current.querySelector('.flow-story');
+    const stop=STORY_STOPS[id];
+    const destination=flight&&root.current.dataset.storyReady==='true'&&!reduced&&stop!==undefined?story.getBoundingClientRect().top+window.scrollY+stop*window.innerHeight:target.getBoundingClientRect().top+window.scrollY;
     history.replaceState({},'',`#${id}`);
     window.scrollTo({top:destination,behavior:'auto'});
     target.focus({preventScroll:true});
@@ -44,8 +46,9 @@ export function Landing({ navigate }) {
         <div class="flow-hero-copy"><h1>ПОТОК</h1><p>Личный календарь событий<br/>и связанных записей.</p><a class="flow-primary" href="/app" onClick={go('/app')}>Открыть Поток <Icon name="arrow"/></a></div>
         <div class="flow-hero-bottom"><a href="#calendar" onClick={anchor('calendar')}>Планы можно двигать <Icon name="down"/></a><button aria-label={paused?'Продолжить движение':'Остановить движение'} aria-pressed={paused} onClick={()=>setPaused(value=>!value)}><Icon name={paused?'play':'pause'}/></button></div>
       </section>
+      <div class="flow-story"><div class="flow-story-stage">
       <section class="flow-flight flow-calendar-flight" data-flight="calendar" aria-label="Переход к календарю">
-        <div class="flow-sticky-stage"><div class="flow-flight-caption" aria-hidden="true"><span>Всё на своих местах.</span><span>Пока ты не решишь иначе.</span></div>
+        <div class="flow-sticky-stage">
           <div class="flow-calendar-panel flow-content" data-flight-panel id="calendar" tabIndex={-1}>
             <div class="flow-section-heading"><h2>Планы можно <br/>двигать.</h2><p>Перенеси карточку в другой день.<br/>Верни обратно — перенос отменится.</p></div>
             <ProductDemo data={data} onChange={setData} onMove={id=>{setSelectedId(id);setSelectionVersion(value=>value+1);setPreview(null);}}/>
@@ -54,13 +57,14 @@ export function Landing({ navigate }) {
         </div>
       </section>
       <section class="flow-flight flow-editor-flight" data-flight="editor" aria-label="Карточка крупным планом">
-        <div class="flow-sticky-stage"><div class="flow-flight-caption flow-card-caption" aria-hidden="true"><span>Внутри —</span><span>только нужное.</span></div>
+        <div class="flow-sticky-stage">
           <div class="flow-editor-panel flow-content" data-flight-panel id="editor" tabIndex={-1}>
-            <EventStudio key={`${selected.id}:${selectionVersion}`} data={data} selectedEvent={selected} onApply={apply} onPreview={setPreview}/>
+            <EventStudio id="event-studio" key={`${selected.id}:${selectionVersion}`} data={data} selectedEvent={selected} onApply={apply} onPreview={setPreview}/>
           </div>
         </div>
       </section>
-      <div class="flow-connections flow-content"><RecordNetwork/></div>
+      <section class="flow-flight flow-records-flight" data-flight="records" aria-label="Связанные записи"><div class="flow-sticky-stage"><div class="flow-connections flow-content" id="records" data-flight-panel tabIndex={-1}><RecordNetwork/></div></div></section>
+      </div></div>
       <section class="flow-close flow-content"><div><h2>Освободи место<br/>для своих планов.</h2><a class="flow-primary" href="/app" onClick={go('/app')}>Открыть Поток <Icon name="arrow"/></a><a class="flow-demo-link" href="/demo" onClick={go('/demo')}>Открыть полную демоверсию <Icon name="right"/></a></div><div class="flow-close-object" aria-hidden="true"><span/><span/><span/></div></section>
     </main>
     <footer class="flow-footer flow-content"><span class="flow-footer-name">ПОТОК</span><div><span>События, записи и время.</span><a href="#landing-main">К началу <Icon name="down"/></a></div></footer>

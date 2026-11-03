@@ -19,7 +19,7 @@ function initial(event) {
   return { ...PRESETS.lesson, typeId:'lesson', date:data.events[1].date, start:'15:00', duration:60, end:'16:00', showTopic:true, showCall:true };
 }
 
-export function EventStudio({ data: providedData, selectedEvent, onApply, onPreview } = {}) {
+export function EventStudio({ data: providedData, selectedEvent, onApply, onPreview, id = 'editor' } = {}) {
   const [localBase] = useState(() => ({...landingData(),events:[]}));
   const base = providedData || localBase;
   const [values,setValues] = useState(() => initial(selectedEvent));
@@ -45,7 +45,7 @@ export function EventStudio({ data: providedData, selectedEvent, onApply, onPrev
       setSaved(true); setError(''); clearTimeout(timer.current); timer.current=setTimeout(() => setSaved(false),2400);
     } catch (failure) { setError(failure.message); }
   };
-  return <section class={`event-studio motion-scene ${motion.active?'scene-active':''}`} id="editor" ref={motion.ref}>
+  return <section class={`event-studio motion-scene ${motion.active?'scene-active':''}`} id={id} ref={motion.ref}>
     <div class="experiment-heading"><h2>Настрой карточку.</h2><p>Выбери поля, цвет и время.<br/>Карточка обновится сразу.</p></div>
     <div class="studio-stage" data-ui><form class="studio-form" onSubmit={submit} aria-label="Пример редактора события">
       <div class="studio-presets" role="group" aria-label="Вид события">{Object.entries(PRESETS).map(([id,preset]) => <button type="button" key={id} aria-pressed={values.typeId===id} onClick={() => change({...preset,typeId:id,studentId:preset.studentId||'',recordId:preset.recordId||''})}>{preset.label}</button>)}</div>

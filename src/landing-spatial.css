@@ -66,11 +66,6 @@
 .flow-landing .toy-origin strong { font-size:17px; font-weight:400; }
 .flow-next { display:flex; align-items:center; gap:25px; width:max-content; max-width:100%; margin-top:28px; font-size:17px; }
 .flow-next .icon { transition:transform .25s; }.flow-next:hover .icon { transform:translateX(8px); }
-/* Native sticky ranges: the document scrolls normally, the camera reads its position. */
-@media(min-width:760px) and (prefers-reduced-motion:no-preference) {
-  .flow-landing[data-world=ready] .flow-calendar-flight { height:220svh; }
-  .flow-landing[data-world=ready] .flow-calendar-flight .flow-sticky-stage { position:sticky; top:0; height:100svh; padding-block:60px; }
-}
 .flow-editor-flight { background:#1c211b; color:#f4f4ef; --ink:#f4f4ef; --muted:#b9c0b3; --surface:#292f27; --surface-soft:#343c30; --line:#4b5345; }
 .flow-editor-panel { width:100%; }
 .flow-landing .event-studio { width:100%; margin:0; padding:0; }
@@ -101,12 +96,9 @@
 .flow-landing .studio-live-card .card-expanded-content { padding:0 30px 30px; border:0; color:#191c18; }.flow-landing .studio-live-card .card-fields { padding:20px 0; }.flow-landing .studio-live-card .card-fields dt { font-size:15px; color:#61685b; }.flow-landing .studio-live-card .card-fields dd { font-size:20px; color:#191c18; }
 .flow-landing .studio-live-card .card-subject { font-size:17px; color:#61685b; }.flow-landing .studio-live-card .card-bottom { color:#61685b; }.flow-landing .studio-live-card a { color:#191c18; background:#e3e8d8; border:0; font-size:16px; }
 .flow-landing .studio-preview-jump { color:#f4f4ef!important; }
-@media(min-width:1000px) and (min-height:690px) and (prefers-reduced-motion:no-preference) {
-  .flow-landing[data-world=ready] .flow-editor-flight { height:200svh; }
-  .flow-landing[data-world=ready] .flow-editor-flight .flow-sticky-stage { position:sticky; top:0; height:100svh; padding-block:30px; }
-}
 /* An open, quieter composition after the dark close-up. */
 .flow-connections { padding:110px 32px 95px; background:#d8e1c7; }
+.flow-records-flight > .flow-sticky-stage { padding:0; min-height:0; }
 .flow-landing .record-experiment { width:100%; padding:0; margin:0; color:#191c18; --ink:#191c18; --muted:#5c6753; }
 .flow-landing .record-experiment .experiment-heading { display:block; margin-bottom:45px; }
 .flow-landing .record-experiment h2 { font-size:clamp(38px,5.4vw,78px); line-height:1.03; letter-spacing:-.045em; font-weight:500; }
@@ -177,20 +169,35 @@
 
 .flow-footer a .icon { transform:rotate(180deg); }
 .flow-nav .brand > span:last-child { display:block; }
-/* Information rides the actual moving surfaces, then hands off in-place to HTML. */
-@media(min-width:760px) and (prefers-reduced-motion:no-preference) {
- .flow-landing[data-world=ready] .flow-calendar-panel { opacity:1; transform:none; clip-path:none; background:transparent; }
- .flow-landing[data-world=ready] .flow-calendar-panel .toy-grid { visibility:hidden; }
- .flow-landing[data-world=ready][data-calendar-live=true] .flow-calendar-panel .toy-grid { visibility:visible; }
- .flow-landing[data-world=ready] .flow-calendar-panel :is(.flow-section-heading,.flow-next) { opacity:var(--calendar-copy,0); }
- .flow-landing[data-world=ready] .flow-calendar-flight .flow-flight-caption { display:none; }
-}
+/* One pinned stage carries the same objects across all three working screens. */
 @media(min-width:1000px) and (min-height:690px) and (prefers-reduced-motion:no-preference) {
- .flow-landing[data-world=ready] .flow-editor-panel { opacity:1; transform:none; clip-path:none; background:transparent; }
- .flow-landing[data-world=ready] .flow-editor-panel .studio-live-card { visibility:hidden; }
- .flow-landing[data-world=ready][data-editor-live=true] .flow-editor-panel .studio-live-card { visibility:visible; }
- .flow-landing[data-world=ready] .flow-editor-panel :is(.experiment-heading,.studio-form) { opacity:var(--editor-copy,0); }
- .flow-landing[data-world=ready] .flow-card-caption { display:none; }
+ .flow-landing[data-story-ready=true] .flow-story { height:660svh; background:var(--story-paper,#f4f4ef); }
+ .flow-landing[data-story-ready=true] .flow-story-stage { position:sticky; top:0; height:100svh; }
+ .flow-landing[data-story-ready=true] .flow-flight { position:absolute; inset:0; background:transparent; }
+ .flow-landing[data-story-ready=true] .flow-sticky-stage { position:relative; height:100%; min-height:0; padding:30px 32px; }
+ .flow-landing[data-story-ready=true] .flow-connections { width:100%; padding:0; background:transparent; }
+ .flow-landing[data-story-ready=true] .flow-calendar-panel :is(.flow-section-heading,.flow-next) { opacity:var(--calendar-copy,0); }
+ .flow-landing[data-story-ready=true][data-calendar-motion=entry] .toy-grid { visibility:hidden; }
+ .flow-landing[data-story-ready=true][data-calendar-motion=exit] .toy-grid { opacity:var(--calendar-shell,0); }
+ .flow-landing[data-story-ready=true][data-calendar-motion=exit] .toy-event { visibility:hidden; }
+ .flow-landing[data-story-ready=true][data-editor-live=false] .flow-editor-panel :is(.studio-form,.studio-live-card) { visibility:hidden; }
+ .flow-landing[data-story-ready=true] .flow-editor-panel .experiment-heading { opacity:var(--editor-copy,0); }
+ .flow-landing[data-story-ready=true][data-records-live=false] .flow-records-flight .network-stage { visibility:hidden; }
+ .flow-landing[data-story-ready=true] .flow-records-flight .experiment-heading { opacity:var(--records-copy,0); }
+ .flow-landing[data-story-ready=true] .record-experiment .experiment-heading { display:flex; justify-content:space-between; align-items:end; gap:35px; margin-bottom:30px; }
+ .flow-landing[data-story-ready=true] .record-experiment h2 { font-size:clamp(42px,4.3vw,65px); }
+ .flow-landing[data-story-ready=true] .record-experiment .experiment-heading p { max-width:340px; margin:0; font-size:17px; }
+ .flow-landing[data-story-ready=true] .network-stage { min-height:0; }
+ .flow-landing[data-story-ready=true] .network-source { padding:25px; }
+ .flow-landing[data-story-ready=true] .network-event { padding:22px; }
+ .flow-landing[data-story-ready=true] .network-event h3 { margin:16px 0; }
+ .flow-landing[data-story-ready=true] .network-inherited { margin:12px 0 0; }
+}
+@media(min-width:1000px) and (min-height:690px) and (max-height:789px) {
+ .flow-landing[data-story-ready=true] .flow-sticky-stage { padding-block:20px; }
+ .flow-landing[data-story-ready=true] .network-targets { gap:18px; }
+ .flow-landing[data-story-ready=true] .network-event { padding:18px; }
+ .flow-landing[data-story-ready=true] .record-experiment h2 { font-size:48px; }
 }
 .flow-landing[data-motion-paused=true] .flow-calendar-panel .toy-grid,
 .flow-landing[data-motion-paused=true] .flow-editor-panel .studio-live-card { visibility:visible!important; }

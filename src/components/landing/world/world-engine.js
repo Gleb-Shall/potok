@@ -1,17 +1,27 @@
 import * as THREE from 'three';
 import { paintSurface } from './dom-surface.js';
 
-const clamp = value => Math.max(0, Math.min(1, value));
-const smooth = (a, b, value) => { const t = clamp((value - a) / (b - a)); return t * t * (3 - 2 * t); };
+import { STORY, clamp, progress, smooth } from './story-time.js';
 const FINAL_DISTANCE = 13.5;
 
 function createSurface() {
   const canvas = document.createElement('canvas');
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.generateMipmaps = false;
-  texture.minFilter = THREE.LinearFilter;
-  return { canvas, texture, update(element, ratio) { if (paintSurface(element, canvas, ratio)) texture.needsUpdate = true; } };
+  const makeTexture = () => {
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.generateMipmaps = false; texture.minFilter = THREE.LinearFilter;
+    return texture;
+  };
+  let texture = makeTexture();
+  return { get texture() { return texture; }, update(element, ratio) {
+    const width = canvas.width, height = canvas.height;
+    if (paintSurface(element, canvas, ratio)) {
+      // Uploaded textures have immutable storage; a new layout can need a new size.
+      if (canvas.width !== width || canvas.height !== height) { texture.dispose(); texture = makeTexture(); }
+      else texture.needsUpdate = true;
+    }
+    return texture;
+  } };
 }
 
 // The same vertices form the orange ribbon and its information-bearing front.
@@ -76,125 +86,208 @@ function makeRibbon(index, color) {
   };
 }
 
-function makeCard(){
-  const group=new THREE.Group(),materials=[];
-  for(let i=0;i<3;i++){
-    const material=new THREE.MeshStandardMaterial({color:i===0?0xf4f3ee:i===1?0xff5c28:0x30332f,roughness:.8,transparent:true});
-    const mesh=new THREE.Mesh(new THREE.BoxGeometry(1,1,.02),material);mesh.position.z=-i*.08;group.add(mesh);materials.push(material);
-  }
-  const surface=createSurface();
-  const face=new THREE.Mesh(new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({map:surface.texture,transparent:true,toneMapped:false}));
-  face.position.z=.0105;group.add(face);
-  return {group,materials,face,surface};
+function makePanel() {
+  const group = new THREE.Group();
+  const source = createSurface(), destination = createSurface();
+  const front = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({
+    map: source.texture, transparent: true, toneMapped: false,
+  }));
+  const back = new THREE.Mesh(front.geometry, new THREE.MeshBasicMaterial({
+    map: destination.texture, transparent: true, toneMapped: false,
+  }));
+  front.position.z = .001; back.position.z = -.001; back.rotation.y = Math.PI;
+  group.add(front, back);
+  return { group, source, destination, front, back };
 }
 
-export function createWorld(canvas,root,getState){
-  const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true,powerPreference:'low-power'});
-  renderer.setClearColor(0,0);renderer.outputColorSpace=THREE.SRGBColorSpace;
-  const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(40,1,.1,80);
-  scene.add(new THREE.HemisphereLight(0xffffff,0x67604c,3.1));
-  const light=new THREE.DirectionalLight(0xffffff,4);light.position.set(-4,8,6);scene.add(light);
-  const rim=new THREE.DirectionalLight(0xffc09d,2);rim.position.set(6,-2,1);scene.add(rim);
-  const ribbons=new THREE.Group();scene.add(ribbons);
-  const days=[0xff5b24,0xf04d19,0xff743d].map((color,index)=>makeRibbon(index,color));
-  days.forEach(day=>{ribbons.add(day.mesh,day.face);});
-  const card=makeCard();scene.add(card.group);
-  const hero=root.querySelector('.flow-hero'),calendar=root.querySelector('[data-flight="calendar"]'),editor=root.querySelector('[data-flight="editor"]');
-  const panels=[calendar,editor].map(node=>node.querySelector('[data-flight-panel]'));
-  const media=window.matchMedia('(prefers-reduced-motion: reduce)');
-  const pointer={x:0,y:0},eased={x:0,y:0};
-  let frame=0,disposed=false,lost=false,width=1,height=1,lastTime=0,layoutDirty=true,surfacesDirty=true,metrics;
-  let dayNodes=[],cardNode,cardTarget,paintedCard;
-  const factor=()=>2*Math.tan(THREE.MathUtils.degToRad(camera.fov/2))*FINAL_DISTANCE/height;
-  function relativeRect(node,stage){const r=node.getBoundingClientRect(),s=stage.getBoundingClientRect();return{left:r.left-s.left,top:r.top-s.top,width:r.width,height:r.height};}
-  function measure(){
-    metrics=[hero,calendar,editor].map(node=>({top:node.getBoundingClientRect().top+scrollY,height:node.offsetHeight}));
-    dayNodes=[...calendar.querySelectorAll('.toy-day')];
-    const calendarStage=calendar.querySelector('.flow-sticky-stage');
-    dayNodes.forEach((node,i)=>days[i].setTarget(relativeRect(node,calendarStage),factor(),width,height));
-    cardNode=editor.querySelector('.studio-live-card .event-card');
-    if(cardNode){
-      const rect=relativeRect(cardNode,editor.querySelector('.flow-sticky-stage')),f=factor();
-      cardTarget={x:(rect.left+rect.width/2-width/2)*f,y:(height/2-rect.top-rect.height/2)*f,width:rect.width*f,height:rect.height*f};
-    }
-    layoutDirty=false;surfacesDirty=true;
+export function createWorld(canvas, root, getState) {
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'low-power' });
+  renderer.setClearColor(0, 0); renderer.outputColorSpace = THREE.SRGBColorSpace;
+  const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(40, 1, .1, 80);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x67604c, 3.1));
+  const light = new THREE.DirectionalLight(0xffffff, 4); light.position.set(-4, 8, 6); scene.add(light);
+  const rim = new THREE.DirectionalLight(0xffc09d, 2); rim.position.set(6, -2, 1); scene.add(rim);
+  const ribbons = new THREE.Group(); scene.add(ribbons);
+  const days = [0xff5b24, 0xf04d19, 0xff743d].map((color, index) => makeRibbon(index, color));
+  days.forEach(day => ribbons.add(day.mesh, day.face));
+  const panels3d = Array.from({ length: 3 }, makePanel);
+  panels3d.forEach(panel => scene.add(panel.group));
+
+  const hero = root.querySelector('.flow-hero'), story = root.querySelector('.flow-story');
+  const stage = root.querySelector('.flow-story-stage');
+  const flights = [...root.querySelectorAll('[data-flight]')];
+  const panels = flights.map(node => node.querySelector('[data-flight-panel]'));
+  const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const pointer = { x: 0, y: 0 }, eased = { x: 0, y: 0 };
+  let frame = 0, disposed = false, lost = false, width = 1, height = 1, lastTime = 0;
+  let layoutDirty = true, surfacesDirty = true, storyTop = 0, enhanced = false, texturePhase = '';
+  let dayNodes = [], calendarNodes = [], editorNodes = [], recordNodes = [];
+  let calendarRects = [], editorRects = [], recordRects = [];
+
+  const factor = () => 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * FINAL_DISTANCE / height;
+  const rect = node => {
+    const r = node.getBoundingClientRect(), s = stage.getBoundingClientRect();
+    return { left: r.left - s.left, top: r.top - s.top, width: r.width, height: r.height };
+  };
+  function measure() {
+    storyTop = story.getBoundingClientRect().top + scrollY;
+    dayNodes = [...panels[0].querySelectorAll('.toy-day')];
+    dayNodes.forEach((node, i) => days[i].setTarget(rect(node), factor(), width, height));
+    const cards = [...panels[0].querySelectorAll('.toy-event')];
+    const selected = cards.find(node => node.dataset.cardId === getState().event?.id) || cards[1];
+    const others = cards.filter(node => node !== selected);
+    calendarNodes = [others[0], selected, others[1]].filter(Boolean);
+    editorNodes = [panels[1].querySelector('.studio-form'), panels[1].querySelector('.studio-live-card .event-card')];
+    recordNodes = [panels[2].querySelector('.network-source'), ...panels[2].querySelectorAll('.network-event')];
+    calendarRects = calendarNodes.map(rect); editorRects = editorNodes.map(rect); recordRects = recordNodes.map(rect);
+    layoutDirty = false; surfacesDirty = true;
   }
-  function paint(){
-    const ratio=Math.min(devicePixelRatio||1,1.65);
-    dayNodes.forEach((node,i)=>days[i].surface.update(node,ratio));
-    if(cardNode){card.surface.update(cardNode,ratio);paintedCard=cardNode;}
-    surfacesDirty=false;
+  function paint(phase) {
+    const ratio = Math.min(devicePixelRatio || 1, 1.65);
+    if (phase === 'entry' || phase === 'hero') dayNodes.forEach((node, i) => { days[i].face.material.map = days[i].surface.update(node, ratio); });
+    if (phase === 'calendar-editor') panels3d.forEach((panel, i) => {
+      panel.front.material.map = panel.source.update(calendarNodes[i], ratio);
+      panel.back.material.map = panel.destination.update(editorNodes[i === 0 ? 0 : 1], ratio);
+    });
+    if (phase === 'editor-records') panels3d.forEach((panel, i) => {
+      panel.front.material.map = panel.source.update(editorNodes[i === 0 ? 0 : 1], ratio);
+      panel.back.material.map = panel.destination.update(recordNodes[i], ratio);
+    });
+    texturePhase = phase; surfacesDirty = false;
   }
-  function phase(index){const m=metrics[index];return clamp((scrollY-m.top)/Math.max(1,m.height-height));}
-  function resize(){width=innerWidth;height=innerHeight;renderer.setPixelRatio(Math.min(devicePixelRatio||1,width<700?1.25:1.65));renderer.setSize(width,height,false);camera.aspect=width/height;camera.updateProjectionMatrix();layoutDirty=true;invalidate();}
-  function draw(time=0){
-    frame=0;if(disposed||lost||document.hidden)return;
-    const {paused}=getState(),reduced=media.matches||paused;
-    root.dataset.motionPaused=String(paused);
-    if(layoutDirty)measure();
-    const currentCard=editor.querySelector('.studio-live-card .event-card');
-    if(currentCard!==paintedCard){cardNode=currentCard;layoutDirty=true;measure();}
-    if(surfacesDirty)paint();
-    const p=phase(1),q=phase(2);
-    calendar.style.setProperty('--flight-progress',String(p));editor.style.setProperty('--flight-progress',String(q));
-    calendar.style.setProperty('--calendar-copy',String(smooth(.67,.94,p)));
-    editor.style.setProperty('--editor-copy',String(smooth(.52,.9,q)));
-    const calendarLive=reduced||width<760||p>=.999;
-    const editorLive=reduced||width<1000||height<690||q>=.999;
-    root.dataset.calendarLive=String(calendarLive);root.dataset.editorLive=String(editorLive);
-    panels[0].inert=!calendarLive;panels[1].inert=!editorLive;
-    let mode='none';
-    if(scrollY<metrics[0].top+metrics[0].height)mode='hero';
-    else if(!reduced&&width>=760&&!calendarLive&&scrollY<metrics[1].top+metrics[1].height)mode='calendar';
-    else if(!reduced&&width>=1000&&height>=690&&!editorLive&&scrollY>=metrics[2].top-height&&scrollY<metrics[2].top+metrics[2].height)mode='editor';
-    canvas.style.opacity=mode==='none'?'0':'1';root.dataset.camera=mode;
-    // Let the next scene enter with its section, without drawing over the calendar.
-    canvas.style.clipPath=mode==='editor'?`inset(${Math.max(0,metrics[2].top-scrollY)}px 0 0 0)`:'none';
-    const dt=Math.min(.05,(time-lastTime)/1000||.016);lastTime=time;
-    const damping=1-Math.exp(-dt*7),focus=root.contains(document.activeElement)&&document.activeElement?.matches('input,textarea,select,button');
-    eased.x+=((reduced||focus?0:pointer.x)-eased.x)*damping;eased.y+=((reduced||focus?0:pointer.y)-eased.y)*damping;
-    ribbons.visible=mode==='hero'||mode==='calendar';card.group.visible=mode==='editor'&&Boolean(cardTarget);
-    if(ribbons.visible){
-      const morph=mode==='calendar'?smooth(.08,.96,p):0;
-      ribbons.rotation.set(.12*(1-morph),-.18*(1-morph),-.19*(1-morph));
-      ribbons.position.set(0,-1.3*(1-morph),0);ribbons.scale.setScalar(width<760?.63:1);
-      for(const day of days){
-        day.morph(morph);day.mesh.material.opacity=1-smooth(.87,.99,p)*(mode==='calendar'?1:0);
-        day.face.material.opacity=mode==='calendar'?smooth(.23,.62,p):0;
+  const behindPreview = () => {
+    const r = editorRects[1];
+    return { left: r.left + r.width * .08, top: r.top + 14, width: r.width * .84, height: r.height * .94 };
+  };
+  function bridge(t, outgoing, incoming, kind) {
+    const gather = smooth(0, .43, t), spread = smooth(.43, 1, t);
+    const f = factor();
+    panels3d.forEach((panel, i) => {
+      const start = outgoing[i], end = incoming[i];
+      const midWidth = width * .24;
+      // Change proportions while the panel is edge-on, not while its text is readable.
+      const midHeight = midWidth * THREE.MathUtils.lerp(start.height / start.width, end.height / end.width, smooth(.45, .62, t));
+      const mid = { left: width * (.08 + i * .30), top: height * .52 - midHeight / 2, width: midWidth, height: midHeight };
+      const box = {};
+      for (const key of ['left', 'top', 'width', 'height']) {
+        box[key] = t < .43 ? THREE.MathUtils.lerp(start[key], mid[key], gather) : THREE.MathUtils.lerp(mid[key], end[key], spread);
       }
-      const travel=mode==='calendar'?Math.sin(p*Math.PI):0,parallax=1-morph;
-      camera.position.set(eased.x*.45*parallax+travel*1.8,eased.y*.3*parallax+travel*.6,mode==='hero'?(width<760?13:FINAL_DISTANCE):FINAL_DISTANCE-travel*4);
-      camera.lookAt(mode==='calendar'?(.5*parallax*smooth(0,.3,p)):0,-.1*parallax,0);
-    }
-    if(card.group.visible){
-      const move=smooth(.05,.97,q),explode=Math.sin(q*Math.PI);
-      const aspect=cardTarget.height/cardTarget.width;
-      card.group.position.set(THREE.MathUtils.lerp(-2,cardTarget.x,move),THREE.MathUtils.lerp(.1,cardTarget.y,move),-.0105);
-      card.group.rotation.set(.12*(1-move),-.75*(1-move),-.16*(1-move));
-      card.group.scale.set(THREE.MathUtils.lerp(4.1,cardTarget.width,move),THREE.MathUtils.lerp(4.1*aspect,cardTarget.height,move),1);
-      for(let i=0;i<3;i++){card.group.children[i].position.z=-i*(.08+explode*.65);card.materials[i].opacity=1-smooth(.86,.98,q);}
-      camera.position.set(1.3*(1-move),.3*(1-move),THREE.MathUtils.lerp(10.5,FINAL_DISTANCE,move));camera.lookAt(0,0,0);
-    }
-    if(mode!=='none')renderer.render(scene,camera);
-    const settling=Math.abs(eased.x-(reduced||focus?0:pointer.x))+Math.abs(eased.y-(reduced||focus?0:pointer.y))>.002;
-    if(mode!=='none'&&!reduced&&settling)frame=requestAnimationFrame(draw);
+      const turn = smooth(.34 + i * .025, .68 + i * .025, t);
+      const arc = Math.sin(t * Math.PI);
+      panel.group.position.set((box.left + box.width / 2 - width / 2) * f,
+        (height / 2 - box.top - box.height / 2) * f + Math.sin(i * 1.9) * arc * .28,
+        -.001 + arc * (i === 1 ? .35 : -.18));
+      panel.group.scale.set(box.width * f, box.height * f, 1);
+      panel.group.rotation.set(arc * (i - 1) * .1, Math.PI * turn, arc * (i - 1) * -.075);
+      const opacity = i !== 2 ? 1 : kind === 'calendar-editor' ? 1 - smooth(.68, .96, t) : smooth(0, .2, t);
+      panel.front.material.opacity = opacity; panel.back.material.opacity = opacity;
+      panel.group.visible = true;
+    });
+    camera.position.set(Math.sin(t * Math.PI) * .45, 0, FINAL_DISTANCE - Math.sin(t * Math.PI) * .35);
+    camera.lookAt(0, 0, 0);
   }
-  function invalidate(){if(!disposed&&!lost&&!frame&&!document.hidden)frame=requestAnimationFrame(draw);}
-  function refresh(){layoutDirty=true;surfacesDirty=true;invalidate();}
-  function onPointer(event){pointer.x=(event.clientX/width-.5)*2;pointer.y=(.5-event.clientY/height)*2;invalidate();}
-  function onVisibility(){if(document.hidden){cancelAnimationFrame(frame);frame=0;}else invalidate();}
-  function onLost(event){event.preventDefault();lost=true;cancelAnimationFrame(frame);frame=0;root.dataset.world='fallback';panels.forEach(panel=>{panel.inert=false;});}
-  window.addEventListener('scroll',invalidate,{passive:true});window.addEventListener('resize',resize);window.addEventListener('pointermove',onPointer,{passive:true});
-  document.addEventListener('visibilitychange',onVisibility);media.addEventListener('change',refresh);canvas.addEventListener('webglcontextlost',onLost);
-  root.dataset.world='ready';resize();
-  const observer=new ResizeObserver(refresh);observer.observe(root);panels.forEach(panel=>observer.observe(panel));
-  document.fonts?.ready.then(()=>{if(!disposed)refresh();});
-  return {invalidate:refresh,dispose(){
-    disposed=true;cancelAnimationFrame(frame);observer.disconnect();
-    window.removeEventListener('scroll',invalidate);window.removeEventListener('resize',resize);window.removeEventListener('pointermove',onPointer);
-    document.removeEventListener('visibilitychange',onVisibility);media.removeEventListener('change',refresh);canvas.removeEventListener('webglcontextlost',onLost);
-    const geometries=new Set(),materials=new Set(),textures=new Set();
-    scene.traverse(object=>{if(object.geometry)geometries.add(object.geometry);if(object.material)for(const material of [object.material].flat()){materials.add(material);if(material.map)textures.add(material.map);}});
-    geometries.forEach(geometry=>geometry.dispose());textures.forEach(texture=>texture.dispose());materials.forEach(material=>material.dispose());renderer.dispose();panels.forEach(panel=>{panel.inert=false;});
-  }};
+  function resize() {
+    width = innerWidth; height = innerHeight;
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, width < 700 ? 1.25 : 1.65));
+    renderer.setSize(width, height, false); camera.aspect = width / height; camera.updateProjectionMatrix();
+    layoutDirty = true; invalidate();
+  }
+  function draw(time = 0) {
+    frame = 0; if (disposed || lost || document.hidden) return;
+    const { paused } = getState(), reduced = media.matches || paused;
+    root.dataset.motionPaused = String(paused);
+    const active = !reduced && width >= 1000 && height >= 690;
+    if (active !== enhanced) {
+      enhanced = active; root.dataset.storyReady = String(active); layoutDirty = true;
+    }
+    if (layoutDirty) measure();
+    const s = (scrollY - storyTop) / height;
+    let mode = 'none';
+    if (scrollY < hero.getBoundingClientRect().bottom + scrollY) mode = 'hero';
+    else if (enhanced && s < STORY.calendarIn) mode = 'entry';
+    else if (enhanced && s > STORY.calendarOut && s < STORY.editorIn) mode = 'calendar-editor';
+    else if (enhanced && s > STORY.editorOut && s < STORY.recordsIn) mode = 'editor-records';
+    const calendarLive = !enhanced || s >= STORY.calendarIn && s <= STORY.calendarOut;
+    const editorLive = !enhanced || s >= STORY.editorIn && s <= STORY.editorOut;
+    const recordsLive = !enhanced || s >= STORY.recordsIn;
+    root.dataset.calendarLive = String(calendarLive); root.dataset.editorLive = String(editorLive); root.dataset.recordsLive = String(recordsLive);
+    root.dataset.calendarMotion = mode === 'entry' || mode === 'hero' ? 'entry' : mode === 'calendar-editor' ? 'exit' : 'idle';
+    const live = [calendarLive, editorLive, recordsLive];
+    const show = [!enhanced || s < STORY.editorIn, !enhanced || s >= STORY.calendarOut && s < STORY.recordsIn, !enhanced || s >= STORY.editorOut];
+    flights.forEach((node, i) => { node.style.visibility = show[i] ? 'visible' : 'hidden'; panels[i].inert = !live[i]; });
+    const p = progress(0, STORY.calendarIn, s);
+    const ce = progress(STORY.calendarOut, STORY.editorIn, s);
+    const er = progress(STORY.editorOut, STORY.recordsIn, s);
+    story.style.setProperty('--calendar-copy', String(smooth(.91, .99, p) * (1 - smooth(0, .2, ce))));
+    story.style.setProperty('--calendar-shell', String(1 - smooth(0, .28, ce)));
+    story.style.setProperty('--editor-copy', String(smooth(.83, .99, ce) * (1 - smooth(0, .2, er))));
+    story.style.setProperty('--records-copy', String(smooth(.83, .99, er)));
+    const wipe = (from, to, value) => {
+      if (value <= 0) return from;
+      if (value >= 1) return to;
+      const edge = value * 140 - 20;
+      return 'linear-gradient(115deg,' + to + ' ' + edge + '%,' + from + ' ' + (edge + .1) + '%)'; // taste-skill-ignore: a moving hard edge between two flat fields, without a colour blend.
+    };
+    story.style.setProperty('--story-paper', er > 0 ? wipe('#1c211b', '#d8e1c7', smooth(.12, .8, er)) : wipe('#f4f4ef', '#1c211b', smooth(.12, .8, ce)));
+
+    const dt = Math.min(.05, (time - lastTime) / 1000 || .016); lastTime = time;
+    const damping = 1 - Math.exp(-dt * 7);
+    eased.x += ((reduced ? 0 : pointer.x) - eased.x) * damping;
+    eased.y += ((reduced ? 0 : pointer.y) - eased.y) * damping;
+    ribbons.visible = mode === 'hero' || mode === 'entry';
+    panels3d.forEach(panel => { panel.group.visible = false; });
+    if (mode !== 'none' && (surfacesDirty || texturePhase !== mode)) paint(mode);
+    if (ribbons.visible) {
+      const morph = mode === 'entry' ? smooth(.45, .94, p) : 0;
+      const travel = mode === 'entry' ? Math.sin(Math.PI * p) : 0;
+      // Travel along the ribbons before landing them; the print arrives only once flat.
+      const forward = mode === 'entry' ? smooth(0, .62, p) * (1 - morph) : 0;
+      ribbons.position.set(-8 * forward, -1.3 * (1 - morph) + travel * .6, -3 * forward);
+      ribbons.rotation.set(.12 * (1 - morph), (-.18 + travel * .28) * (1 - morph), -.19 * (1 - morph));
+      ribbons.scale.setScalar(width < 760 ? .63 : 1);
+      days.forEach(day => {
+        day.morph(morph);
+        day.face.material.opacity = mode === 'entry' ? smooth(.945, .985, p) : 0;
+        day.mesh.material.opacity = mode === 'entry' ? 1 - smooth(.945, .985, p) : 1;
+      });
+      camera.position.set(eased.x * .45 * (1 - morph) - travel * 1.8, eased.y * .3 * (1 - morph) + travel * .6,
+        (width < 760 ? 13 : FINAL_DISTANCE) - travel * 3.5);
+      camera.lookAt(-3 * forward, -.1 * (1 - morph), 0);
+    }
+    if (mode === 'calendar-editor') bridge(ce, calendarRects, [editorRects[0], editorRects[1], behindPreview()], mode);
+    if (mode === 'editor-records') bridge(er, [editorRects[0], editorRects[1], behindPreview()], recordRects, mode);
+    canvas.style.opacity = mode === 'none' ? '0' : '1'; root.dataset.camera = mode;
+    canvas.style.clipPath = 'none';
+    if (mode !== 'none') renderer.render(scene, camera);
+    const settling = Math.abs(eased.x - (reduced ? 0 : pointer.x)) + Math.abs(eased.y - (reduced ? 0 : pointer.y)) > .002;
+    if (mode === 'hero' && !reduced && settling) frame = requestAnimationFrame(draw);
+  }
+  function invalidate() { if (!disposed && !lost && !frame && !document.hidden) frame = requestAnimationFrame(draw); }
+  function refresh() { layoutDirty = true; surfacesDirty = true; invalidate(); }
+  function onPointer(event) { pointer.x = (event.clientX / width - .5) * 2; pointer.y = (.5 - event.clientY / height) * 2; invalidate(); }
+  function onVisibility() { if (document.hidden) { cancelAnimationFrame(frame); frame = 0; } else invalidate(); }
+  function restorePanels() {
+    root.dataset.storyReady = 'false';
+    flights.forEach(node => { node.style.visibility = ''; });
+    panels.forEach(panel => { panel.inert = false; });
+  }
+  function onLost(event) { event.preventDefault(); lost = true; cancelAnimationFrame(frame); frame = 0; root.dataset.world = 'fallback'; restorePanels(); }
+  window.addEventListener('scroll', invalidate, { passive: true }); window.addEventListener('resize', resize); window.addEventListener('pointermove', onPointer, { passive: true });
+  root.addEventListener('input', refresh); root.addEventListener('click', refresh);
+  document.addEventListener('visibilitychange', onVisibility); media.addEventListener('change', refresh); canvas.addEventListener('webglcontextlost', onLost);
+  root.dataset.world = 'ready'; resize();
+  const observer = new ResizeObserver(refresh); observer.observe(root); panels.forEach(panel => observer.observe(panel));
+  document.fonts?.ready.then(() => { if (!disposed) refresh(); });
+  return { invalidate: refresh, dispose() {
+    disposed = true; cancelAnimationFrame(frame); observer.disconnect();
+    window.removeEventListener('scroll', invalidate); window.removeEventListener('resize', resize); window.removeEventListener('pointermove', onPointer);
+    root.removeEventListener('input', refresh); root.removeEventListener('click', refresh);
+    document.removeEventListener('visibilitychange', onVisibility); media.removeEventListener('change', refresh); canvas.removeEventListener('webglcontextlost', onLost);
+    const geometries = new Set(), materials = new Set(), textures = new Set();
+    scene.traverse(object => {
+      if (object.geometry) geometries.add(object.geometry);
+      for (const material of object.material ? [object.material].flat() : []) { materials.add(material); if (material.map) textures.add(material.map); }
+    });
+    geometries.forEach(geometry => geometry.dispose()); textures.forEach(texture => texture.dispose()); materials.forEach(material => material.dispose()); renderer.dispose(); restorePanels();
+  } };
 }

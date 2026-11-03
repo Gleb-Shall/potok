@@ -56,6 +56,18 @@ export function paintSurface(element, canvas, pixelRatio = 1.5) {
     }
     ctx.restore();
   }
+  function paintInput(node, style, rect) {
+    if (node.matches('input[type=radio],input[type=checkbox],input[type=password],input[type=hidden]')) return;
+    const text = node.tagName === 'SELECT' ? node.selectedOptions[0]?.textContent : node.value;
+    if (!text) return;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(rect.x, rect.y, rect.width, rect.height); ctx.clip();
+    ctx.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+    ctx.fillStyle = style.color; ctx.textBaseline = 'middle';
+    const left = parseFloat(style.paddingLeft) + parseFloat(style.borderLeftWidth);
+    ctx.fillText(text, rect.x + left, rect.y + rect.height / 2);
+    ctx.restore();
+  }
   function visit(node) {
     if (node.nodeType === Node.TEXT_NODE) { paintText(node, getComputedStyle(node.parentElement)); return; }
     if (node.nodeType !== Node.ELEMENT_NODE || node.classList.contains('sr-only')) return;
@@ -84,7 +96,8 @@ export function paintSurface(element, canvas, pixelRatio = 1.5) {
     if (node === element || style.overflow === 'hidden' || style.overflow === 'clip') {
       ctx.beginPath(); ctx.roundRect(rect.x, rect.y, rect.width, rect.height, radius); ctx.clip();
     }
-    if (node.tagName.toLowerCase() === 'svg') paintSvg(node, style, rect);
+    if (node.matches('input,textarea,select')) paintInput(node, style, rect);
+    else if (node.tagName.toLowerCase() === 'svg') paintSvg(node, style, rect);
     else for (const child of node.childNodes) visit(child);
     ctx.restore();
   }
