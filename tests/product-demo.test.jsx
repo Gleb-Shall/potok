@@ -4,6 +4,7 @@ import { act } from 'preact/test-utils';
 import { ProductDemo } from '../src/components/landing/ProductDemo.jsx';
 import { EventStudio } from '../src/components/landing/EventStudio.jsx';
 import { RecordNetwork } from '../src/components/landing/RecordNetwork.jsx';
+import { Landing } from '../src/components/Landing.jsx';
 
 let root;
 const mount = async component => act(() => render(component,root));
@@ -67,4 +68,19 @@ it('inherits one shared name and actual link address into both connected cards',
   const links=[...root.querySelectorAll('.network-inherited-link')];
   expect(links[0].href).not.toBe(first);
   expect(links[0].href).toBe(links[1].href);
+});
+it('edits the moved calendar event without duplicating it or undoing its move', async () => {
+  await mount(<Landing navigate={()=>{}}/>);
+  const days=[...root.querySelectorAll('[data-demo-day]')];
+  await click(root.querySelector('[aria-label="Перенести «Занятие с Анной» на следующий день примера"]'));
+  await fill(input('Название'),'Новая тема');
+  await fill(input('Минут'),'90');
+  await act(()=>root.querySelector('.studio-form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+  expect(root.querySelector('.studio-error')).toBeNull();
+  expect(root.querySelectorAll('[data-card-id]')).toHaveLength(3);
+  expect(days[2].querySelector('[data-card-id="lesson"]').textContent).toContain('Новая тема');
+  expect(days[2].querySelector('[data-card-id="lesson"]').textContent).toContain('15:00–16:30');
+  expect(days[1].querySelector('.ghost-card')).not.toBeNull();
+  await click(days[1].querySelector('.ghost-card'));
+  expect(days[1].querySelector('[data-card-id="lesson"]').textContent).toContain('Новая тема');
 });

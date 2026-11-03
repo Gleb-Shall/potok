@@ -14,6 +14,7 @@ import './fonts.css';
 import './design-system.css';
 import './landing-experiment.css';
 import './landing-journey.css';
+import './landing-spatial.css';
 
 class AppBoundary extends Component {
   state = { error: null };

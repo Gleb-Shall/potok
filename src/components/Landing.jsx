@@ -1,40 +1,68 @@
-import { useState } from 'preact/hooks';
+import { useRef, useState } from 'preact/hooks';
 import { Brand } from './Brand.jsx';
 import { Icon } from './Icon.jsx';
-import { ThemeControl } from './ThemeControl.jsx';
-import { ProductDemo } from './landing/ProductDemo.jsx';
+import { ProductDemo, landingData } from './landing/ProductDemo.jsx';
 import { EventStudio } from './landing/EventStudio.jsx';
 import { RecordNetwork } from './landing/RecordNetwork.jsx';
-import { Atmosphere } from './landing/Atmosphere.jsx';
-import { FlipBoard } from './FlipBoard.jsx';
-import { useMotionVisibility } from '../hooks/useMotionVisibility.js';
-import { useLandingScenes } from '../hooks/useLandingScenes.js';
+import { LandingWorld } from './landing/world/LandingWorld.jsx';
+import { saveEvent } from '../lib/events.js';
 
-const QUESTIONS = [
-  ['Можно попробовать без входа?','Да. Все примеры на этой странице работают без аккаунта. Полную демоверсию можно открыть отдельно. Личное расписание они не меняют.'],
-  ['А с телефона это работает?','Да. Войди через Google на телефоне и компьютере — расписание будет общим. В примере дни можно листать, а карточку переносить кнопкой со стрелкой.'],
-  ['Что будет с прошлыми занятиями?','Их можно оставить в истории и отметить проведёнными. Завершение повторов сохраняет прошлые встречи; полное удаление — отдельное действие.'],
-  ['Можно сделать свои карточки?','Да. В шаблоне события настраиваются поля, цвет и видимость сведений. Постоянные данные людей, предметов и проектов хранятся в связанных записях.'],
-];
-export function Landing({navigate}) {
+function RibbonPoster() {
+  return <svg class="flow-poster" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><g fill="none" stroke="#ff602c" strokeWidth="100"><path d="M-180 250C260 -100 430 1030 920 650S1330 0 1620 210"/><path d="M-160 425C290 45 500 1160 1010 780S1480 120 1700 360"/><path d="M-150 70C240 -280 360 850 840 480S1250 -180 1520 30"/></g></svg>;
+}
+
+export function Landing({ navigate }) {
+  const root=useRef(null);
+  const [data,setData]=useState(landingData);
+  const [selectedId,setSelectedId]=useState('lesson');
+  const [selectionVersion,setSelectionVersion]=useState(0);
   const [paused,setPaused]=useState(false);
-  const [background,setBackground]=useState('ribbons');
-  const board=useMotionVisibility();
-  const journey=useLandingScenes();
+  const [preview,setPreview]=useState(null);
+  const selected=data.events.find(event=>event.id===selectedId)||data.events[1];
   const go=path=>event=>{if(event.button||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;event.preventDefault();navigate(path);};
-  return <div ref={journey} class={`potok-home home-experiment landing-journey ${paused?'ambient-paused':''}`}>
-    <div class="journey-progress" aria-hidden="true"/>
-    <a class="skip-link" href="#landing-main">К содержимому</a>
-    <header class="home-nav"><Brand/><nav aria-label="О приложении"><a href="#calendar">Попробовать</a><a href="#editor">Карточки</a><a href="#connections">Как устроено</a></nav><div><ThemeControl/><a class="home-login" href="/app" onClick={go('/app')}>Войти <Icon name="right"/></a></div></header>
-    <main id="landing-main"><section class="home-opening"><Atmosphere paused={paused} variant={background}/><div class="hero-core"><h1><span>Планы меняются.</span><span>Поток остаётся.</span></h1><p>Занятия, встречи и время для себя.<br/>Планируй день и меняй его на ходу.</p><div class="hero-actions"><a class="home-primary" href="/app" onClick={go('/app')}>Создать своё расписание <Icon name="arrow"/></a><a class="home-secondary" href="/demo" onClick={go('/demo')}>Открыть полную демоверсию</a></div></div>
-      <div class="hero-bottom"><a class="hero-scroll-cue" href="#calendar"><span>Попробуй ниже</span><i><Icon name="down"/></i></a><div class="hero-background-controls" role="group" aria-label="Фон первого экрана">{[['ribbons','Ленты'],['contours','Контуры']].map(([id,label])=><button key={id} aria-pressed={background===id} onClick={()=>setBackground(id)}>{label}</button>)}<button onClick={()=>setPaused(!paused)} aria-pressed={paused} aria-label={paused?'Продолжить анимацию фона':'Остановить анимацию фона'}><Icon name={paused?'play':'pause'}/></button></div></div>
-    </section>
-    <section class="calendar-chapter" id="calendar"><div class="calendar-chapter-heading"><h2 data-reveal>Переноси встречи.</h2><p data-reveal data-reveal-delay="90">Перетащи встречу в другой день.<br/>Верни назад — перенос отменится.</p></div><div class="calendar-scroll-stage" data-scroll-stage="calendar"><ProductDemo/></div></section>
-    <EventStudio/>
-    <RecordNetwork/>
-    <section class={`board-experiment motion-scene ${board.active?'scene-active':''}`} ref={board.ref}><div class="board-scenery" aria-hidden="true"><span/><span/><span/><i/></div><h2 data-reveal>Твой день.<br/>Твоими буквами.</h2><div class="board-scroll-stage" data-scroll-stage="board"><FlipBoard allowCustom/></div></section>
-    <section class="experiment-faq" id="questions"><div><h2>Что ещё<br/>нужно знать</h2><span class="faq-orbit" aria-hidden="true"><Icon name="info"/><i/><i/></span></div><div>{QUESTIONS.map(([question,answer])=><details key={question}><summary>{question}<span><Icon name="plus"/></span></summary><p>{answer}</p></details>)}</div></section>
-    <section class="experiment-close"><svg viewBox="0 0 1440 300" preserveAspectRatio="none" aria-hidden="true"><path d="M-100 250C200 -100 350 450 720 130S1200 -60 1540 200"/><path d="M-100 270C200 -80 350 470 720 150S1200 -40 1540 220"/></svg><h2>А дальше —<br/>твой день.</h2><div><a class="home-primary" href="/app" onClick={go('/app')}>Открыть Поток <Icon name="arrow"/></a><a class="home-secondary" href="/demo" onClick={go('/demo')}>Ещё немного поиграть в демо</a></div><p>Вход через Google. Твои планы доступны только тебе.</p></section>
-    </main><footer class="home-footer"><Brand/><span>Календарь, записи и время.</span><a href="#landing-main">К началу <Icon name="arrow"/></a></footer>
+  const anchor=id=>event=>{
+    if(event.button||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
+    const target=root.current.querySelector(`#${id}`);
+    const flight=target?.closest('[data-flight]');
+    if(!target)return;
+    event.preventDefault();
+    const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const sticky=flight&&getComputedStyle(flight.querySelector('.flow-sticky-stage')).position==='sticky';
+    const destination=sticky&&root.current.dataset.world==='ready'&&!reduced?flight.offsetTop+Math.max(0,flight.offsetHeight-window.innerHeight):target.getBoundingClientRect().top+window.scrollY;
+    history.replaceState({},'',`#${id}`);
+    window.scrollTo({top:destination,behavior:'auto'});
+    target.focus({preventScroll:true});
+  };
+  const apply=({event,types})=>setData(current=>saveEvent({...current,types},{values:event,original:current.events.find(item=>item.id===event.id),scope:'one',repeat:null}));
+  return <div class="flow-landing" ref={root} data-world="pending">
+    <LandingWorld root={root} paused={paused} event={preview||selected}/>
+    <a class="skip-link" href="#calendar" onClick={anchor('calendar')}>Перейти к календарю</a>
+    <header class="flow-nav"><Brand/><nav aria-label="О Потоке"><a href="#calendar" onClick={anchor('calendar')}>Календарь</a><a href="#editor" onClick={anchor('editor')}>Карточки</a></nav><a class="flow-nav-open" href="/app" onClick={go('/app')}>Открыть Поток <Icon name="right"/></a></header>
+    <main>
+      <section class="flow-hero" id="landing-main" aria-label="Поток — личный календарь">
+        <RibbonPoster/>
+        <div class="flow-hero-copy"><h1>ПОТОК</h1><p>Личный календарь событий<br/>и связанных записей.</p><a class="flow-primary" href="/app" onClick={go('/app')}>Открыть Поток <Icon name="arrow"/></a></div>
+        <div class="flow-hero-bottom"><a href="#calendar" onClick={anchor('calendar')}>Планы можно двигать <Icon name="down"/></a><button aria-label={paused?'Продолжить движение':'Остановить движение'} aria-pressed={paused} onClick={()=>setPaused(value=>!value)}><Icon name={paused?'play':'pause'}/></button></div>
+      </section>
+      <section class="flow-flight flow-calendar-flight" data-flight="calendar" aria-label="Переход к календарю">
+        <div class="flow-sticky-stage"><div class="flow-flight-caption" aria-hidden="true"><span>Всё на своих местах.</span><span>Пока ты не решишь иначе.</span></div>
+          <div class="flow-calendar-panel flow-content" data-flight-panel id="calendar" tabIndex={-1}>
+            <div class="flow-section-heading"><h2>Планы можно <br/>двигать.</h2><p>Перенеси карточку в другой день.<br/>Верни обратно — перенос отменится.</p></div>
+            <ProductDemo data={data} onChange={setData} onMove={id=>{setSelectedId(id);setSelectionVersion(value=>value+1);setPreview(null);}}/>
+            <a class="flow-next" href="#editor" onClick={anchor('editor')}>А теперь — своя карточка <Icon name="arrow"/></a>
+          </div>
+        </div>
+      </section>
+      <section class="flow-flight flow-editor-flight" data-flight="editor" aria-label="Карточка крупным планом">
+        <div class="flow-sticky-stage"><div class="flow-flight-caption flow-card-caption" aria-hidden="true"><span>Внутри —</span><span>только нужное.</span></div>
+          <div class="flow-editor-panel flow-content" data-flight-panel id="editor" tabIndex={-1}>
+            <EventStudio key={`${selected.id}:${selectionVersion}`} data={data} selectedEvent={selected} onApply={apply} onPreview={setPreview}/>
+          </div>
+        </div>
+      </section>
+      <div class="flow-connections flow-content"><RecordNetwork/></div>
+      <section class="flow-close flow-content"><div><h2>Освободи место<br/>для своих планов.</h2><a class="flow-primary" href="/app" onClick={go('/app')}>Открыть Поток <Icon name="arrow"/></a><a class="flow-demo-link" href="/demo" onClick={go('/demo')}>Открыть полную демоверсию <Icon name="right"/></a></div><div class="flow-close-object" aria-hidden="true"><span/><span/><span/></div></section>
+    </main>
+    <footer class="flow-footer flow-content"><span class="flow-footer-name">ПОТОК</span><div><span>События, записи и время.</span><a href="#landing-main">К началу <Icon name="down"/></a></div></footer>
   </div>;
 }

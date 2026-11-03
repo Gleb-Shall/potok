@@ -6,15 +6,17 @@ import { landingData } from './demo-data.js';
 export { landingData } from './demo-data.js';
 
 // FLIP runs only after a deliberate move; the rest of the page has no layout loop.
-export function ProductDemo() {
-  const [data, setData] = useState(landingData);
+export function ProductDemo({ data: providedData, onChange, onMove } = {}) {
+  const [localData, setLocalData] = useState(landingData);
+  const data = providedData || localData;
+  const setData = onChange || setLocalData;
   const [dragging, setDragging] = useState('');
   const [over, setOver] = useState('');
   const [message, setMessage] = useState('Переноси карточки между тремя днями. На телефоне используй стрелку в карточке.');
   const surface = useRef(null);
   const positions = useRef(new Map());
   const interaction = useRef(null);
-  const start = data.events[0].anchorDate;
+  const start = useRef(data.events[0].anchorDate).current;
   const days = [start, addDays(start,1), addDays(start,2)];
   const projection = projectWeek(data,start,3);
 
@@ -48,6 +50,7 @@ export function ProductDemo() {
     try {
       const returning = date === event.anchorDate;
       setData(returning ? restoreMove(data,event) : saveMove(data,event,date,event.start));
+      onMove?.(id);
       setMessage(returning ? 'Карточка вернулась. Перенос отменён.' : `${event.title} — ${['Понедельник','Вторник','Среда'][days.indexOf(date)]}.`);
     } catch (error) { positions.current.clear(); interaction.current=null; setMessage(error.message); }
   };

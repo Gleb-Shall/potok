@@ -47,7 +47,7 @@ describe('separate public and personal entry points', () => {
   });
   it('warms the saved session on the landing without starting Google sign-in', async () => {
     await act(() => render(<Site/>, root));
-    expect(root.textContent).toContain('Планы меняются.');
+    expect(root.querySelector('h1').textContent).toBe('ПОТОК');
     expect(connectFirebase).toHaveBeenCalledOnce();
     expect(connection.signIn).not.toHaveBeenCalled();
     const demo = [...root.querySelectorAll('a')].find(link => link.textContent.includes('Открыть полную демоверсию'));
@@ -87,6 +87,7 @@ describe('separate public and personal entry points', () => {
 
   it('restores a saved theme and persists the visible theme switch', async () => {
     localStorage.setItem('potok:theme', 'dark');
+    history.replaceState({}, '', '/demo');
     await act(() => render(<Site/>, root));
     expect(document.documentElement.classList.contains('dark')).toBe(true);
     const toggle = root.querySelector('.theme-toggle');

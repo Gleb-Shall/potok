@@ -13,14 +13,16 @@ const PRESETS = {
   class:{ label:'Учёба', title:'Линейная алгебра', color:'blue', recordId:'course', room:'Аудитория 204' },
   personal:{ label:'Для себя', title:'Прогулка у воды', color:'green', location:'Набережная' },
 };
-function initial() {
+function initial(event) {
   const data = landingData();
+  if (event) return { ...PRESETS[event.typeId], ...event, ...event.fields, start: minutesToTime(event.start), end: minutesToTime(event.start + event.duration), showTopic:true, showCall:true };
   return { ...PRESETS.lesson, typeId:'lesson', date:data.events[1].date, start:'15:00', duration:60, end:'16:00', showTopic:true, showCall:true };
 }
 
-export function EventStudio() {
-  const [base] = useState(() => ({...landingData(),events:[]}));
-  const [values,setValues] = useState(initial);
+export function EventStudio({ data: providedData, selectedEvent, onApply, onPreview } = {}) {
+  const [localBase] = useState(() => ({...landingData(),events:[]}));
+  const base = providedData || localBase;
+  const [values,setValues] = useState(() => initial(selectedEvent));
   const [saved,setSaved] = useState(false);
   const [error,setError] = useState('');
   const timer = useRef(null);
@@ -31,13 +33,15 @@ export function EventStudio() {
   const data = {...base,types};
   let start=900;
   try { start=timeToMinutes(values.start); } catch { /* Keep incomplete input editable. */ }
-  const event = { id:'studio', typeId:values.typeId, title:values.title, date:values.date, start, duration:Number(values.duration)||60, color:values.color, recordId:values.recordId, studentId:values.studentId, status:'planned', busy:true, fields:{ topic:values.topic||'', room:values.room||'', location:values.location||'', call:values.showCall?'https://example.com/call':'' } };
+  const event = { ...selectedEvent, id:selectedEvent?.id || 'studio', typeId:values.typeId, title:values.title, date:values.date, start, duration:Number(values.duration)||60, color:values.color, recordId:values.recordId, studentId:values.studentId, status:'planned', busy:true, fields:{ ...selectedEvent?.fields, topic:values.topic||'', room:values.room||'', location:values.location||'', call:values.showCall?'https://example.com/call':'' } };
+  useEffect(() => { onPreview?.(event); }, [values]);
   const detailKey = values.typeId==='lesson'?'topic':values.typeId==='class'?'room':'location';
   const detailLabel = values.typeId==='lesson'?'Тема встречи':values.typeId==='class'?'Аудитория':'Место';
   const submit = input => {
     input.preventDefault();
     try {
-      saveEvent(base,{values:{...event,start:timeToMinutes(values.start),duration:Number(values.duration)},scope:'one',repeat:null});
+      saveEvent(base,{values:{...event,start:timeToMinutes(values.start),duration:Number(values.duration)},original:selectedEvent || null,scope:'one',repeat:null});
+      onApply?.({ event:{...event,start:timeToMinutes(values.start)}, types });
       setSaved(true); setError(''); clearTimeout(timer.current); timer.current=setTimeout(() => setSaved(false),2400);
     } catch (failure) { setError(failure.message); }
   };
