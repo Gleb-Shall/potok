@@ -50,7 +50,6 @@
 .layout .day-header > span { color:var(--muted); font-size:13px; }
 .layout .day-header > div { display:flex; align-items:center; gap:8px; margin-top:5px; }
 .layout .day-header strong { font-size:30px; line-height:1; font-weight:450; letter-spacing:-1px; color:var(--ink); }
-.day-event-count { margin-left:auto; font-size:12px; color:var(--muted); font-weight:400; }
 .layout .is-today .day-header { border-bottom:1px solid var(--line); background:#fff; } /* taste-skill-ignore: the working calendar uses boundaries between real date columns and controls. */
 .layout .is-today .day-header strong { color:var(--accent); }
 .layout .today-tag { font-size:11px; color:var(--accent); background:transparent; padding:0; }
@@ -87,7 +86,6 @@
 .layout .pending-panel.is-empty { display:none; }
 .layout .pending-panel { border-color:var(--line); background:#fff; border-radius:12px; }
 .layout .page-footer { padding-top:18px; color:var(--muted); font-size:12px; }
-.agenda-heading { display:none; }
 .touch-move-picker { border-radius:18px; color:var(--ink); }
 .touch-move-picker h2 { font-size:27px; letter-spacing:-.5px; font-weight:500; }
 .touch-move-days button.is-source { background:#eef0e8; }
@@ -129,10 +127,6 @@
  .layout .mobile-day.selected > :is(span,strong) { color:#fff; }
  .layout .mobile-day.selected > i.has-events { background:#ff9d70; }
  .layout .mobile-day.is-current-day:not(.selected) strong { color:var(--accent); }
- .layout .agenda-heading { display:flex; align-items:center; justify-content:space-between; padding:14px 0 16px; }
- .agenda-heading h3 { margin:0; font-size:21px; font-weight:500; line-height:1.2; }
- .agenda-heading > div > span { display:block; font-size:13px; color:var(--muted); margin-top:5px; }
- .layout .agenda-heading .icon-button { background:#e9ece2; border:0; width:42px; }
  .layout .calendar-scroll { overflow:visible; }
  .layout .calendar-scroll .calendar-grid { display:block; min-width:0; min-height:0; border:0; }
  .layout .calendar-scroll .day-column { display:none; border:0; background:transparent; }
@@ -159,7 +153,7 @@
 .appearance-panel { max-width:820px; padding:30px; background:#fff; border-radius:12px; }
 .appearance-intro { max-width:580px; margin-bottom:25px; }
 .appearance-intro h2 { font-size:24px; font-weight:500; margin:0 0 10px; }
-.appearance-intro p,.appearance-note,.appearance-theme p { font-size:15px; line-height:1.6; color:var(--muted); }
+.appearance-intro p,.appearance-note { font-size:15px; line-height:1.6; color:var(--muted); }
 .quality-options { display:grid; gap:12px; padding:0; margin:0; border:0; }
 .quality-options label { display:flex; align-items:center; gap:14px; padding:18px; background:#f5f6f1; border-radius:9px; cursor:pointer; }
 .quality-options label.selected { background:#e8eddf; outline:1px solid #a7b595; outline-offset:-1px; }
@@ -169,9 +163,8 @@
 .quality-options small { display:block; font-size:14px; line-height:1.5; color:var(--muted); margin-top:4px; }
 .quality-recommendation { font-size:12px; color:#526144; white-space:nowrap; }
 .appearance-note { font-size:13px; margin:18px 0 28px; }
-.appearance-theme { margin-top:26px; }
-.appearance-theme h3 { font-size:19px; font-weight:500; margin:0; }
-.appearance-theme p { margin:6px 0 0; }
 @media (max-width:760px) { .appearance-panel { padding:22px 18px; } .appearance-intro h2 { font-size:22px; } .quality-options label { padding:16px 12px; align-items:flex-start; flex-wrap:wrap; gap:10px; } .quality-options input { margin-top:4px; } .quality-recommendation { margin-left:28px; margin-top:-5px; } .quality-options label > span:first-of-type { flex-basis:calc(100% - 40px); } }
 
 .touch-move-picker .touch-move-pending { width:100%; margin-top:12px; background:#f0f2ea; color:#5e6952; font-size:14px; min-height:44px; }
+
+@media (max-width:760px) { .layout .calendar-scroll .add-slot { display:none; } .layout .mobile-days { padding-bottom:18px; } }
