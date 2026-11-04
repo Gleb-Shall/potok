@@ -398,3 +398,7 @@
 /* Landed ribbon surfaces hand control to the live cards before the next scene. */
 .flow-landing { color-scheme:light; }
 .flow-landing[data-story-ready=true][data-calendar-motion=entry][data-calendar-landed=true] .toy-grid { visibility:visible; opacity:var(--calendar-copy,0); }
+
+/* Phone entrance: real day panels slide in from alternating sides. */
+.flow-landing[data-story-ready=true][data-mobile-story=true][data-calendar-motion=entry] .toy-grid { visibility:visible; opacity:1; }
+.flow-landing[data-mobile-story=true][data-calendar-motion=entry] .toy-day { transform:translate3d(var(--mobile-entry-x,0px),0,0); opacity:var(--mobile-entry-opacity,0); }

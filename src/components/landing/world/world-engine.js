@@ -263,7 +263,12 @@ export function createWorld(canvas, root, getState) {
     const reveal = progress(entry.calendarLand, entry.calendarIn, s);
     const ce = progress(entry.calendarOut, entry.editorIn, s);
     const er = progress(entry.editorOut, entry.recordsIn, s);
-    story.style.setProperty('--calendar-copy', String(smooth(.18, .85, reveal) * (1 - smooth(0, .2, ce))));
+    story.style.setProperty('--calendar-copy', String((mobile ? smooth(.55, .95, p) : smooth(.18, .85, reveal)) * (1 - smooth(0, .2, ce))));
+    if (mobile) dayNodes.forEach((node, index) => {
+      const arrival = smooth(.10 + index * .10, .65 + index * .10, p);
+      node.style.setProperty('--mobile-entry-x', `${(index % 2 ? 1 : -1) * (1 - arrival) * (width + 32)}px`);
+      node.style.setProperty('--mobile-entry-opacity', String(smooth(0, .18, arrival)));
+    });
     story.style.setProperty('--calendar-shell', String(1 - smooth(0, .28, ce)));
     story.style.setProperty('--editor-copy', String(smooth(.83, .99, ce) * (1 - smooth(0, .2, er))));
     story.style.setProperty('--records-copy', String(smooth(.83, .99, er)));
@@ -280,9 +285,9 @@ export function createWorld(canvas, root, getState) {
     eased.x += ((reduced ? 0 : pointer.x) - eased.x) * damping;
     eased.y += ((reduced ? 0 : pointer.y) - eased.y) * damping;
     eased.strength += ((reduced ? 0 : pointer.strength) - eased.strength) * damping;
-    ribbons.visible = mode === 'hero' || mode === 'entry';
+    ribbons.visible = mode === 'hero' || mode === 'entry' && !mobile;
     panels3d.forEach(panel => { panel.group.visible = false; });
-    if (mode !== 'none' && (surfacesDirty || texturePhase !== mode)) paint(mode);
+    if (mode !== 'none' && !(mobile && mode === 'entry') && (surfacesDirty || texturePhase !== mode)) paint(mode);
     if (ribbons.visible) {
       ribbons.position.set(0, 0, 0);
       ribbons.rotation.set(0, 0, 0);
@@ -301,9 +306,9 @@ export function createWorld(canvas, root, getState) {
     }
     if (mode === 'calendar-editor') bridge(ce, calendarRects, editorRects, mode);
     if (mode === 'editor-records') bridge(er, editorRects, recordRects, mode);
-    canvas.style.opacity = mode === 'none' ? '0' : '1'; root.dataset.camera = mode;
+    canvas.style.opacity = mode === 'none' || mobile && mode === 'entry' ? '0' : mobile && mode === 'hero' ? String(1 - smooth(entry.entryStart - .22, entry.entryStart, s)) : '1'; root.dataset.camera = mode;
     canvas.style.clipPath = 'none';
-    if (mode !== 'none') renderer.render(scene, camera);
+    if (mode !== 'none' && !(mobile && mode === 'entry')) renderer.render(scene, camera);
     const settling = Math.abs(eased.x - (reduced ? 0 : pointer.x)) + Math.abs(eased.y - (reduced ? 0 : pointer.y)) + Math.abs(eased.strength - (reduced ? 0 : pointer.strength)) > .002;
     if (!reduced && (Math.abs(scrollY - animatedScroll) > .08 || (mode === 'hero' || mode === 'entry') && settling)) frame = requestAnimationFrame(draw);
   }
