@@ -32,15 +32,15 @@ export function Landing({ navigate }) {
     event.preventDefault();
     const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const story=root.current.querySelector('.flow-story');
-    const stop=STORY_STOPS[id];
+    const stops=root.current.dataset.mobileStory==='true'?{calendar:MOBILE_STORY.calendarIn,editor:MOBILE_STORY.editorIn,records:MOBILE_STORY.recordsIn}:STORY_STOPS;
+    const stop=stops[id];
     const viewHeight=root.current.querySelector('.flow-world')?.clientHeight||window.innerHeight;
-    const mobileStop=id==='calendar'&&root.current.dataset.mobileStory==='true'&&!reduced;
     let destination=target.getBoundingClientRect().top+window.scrollY;
-    if(mobileStop) destination=story.getBoundingClientRect().top+window.scrollY+MOBILE_STORY.calendarIn*viewHeight;
-    else if(flight&&root.current.dataset.storyReady==='true'&&!reduced&&stop!==undefined) destination=story.getBoundingClientRect().top+window.scrollY+stop*viewHeight;
+    if(flight&&root.current.dataset.storyReady==='true'&&!reduced&&stop!==undefined) destination=story.getBoundingClientRect().top+window.scrollY+stop*viewHeight;
     history.replaceState({},'',`#${id}`);
-    window.scrollTo({top:Math.ceil(destination),behavior:'auto'});
-    target.focus({preventScroll:true});
+    window.scrollTo({top:Math.ceil(destination),behavior:'instant'});
+    // The scene controller removes inert on the next paint before focus moves in.
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{if(target.isConnected)target.focus({preventScroll:true});}));
   };
   const apply=({event,types})=>setData(current=>saveEvent({...current,types},{values:event,original:current.events.find(item=>item.id===event.id),scope:'one',repeat:null}));
   return <div class="flow-landing" ref={root} data-world="pending">

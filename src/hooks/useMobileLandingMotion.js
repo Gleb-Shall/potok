@@ -29,7 +29,7 @@ export function useMobileLandingMotion(root, paused) {
           animation.onfinish = () => animations.delete(target);
         }
       }, { threshold:.15 });
-      node.querySelectorAll('.studio-live-card,.network-source,.network-event').forEach(target => observer.observe(target));
+      node.querySelectorAll('.flow-close > div:first-child,.flow-playground').forEach(target => observer.observe(target));
     };
     const cancelWhenEditing = event => {
       for (const [target, animation] of animations) {

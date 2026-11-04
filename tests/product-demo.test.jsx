@@ -31,6 +31,8 @@ it('moves immediately without an editor, preserves origin and returns the card w
   expect(root.querySelector('dialog')).toBeNull();
   expect(days[1].querySelector('.ghost-card')).toBeTruthy();
   const moved=days[2].querySelector('[data-card-id="lesson"]');
+  expect(days[1].dataset.cardCount).toBe('0');
+  expect(days[2].dataset.cardCount).toBe('2');
   expect(moved.textContent).toContain('15:00–16:00');
   await drag(moved,'dragstart'); await drag(days[1],'drop');
   expect(days[1].querySelector('.ghost-card')).toBeNull();
@@ -94,10 +96,13 @@ it('lands the phone calendar link past the fractional handoff boundary', async (
   vi.spyOn(window,'matchMedia').mockImplementation(()=>({matches:false,addEventListener(){},removeEventListener(){}}));
   await mount(<Landing navigate={()=>{}}/>);
   root.querySelector('.flow-landing').dataset.mobileStory='true';
+  root.querySelector('.flow-landing').dataset.storyReady='true';
   Object.defineProperty(root.querySelector('.flow-world'),'clientHeight',{value:844});
   vi.spyOn(root.querySelector('.flow-story'),'getBoundingClientRect').mockReturnValue({top:844});
   await click(root.querySelector('.skip-link'));
-  expect(scroll).toHaveBeenCalledWith({top:1857,behavior:'auto'});
+  expect(scroll).toHaveBeenCalledWith({top:1857,behavior:'instant'});
+  await click(root.querySelector('.flow-next'));
+  expect(scroll).toHaveBeenLastCalledWith({top:3250,behavior:'instant'});
 });
 it('edits the moved calendar event without duplicating it or undoing its move', async () => {
   await mount(<Landing navigate={()=>{}}/>);

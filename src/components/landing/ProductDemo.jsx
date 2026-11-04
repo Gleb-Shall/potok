@@ -56,7 +56,7 @@ export function ProductDemo({ data: providedData, onChange, onMove } = {}) {
   };
 
   return <div class="product-demo calendar-toy" id="try" ref={surface} data-ui>
-    <div class="toy-grid">{days.map((date,index) => <section key={date} data-demo-day={date} class={`toy-day ${over===date?'toy-day-over':''}`} onDragOver={input => { if(dragging) { input.preventDefault(); input.dataTransfer.dropEffect='move'; setOver(date); } }} onDragLeave={input => { if(!input.currentTarget.contains(input.relatedTarget)) setOver(''); }} onDrop={input => { input.preventDefault(); update(dragging,date); }}>
+    <div class="toy-grid">{days.map((date,index) => <section key={date} data-demo-day={date} data-card-count={projection.events.filter(event => event.date===date).length} class={`toy-day ${over===date?'toy-day-over':''}`} onDragOver={input => { if(dragging) { input.preventDefault(); input.dataTransfer.dropEffect='move'; setOver(date); } }} onDragLeave={input => { if(!input.currentTarget.contains(input.relatedTarget)) setOver(''); }} onDrop={input => { input.preventDefault(); update(dragging,date); }}>
       <header><span>{['Понедельник','Вторник','Среда'][index]}</span></header>
       <div class="toy-day-content">
         {projection.ghosts.filter(event => event.date===date).map(event => <button key={`ghost-${event.id}`} class="toy-origin ghost-card" onClick={() => update(event.id,date)}><Icon name="arrows"/><span><time>{minutesToTime(event.start)}</time><strong>{event.title}</strong></span><Icon name="repeat"/></button>)}

@@ -150,15 +150,10 @@ export function createWorld(canvas, root, getState) {
 
   const factor = () => 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * FINAL_DISTANCE / height;
   const rect = node => {
-    const r = node.getBoundingClientRect(), s = (mobile ? flights[0].querySelector('.flow-sticky-stage') : stage).getBoundingClientRect();
+    const r = node.getBoundingClientRect(), s = stage.getBoundingClientRect();
     return { left: r.left - s.left, top: r.top - s.top, width: r.width, height: r.height };
   };
   function measure() {
-    if (mobile) {
-      const calendarHeight = flights[0].querySelector('.flow-sticky-stage').getBoundingClientRect().height;
-      story.style.setProperty('--mobile-calendar-height', `${Math.ceil(calendarHeight)}px`);
-      story.style.setProperty('--mobile-entry-space', `${MOBILE_STORY.calendarIn * height}px`);
-    }
     storyTop = story.getBoundingClientRect().top + scrollY;
     dayNodes = [...panels[0].querySelectorAll('.toy-day')];
     dayNodes.forEach((node, i) => days[i].setTarget(rect(node), factor(), width, height));
@@ -166,7 +161,7 @@ export function createWorld(canvas, root, getState) {
     const selected = cards.find(node => node.dataset.cardId === getState().event?.id) || cards[1];
     const others = cards.filter(node => node !== selected);
     calendarNodes = [others[0], selected, others[1]].filter(Boolean);
-    editorNodes = [panels[1].querySelector('.studio-form'), panels[1].querySelector('.studio-live-card .event-card'), panels[1].querySelector('.studio-orbit')];
+    editorNodes = [panels[1].querySelector('.studio-form'), panels[1].querySelector('.studio-live-card .event-card'), panels[1].querySelector(mobile ? '.studio-mobile-controls' : '.studio-orbit')];
     recordNodes = [panels[2].querySelector('.network-source'), ...panels[2].querySelectorAll('.network-event')];
     calendarRects = calendarNodes.map(rect); editorRects = editorNodes.map(rect); recordRects = recordNodes.map(rect);
     layoutDirty = false; surfacesDirty = true;
@@ -189,10 +184,10 @@ export function createWorld(canvas, root, getState) {
     const f = factor();
     panels3d.forEach((panel, i) => {
       const start = outgoing[i], end = incoming[i];
-      const midWidth = width * .24;
+      const midWidth = width * (mobile ? .72 : .24);
       // Change proportions while the panel is edge-on, not while its text is readable.
       const midHeight = midWidth * THREE.MathUtils.lerp(start.height / start.width, end.height / end.width, smooth(.45, .62, t));
-      const mid = { left: width * (.08 + i * .30), top: height * .52 - midHeight / 2, width: midWidth, height: midHeight };
+      const mid = { left: mobile ? (width - midWidth) / 2 : width * (.08 + i * .30), top: height * (mobile ? .22 + i * .28 : .52) - midHeight / 2, width: midWidth, height: midHeight };
       const box = {};
       for (const key of ['left', 'top', 'width', 'height']) {
         box[key] = t < .43 ? THREE.MathUtils.lerp(start[key], mid[key], gather) : THREE.MathUtils.lerp(mid[key], end[key], spread);
@@ -200,7 +195,7 @@ export function createWorld(canvas, root, getState) {
       const turn = smooth(.34 + i * .025, .68 + i * .025, t);
       const arc = Math.sin(t * Math.PI);
       panel.group.position.set((box.left + box.width / 2 - width / 2) * f,
-        (height / 2 - box.top - box.height / 2) * f + Math.sin(i * 1.9) * arc * .28,
+        (height / 2 - box.top - box.height / 2) * f + Math.sin(i * 1.9) * arc * (mobile ? .08 : .28),
         -.001 + arc * (i === 1 ? .35 : -.18));
       panel.group.scale.set(box.width * f, box.height * f, 1);
       panel.group.rotation.set(arc * (i - 1) * .1, Math.PI * turn, arc * (i - 1) * -.075);
@@ -208,7 +203,7 @@ export function createWorld(canvas, root, getState) {
       panel.group.position.z -= i === 2 ? smooth(.6, 1, t) * .006 : 0;
       panel.group.visible = true;
     });
-    camera.position.set(Math.sin(t * Math.PI) * .45, 0, FINAL_DISTANCE - Math.sin(t * Math.PI) * .35);
+    camera.position.set(Math.sin(t * Math.PI) * (mobile ? .07 : .45), 0, FINAL_DISTANCE - Math.sin(t * Math.PI) * (mobile ? .12 : .35));
     camera.lookAt(0, 0, 0);
   }
   function resize() {
@@ -223,13 +218,14 @@ export function createWorld(canvas, root, getState) {
     frame = 0; if (disposed || lost || document.hidden) return;
     const { paused } = getState(), reduced = media.matches || paused;
     root.dataset.motionPaused = String(paused);
-    const active = !reduced && width >= 1000 && height >= 690;
-    const phone = !reduced && width < 760;
+    const phone = !reduced && width < 760 && height >= 560;
+    const active = !reduced && (phone || width >= 1000 && height >= 690);
+    const phoneChanged = phone !== mobile;
     if (phone !== mobile) {
       mobile = phone; root.dataset.mobileStory = String(phone); layoutDirty = true; animatedScroll = scrollY;
     }
-    if (active !== enhanced) {
-      story.style.setProperty('--story-height', `${(STORY.end + 1) * 100}svh`);
+    if (active !== enhanced || phoneChanged) {
+      story.style.setProperty('--story-height', `${((phone ? MOBILE_STORY : STORY).end + 1) * 100}svh`);
       enhanced = active; root.dataset.storyReady = String(active); layoutDirty = true; animatedScroll = scrollY;
     }
     if (layoutDirty) measure();
@@ -241,22 +237,22 @@ export function createWorld(canvas, root, getState) {
     let mode = 'none';
     if ((enhanced || mobile) && s >= entry.entryStart && s < entry.calendarIn) mode = 'entry';
     else if (s < 0) mode = 'hero';
-    else if (enhanced && s > STORY.calendarOut && s < STORY.editorIn) mode = 'calendar-editor';
-    else if (enhanced && s > STORY.editorOut && s < STORY.recordsIn) mode = 'editor-records';
-    const calendarLive = mobile ? s >= entry.calendarIn : !enhanced || s >= STORY.calendarIn && s <= STORY.calendarOut;
-    const editorLive = !enhanced || s >= STORY.editorIn && s <= STORY.editorOut;
-    const recordsLive = !enhanced || s >= STORY.recordsIn;
+    else if (enhanced && s > entry.calendarOut && s < entry.editorIn) mode = 'calendar-editor';
+    else if (enhanced && s > entry.editorOut && s < entry.recordsIn) mode = 'editor-records';
+    const calendarLive = !enhanced || s >= entry.calendarIn && s <= entry.calendarOut;
+    const editorLive = !enhanced || s >= entry.editorIn && s <= entry.editorOut;
+    const recordsLive = !enhanced || s >= entry.recordsIn;
     root.dataset.calendarLive = String(calendarLive); root.dataset.editorLive = String(editorLive); root.dataset.recordsLive = String(recordsLive);
     root.dataset.calendarMotion = mode === 'entry' || mode === 'hero' ? 'entry' : mode === 'calendar-editor' ? 'exit' : 'idle';
     const live = [calendarLive, editorLive, recordsLive];
-    const show = [!enhanced || s < STORY.editorIn, !enhanced || s >= STORY.calendarOut && s < STORY.recordsIn, !enhanced || s >= STORY.editorOut];
+    const show = [!enhanced || s < entry.editorIn, !enhanced || s >= entry.calendarOut && s < entry.recordsIn, !enhanced || s >= entry.editorOut];
     flights.forEach((node, i) => { node.style.visibility = show[i] ? 'visible' : 'hidden'; panels[i].inert = !live[i]; });
     const p = progress(entry.entryStart, entry.calendarLand, s);
     // The surfaces finish moving before their contents are revealed and handed to the DOM.
     const reveal = progress(entry.calendarLand, entry.calendarIn, s);
-    const ce = progress(STORY.calendarOut, STORY.editorIn, s);
-    const er = progress(STORY.editorOut, STORY.recordsIn, s);
-    story.style.setProperty('--calendar-copy', String(smooth(.18, .85, reveal) * (mobile ? 1 : 1 - smooth(0, .2, ce))));
+    const ce = progress(entry.calendarOut, entry.editorIn, s);
+    const er = progress(entry.editorOut, entry.recordsIn, s);
+    story.style.setProperty('--calendar-copy', String(smooth(.18, .85, reveal) * (1 - smooth(0, .2, ce))));
     story.style.setProperty('--calendar-shell', String(1 - smooth(0, .28, ce)));
     story.style.setProperty('--editor-copy', String(smooth(.83, .99, ce) * (1 - smooth(0, .2, er))));
     story.style.setProperty('--records-copy', String(smooth(.83, .99, er)));

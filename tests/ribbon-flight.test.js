@@ -44,16 +44,17 @@ test('route timing is monotone and bounded across departure, turn and landing', 
     }
   }
 });
-test('phone trails land on vertically stacked days, including days below the viewport', () => {
-  const height=844, width=390;
+test('phone trails align with all three compact days inside one viewport', () => {
+  const height=568, width=320;
   const phoneFactor=2*Math.tan(20*Math.PI/180)*13.5/height;
   for (let index=0;index<3;index++) {
-    const rect={left:18,top:226+index*320,width:354,height:308};
+    const rect={left:18,top:132+index*133,width:284,height:123};
+    assert.ok(rect.top+rect.height<=height);
     const route=createFlightRoute(index,createRibbonCurve(index),rect,phoneFactor,width,height);
     const state=route.state(1), head=sample(route,state.head), tail=sample(route,state.head-state.length);
     near(head.point.x,0); near(tail.point.x,0);
     near(head.point.y,(height/2-rect.top-rect.height)*phoneFactor);
     near(tail.point.y,(height/2-rect.top)*phoneFactor);
-    near(head.normal.z,1); near(route.halfWidth,177*phoneFactor);
+    near(head.normal.z,1); near(route.halfWidth,142*phoneFactor);
   }
 });
