@@ -288,9 +288,11 @@ export function createWorld(canvas, root, getState) {
   function invalidate() { if (!disposed && !lost && !frame && !document.hidden) frame = requestAnimationFrame(draw); }
   function refresh() { layoutDirty = true; surfacesDirty = true; invalidate(); }
   function onPointer(event) {
+    const overRibbon = event.pointerType !== 'touch' && hero.contains(event.target) && !event.target.closest('a,button,input');
+    if (!overRibbon && !pointer.strength) return;
     pointer.x = (event.clientX / width - .5) * 2;
     pointer.y = (.5 - event.clientY / height) * 2;
-    pointer.strength = event.pointerType !== 'touch' && hero.contains(event.target) && !event.target.closest('a,button,input') ? 1 : 0;
+    pointer.strength = overRibbon ? 1 : 0;
     invalidate();
   }
   function onPointerLeave() { pointer.strength = 0; invalidate(); }
