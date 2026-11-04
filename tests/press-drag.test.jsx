@@ -124,3 +124,37 @@ it('keeps deferring an event available inside the new date picker', async () => 
   expect(root.querySelectorAll('.pending-card')).toHaveLength(1);
   expect(root.querySelector('.pending-panel').classList.contains('has-pending')).toBe(true);
 });
+it('opens fourteen dates by holding the mouse, then follows and drops without opening details', async () => {
+  localStorage.clear();
+  HTMLDialogElement.prototype.showModal = vi.fn();
+  HTMLDialogElement.prototype.close = vi.fn();
+  await act(() => render(<App initialMode="demo" demoOnly/>,root));
+  const card = root.querySelector('[data-event-id]');
+  const press = (target,type,x=20,y=20) => target.dispatchEvent(new MouseEvent(type,{bubbles:true,cancelable:true,button:0,buttons:type==='mouseup'?0:1,clientX:x,clientY:y}));
+  await act(() => { press(card.querySelector('.card-open'),'mousedown'); vi.advanceTimersByTime(360); });
+  expect(document.querySelectorAll('[data-press-drop]')).toHaveLength(14);
+  expect(document.querySelector('.press-drag-ghost')).not.toBeNull();
+  const nativeAttempt = new Event('dragstart',{bubbles:true,cancelable:true});
+  await act(() => card.dispatchEvent(nativeAttempt));
+  expect(nativeAttempt.defaultPrevented).toBe(true);
+  expect(document.querySelector('.press-drag-ghost')).not.toBeNull();
+  const target = document.querySelector('[data-press-drop]:not(.is-source)');
+  Object.defineProperty(document,'elementFromPoint',{configurable:true,value:vi.fn(() => target)});
+  await act(() => { press(document,'mousemove',150,250); press(document,'mouseup',150,250); });
+  expect(document.querySelector('.touch-move-picker')).toBeNull();
+  expect(document.body.textContent).toContain('Во сколько начать?');
+});
+it('keeps quick mouse clicks and immediate native dragging available', () => {
+  const {options,button} = setup();
+  button.dispatchEvent(new MouseEvent('mousedown',{bubbles:true,button:0,buttons:1}));
+  button.dispatchEvent(new MouseEvent('mouseup',{bubbles:true,button:0,buttons:0}));
+  vi.advanceTimersByTime(400);
+  expect(options.onStart).not.toHaveBeenCalled();
+  const click=new MouseEvent('click',{bubbles:true,cancelable:true,detail:1}); button.dispatchEvent(click);
+  expect(click.defaultPrevented).toBe(false);
+  button.dispatchEvent(new MouseEvent('mousedown',{bubbles:true,button:0,buttons:1}));
+  const native=new Event('dragstart',{bubbles:true,cancelable:true}); button.dispatchEvent(native);
+  vi.advanceTimersByTime(400);
+  expect(native.defaultPrevented).toBe(false);
+  expect(options.onStart).not.toHaveBeenCalled();
+});

@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 
-// Touch scrolling stays native until the hold completes. No idle animation loop.
+// Short clicks and touch scrolling stay native until a hold completes.
 export function attachPressDrag(root, options) {
-  let gesture, timer, suppressUntil = 0;
+  let gesture, timer, suppressUntil = 0, lastTouchAt = -Infinity;
   const read = () => options.current || options;
-  const point = touch => ({ x: touch.clientX, y: touch.clientY });
+  const point = input => ({ x: input.clientX, y: input.clientY });
   const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
   const stop = () => {
     clearTimeout(timer);
@@ -17,57 +17,87 @@ export function attachPressDrag(root, options) {
     document.removeEventListener('touchmove', move);
     document.removeEventListener('touchend', end);
     document.removeEventListener('touchcancel', cancel);
+    document.removeEventListener('mousemove', moveMouse);
+    document.removeEventListener('mouseup', endMouse);
   };
   const cancel = () => stop();
-  const move = event => {
-    if (!gesture) return;
-    if (event.touches.length !== 1) return stop();
-    const touch = Array.from(event.touches).find(item => item.identifier === gesture.id);
-    if (!touch) return stop();
-    const next = point(touch);
+  const track = (event, next) => {
     if (!gesture.active) { if (distance(next, gesture.origin) > 9) stop(); return; }
     if (event.cancelable) event.preventDefault();
     gesture.moved ||= distance(next, gesture.origin) > 9;
     gesture.last = next;
     read().onMove?.(next);
   };
-  const end = event => {
-    if (!gesture || !Array.from(event.changedTouches).some(item => item.identifier === gesture.id)) return;
+  const finish = (event, next) => {
     const current = gesture;
-    const touch = Array.from(event.changedTouches).find(item => item.identifier === current.id);
-    const next = point(touch);
     if (current.active && event.cancelable) event.preventDefault();
     const drop = current.active && current.moved ? read().hitTest?.(next) : null;
     stop();
     if (drop) read().onDrop?.(current.item, drop);
   };
-  const start = event => {
+  const move = event => {
+    if (gesture?.kind !== 'touch') return;
+    if (event.touches.length !== 1) return stop();
+    const touch = Array.from(event.touches).find(item => item.identifier === gesture.id);
+    if (!touch) return stop();
+    track(event, point(touch));
+  };
+  const end = event => {
+    lastTouchAt = Date.now();
+    if (gesture?.kind !== 'touch') return;
+    const touch = Array.from(event.changedTouches).find(item => item.identifier === gesture.id);
+    if (touch) finish(event, point(touch));
+  };
+  const moveMouse = event => {
+    if (gesture?.kind !== 'mouse') return;
+    if (!(event.buttons & 1)) return stop();
+    track(event, point(event));
+  };
+  const endMouse = event => { if (gesture?.kind === 'mouse' && event.button === 0) finish(event, point(event)); };
+  const begin = (event, input, kind) => {
     stop(); suppressUntil = 0;
     const config = read();
-    if (!config.enabled || event.touches.length !== 1) return;
+    if (!config.enabled) return;
     const target = event.target;
     const node = target.closest?.(config.selector);
     if (!node || !root.current?.contains(node) || node.closest('[inert]')) return;
     if (target.closest('a,input,select,textarea,[contenteditable=true],.card-controls') || target.closest('button:not(.card-open)')) return;
     const item = config.getItem(node);
     if (!item) return;
-    const touch = event.touches[0];
-    gesture = { node, item, id: touch.identifier, origin: point(touch), last: point(touch), active: false, moved: false };
-    document.addEventListener('touchmove', move, { passive: false });
-    document.addEventListener('touchend', end, { passive: false });
-    document.addEventListener('touchcancel', cancel);
+    gesture = { node, item, kind, id:input.identifier, origin:point(input), last:point(input), active:false, moved:false };
+    if (kind === 'touch') {
+      document.addEventListener('touchmove', move, { passive:false });
+      document.addEventListener('touchend', end, { passive:false });
+      document.addEventListener('touchcancel', cancel);
+    } else {
+      document.addEventListener('mousemove', moveMouse);
+      document.addEventListener('mouseup', endMouse);
+    }
     timer = setTimeout(() => {
       if (!gesture) return;
       gesture.active = true;
       node.setAttribute('data-press-dragging', 'true');
       const style = getComputedStyle(node);
-      read().onStart?.({ item, point: gesture.last, background: style.backgroundColor, color: style.color });
+      read().onStart?.({ item, point:gesture.last, background:style.backgroundColor, color:style.color });
     }, 360);
   };
+  const start = event => {
+    lastTouchAt = Date.now();
+    if (event.touches.length !== 1) { stop(); return; }
+    begin(event, event.touches[0], 'touch');
+  };
+  const startMouse = event => {
+    if (event.button !== 0 || Date.now() - lastTouchAt < 800) return;
+    begin(event, event, 'mouse');
+  };
   const click = event => { if (Date.now() < suppressUntil && event.detail !== 0) { event.preventDefault(); event.stopImmediatePropagation(); } };
-  const nativeDrag = event => { if (gesture?.active) event.preventDefault(); };
+  const nativeDrag = event => {
+    if (gesture?.active) { event.preventDefault(); event.stopImmediatePropagation(); }
+    else if (gesture?.kind === 'mouse' && event.type === 'dragstart') stop();
+  };
   const visibility = () => { if (document.hidden) stop(); };
-  document.addEventListener('touchstart', start, { passive: true });
+  document.addEventListener('touchstart', start, { passive:true });
+  document.addEventListener('mousedown', startMouse);
   document.addEventListener('click', click, true);
   document.addEventListener('dragstart', nativeDrag, true);
   document.addEventListener('contextmenu', nativeDrag, true);
@@ -77,6 +107,7 @@ export function attachPressDrag(root, options) {
   const dispose = () => {
     stop();
     document.removeEventListener('touchstart', start);
+    document.removeEventListener('mousedown', startMouse);
     document.removeEventListener('click', click, true);
     document.removeEventListener('dragstart', nativeDrag, true);
     document.removeEventListener('contextmenu', nativeDrag, true);
