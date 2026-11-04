@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { paintSurface } from './dom-surface.js';
 
 import { STORY, progress, smooth } from './story-time.js';
-import { createRibbonCurve, createFlightRoute, ribbonProgress } from './ribbon-flight.js';
+import { createRibbonCurve, createFlightRoute } from './ribbon-flight.js';
 const FINAL_DISTANCE = 13.5;
 
 function createSurface() {
@@ -215,11 +215,12 @@ export function createWorld(canvas, root, getState) {
     root.dataset.motionPaused = String(paused);
     const active = !reduced && width >= 1000 && height >= 690;
     if (active !== enhanced) {
+      story.style.setProperty('--story-height', `${(STORY.end + 1) * 100}svh`);
       enhanced = active; root.dataset.storyReady = String(active); layoutDirty = true; animatedScroll = scrollY;
     }
     if (layoutDirty) measure();
     const dt = Math.min(.05, (time - lastTime) / 1000 || .016); lastTime = time;
-    animatedScroll += (scrollY - animatedScroll) * (reduced ? 1 : 1 - Math.exp(-dt * 18));
+    animatedScroll += (scrollY - animatedScroll) * (reduced ? 1 : 1 - Math.exp(-dt * 12));
     if (Math.abs(scrollY - animatedScroll) < .08) animatedScroll = scrollY;
     const s = (animatedScroll - storyTop) / height;
     let mode = 'none';
@@ -235,10 +236,12 @@ export function createWorld(canvas, root, getState) {
     const live = [calendarLive, editorLive, recordsLive];
     const show = [!enhanced || s < STORY.editorIn, !enhanced || s >= STORY.calendarOut && s < STORY.recordsIn, !enhanced || s >= STORY.editorOut];
     flights.forEach((node, i) => { node.style.visibility = show[i] ? 'visible' : 'hidden'; panels[i].inert = !live[i]; });
-    const p = progress(STORY.entryStart, STORY.calendarIn, s);
+    const p = progress(STORY.entryStart, STORY.calendarLand, s);
+    // The surfaces finish moving before their contents are revealed and handed to the DOM.
+    const reveal = progress(STORY.calendarLand, STORY.calendarIn, s);
     const ce = progress(STORY.calendarOut, STORY.editorIn, s);
     const er = progress(STORY.editorOut, STORY.recordsIn, s);
-    story.style.setProperty('--calendar-copy', String(smooth(.985, 1, p) * (1 - smooth(0, .2, ce))));
+    story.style.setProperty('--calendar-copy', String(smooth(.18, .85, reveal) * (1 - smooth(0, .2, ce))));
     story.style.setProperty('--calendar-shell', String(1 - smooth(0, .28, ce)));
     story.style.setProperty('--editor-copy', String(smooth(.83, .99, ce) * (1 - smooth(0, .2, er))));
     story.style.setProperty('--records-copy', String(smooth(.83, .99, er)));
@@ -266,9 +269,9 @@ export function createWorld(canvas, root, getState) {
       brushPoint.set(eased.x * width / 2 * factor(), eased.y * height / 2 * factor(), 0);
       ribbons.worldToLocal(brushPoint);
       const brush = { x: brushPoint.x, y: brushPoint.y, strength: eased.strength };
-      days.forEach((day, index) => {
+      days.forEach(day => {
         day.fly(mode === 'entry' ? p : 0, brush);
-        const landing = mode === 'entry' ? smooth(.975, .995, ribbonProgress(index, p)) : 0;
+        const landing = mode === 'entry' ? smooth(.08, .9, reveal) : 0;
         day.face.material.opacity = landing; day.mesh.material.opacity = 1 - landing;
       });
       camera.position.set(0, 0, width < 760 ? 13 : FINAL_DISTANCE);

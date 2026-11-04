@@ -1,12 +1,13 @@
 // Scroll distances in viewport heights. Dwell ranges keep each screen usable.
 export const STORY = Object.freeze({
   entryStart: -.45,
-  calendarIn: 1.3,
-  calendarOut: 2,
-  editorIn: 3.2,
-  editorOut: 3.95,
-  recordsIn: 5.15,
-  end: 5.8,
+  calendarLand: 1.3,
+  calendarIn: 1.8,
+  calendarOut: 2.5,
+  editorIn: 3.7,
+  editorOut: 4.45,
+  recordsIn: 5.65,
+  end: 6.3,
 });
 export const STORY_STOPS = { calendar: STORY.calendarIn, editor: STORY.editorIn, records: STORY.recordsIn };
 export const clamp = value => Math.max(0, Math.min(1, value));

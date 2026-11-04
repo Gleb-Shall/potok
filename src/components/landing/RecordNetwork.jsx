@@ -22,8 +22,15 @@ export function RecordNetwork() {
       const bounds = node.getBoundingClientRect();
       if (!bounds.width || !bounds.height) return;
       const source = node.querySelector('.network-source').getBoundingClientRect();
-      const paths = [...node.querySelectorAll('.network-event')].map(target => {
+      const paths = [...node.querySelectorAll('.network-event')].map((target, index) => {
         const end = target.getBoundingClientRect(), right = end.left > source.left;
+        if (end.top >= source.bottom) {
+          const x1 = source.left + source.width * (index ? .75 : .25) - bounds.left;
+          const y1 = source.bottom - bounds.top;
+          const x2 = end.left + end.width / 2 - bounds.left, y2 = end.top - bounds.top;
+          const mid = (y1 + y2) / 2;
+          return `M${x1} ${y1}C${x1} ${mid} ${x2} ${mid} ${x2} ${y2}`;
+        }
         const x1 = (right ? source.right : source.left) - bounds.left, y1 = source.top + source.height / 2 - bounds.top;
         const x2 = (right ? end.left : end.right) - bounds.left, y2 = end.top + end.height / 2 - bounds.top;
         const mid = (x1 + x2) / 2;
