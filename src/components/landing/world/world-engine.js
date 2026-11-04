@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { paintSurface } from './dom-surface.js';
 
 import { STORY, progress, smooth } from './story-time.js';
+import { createRibbonCurve, createFlightRoute, ribbonProgress } from './ribbon-flight.js';
 const FINAL_DISTANCE = 13.5;
 
 function createSurface() {
@@ -29,15 +30,9 @@ function createSurface() {
 function makeRibbon(index, color) {
   const segments = 120, positions = [], uv = [], indices = [], frontIndices = [];
   const corners = [[-1,-1],[1,-1],[1,1],[-1,1]];
-  const curve = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(-10, (index-1)*1.8-1, -3),
-    new THREE.Vector3(-4, Math.sin(index*1.8)*3.8, index-1),
-    new THREE.Vector3(0, (index-1)*2.2, 1.5-index),
-    new THREE.Vector3(4, Math.cos(index*1.4)*3.8, -1),
-    new THREE.Vector3(10, (1-index)*3, -4)
-  ]);
+  const curve = createRibbonCurve(index);
   for (let step=0;step<=segments;step++) {
-    const t=step/segments, center=curve.getPoint(t), tangent=curve.getTangent(t);
+    const t=step/segments, center=curve.getPointAt(t), tangent=curve.getTangentAt(t);
     const normal=new THREE.Vector3(-tangent.y,tangent.x,0).normalize();
     const binormal=new THREE.Vector3().crossVectors(tangent,normal).normalize();
     const twist=Math.sin(t*Math.PI*2+index)*.6;
@@ -57,7 +52,7 @@ function makeRibbon(index, color) {
   const geometry=new THREE.BufferGeometry();
   geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
   geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));geometry.setIndex(indices);geometry.computeVertexNormals();
-  const initial=new Float32Array(positions), target=new Float32Array(positions.length);
+  const initial=new Float32Array(positions);
   const surface=createSurface();
   const material=new THREE.MeshStandardMaterial({color,roughness:.65,metalness:.08,side:THREE.DoubleSide,transparent:true});
   const mesh=new THREE.Mesh(geometry,material);mesh.frustumCulled=false;
@@ -66,44 +61,43 @@ function makeRibbon(index, color) {
   faceGeometry.setAttribute('uv',geometry.getAttribute('uv'));faceGeometry.setIndex(frontIndices);
   const face=new THREE.Mesh(faceGeometry,new THREE.MeshBasicMaterial({map:surface.texture,transparent:true,side:THREE.DoubleSide,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1,toneMapped:false}));
   face.frustumCulled=false;face.renderOrder=1;
+  let route;
+  const center = new THREE.Vector3(), across = new THREE.Vector3(), normal = new THREE.Vector3();
   return {mesh,face,surface,
     setTarget(rect,factor,width,height){
-      for(let step=0;step<=segments;step++)for(let c=0;c<4;c++){
-        const [u,v]=corners[c],offset=(step*4+c)*3;
-        target[offset]=(rect.left+rect.width*(u+1)/2-width/2)*factor;
-        target[offset+1]=(height/2-rect.top-rect.height*step/segments)*factor;
-        target[offset+2]=v===1?0:-.14;
-      }
+      route = createFlightRoute(index, curve, rect, factor, width, height);
     },
-    fly(p, brush){
-      const launch = smooth(0, .26, p), land = smooth(.32, 1, p);
+    fly(value, brush){
+      if (!route) return;
+      const state = route.state(value), p = state.p;
+      const launch = smooth(0, .04, p);
       const buffer = geometry.getAttribute('position');
-      const lane = (target[0] + target[3]) / 2;
+      const flightWidth = THREE.MathUtils.lerp(.65, .38, smooth(0, .14, p));
+      const width = THREE.MathUtils.lerp(flightWidth, route.halfWidth, state.open);
+      const thickness = THREE.MathUtils.lerp(THREE.MathUtils.lerp(.07, .045, smooth(0, .14, p)), .07, state.open);
       for (let step = 0; step <= segments; step++) {
         const t = step / segments, base = step * 12;
-        const cx = (initial[base] + initial[base + 6]) / 2;
-        const cy = (initial[base + 1] + initial[base + 7]) / 2;
-        const dx = cx - brush.x, dy = cy - brush.y;
-        const distance = Math.hypot(dx, dy);
-        const influence = Math.exp(-distance * distance / 3.2) * brush.strength * (1 - launch);
-        const pushX = dx / Math.max(.4, distance) * influence * .65;
-        const pushY = dy / Math.max(.4, distance) * influence * .65;
-        // Each trail has its own corridor. The travelling wave never closes into a knot.
-        const phase = t * Math.PI * 1.8 - p * Math.PI * 3.2 + index * .55;
-        const envelope = Math.sin(t * Math.PI);
-        const x = lane + Math.sin(phase) * .62 * envelope;
-        const y = 4.8 - t * 9.6 - Math.sin(p * Math.PI) * .65;
-        const z = Math.cos(phase) * .55 * envelope;
-        const roll = Math.sin(phase) * .32;
-        const halfWidth = .6 * (1 - smooth(.91, 1, t));
+        const distance = state.head - (1 - t) * state.length;
+        route.sample(distance, center, across, normal);
+        const roll = Math.sin(t * Math.PI * 2 + index) * .6 * (1 - smooth(0, .3, p))
+          + Math.sin(distance * .4 + index) * .22 * smooth(.05, .3, p) * (1 - state.open);
         const cosine = Math.cos(roll), sine = Math.sin(roll);
+        // Flatten the tip before unfolding the width, so the landing is a clean
+        // rectangle rather than an enlarged arrowhead.
+        const arrow = smooth(.03, .13, p) * (1 - smooth(.75, .84, p));
+        const taper = 1 - smooth(.90, 1, t) * arrow;
+        const cx = (initial[base] + initial[base + 6]) / 2, cy = (initial[base + 1] + initial[base + 7]) / 2;
+        const dx = cx - brush.x, dy = cy - brush.y, radial = Math.hypot(dx, dy);
+        const influence = Math.exp(-radial * radial / 3.2) * brush.strength * (1 - smooth(0, .12, p));
+        const pushX = dx / Math.max(.4, radial) * influence * .65;
+        const pushY = dy / Math.max(.4, radial) * influence * .65;
         for (let c = 0; c < 4; c++) {
           const [side, edge] = corners[c], offset = (step * 4 + c) * 3;
-          const flyingX = x + side * halfWidth * cosine - edge * .045 * sine;
-          const flyingZ = z + side * halfWidth * sine + edge * .045 * cosine;
-          buffer.array[offset] = THREE.MathUtils.lerp(THREE.MathUtils.lerp(initial[offset] + pushX, flyingX, launch), target[offset], land);
-          buffer.array[offset + 1] = THREE.MathUtils.lerp(THREE.MathUtils.lerp(initial[offset + 1] + pushY, y, launch), target[offset + 1], land);
-          buffer.array[offset + 2] = THREE.MathUtils.lerp(THREE.MathUtils.lerp(initial[offset + 2] + influence * .07, flyingZ, launch), target[offset + 2], land);
+          const ax = across.x*cosine + normal.x*sine, ay = across.y*cosine + normal.y*sine, az = across.z*cosine + normal.z*sine;
+          const nx = normal.x*cosine - across.x*sine, ny = normal.y*cosine - across.y*sine, nz = normal.z*cosine - across.z*sine;
+          buffer.array[offset] = THREE.MathUtils.lerp(initial[offset], center.x + side*width*taper*ax + edge*thickness*nx, launch) + pushX;
+          buffer.array[offset+1] = THREE.MathUtils.lerp(initial[offset+1], center.y + side*width*taper*ay + edge*thickness*ny, launch) + pushY;
+          buffer.array[offset+2] = THREE.MathUtils.lerp(initial[offset+2], center.z + side*width*taper*az + edge*thickness*nz, launch) + influence*.07;
         }
       }
       buffer.needsUpdate=true;geometry.computeVertexNormals();
@@ -244,7 +238,7 @@ export function createWorld(canvas, root, getState) {
     const p = progress(STORY.entryStart, STORY.calendarIn, s);
     const ce = progress(STORY.calendarOut, STORY.editorIn, s);
     const er = progress(STORY.editorOut, STORY.recordsIn, s);
-    story.style.setProperty('--calendar-copy', String(smooth(.91, .99, p) * (1 - smooth(0, .2, ce))));
+    story.style.setProperty('--calendar-copy', String(smooth(.985, 1, p) * (1 - smooth(0, .2, ce))));
     story.style.setProperty('--calendar-shell', String(1 - smooth(0, .28, ce)));
     story.style.setProperty('--editor-copy', String(smooth(.83, .99, ce) * (1 - smooth(0, .2, er))));
     story.style.setProperty('--records-copy', String(smooth(.83, .99, er)));
@@ -265,22 +259,20 @@ export function createWorld(canvas, root, getState) {
     panels3d.forEach(panel => { panel.group.visible = false; });
     if (mode !== 'none' && (surfacesDirty || texturePhase !== mode)) paint(mode);
     if (ribbons.visible) {
-      const morph = mode === 'entry' ? smooth(.35, 1, p) : 0;
-      const travel = mode === 'entry' ? Math.sin(Math.PI * p) : 0;
-      ribbons.position.set(0, -1.3 * (1 - morph), 0);
-      ribbons.rotation.set(.12 * (1 - morph), -.18 * (1 - morph), -.19 * (1 - morph));
+      ribbons.position.set(0, 0, 0);
+      ribbons.rotation.set(0, 0, 0);
       ribbons.scale.setScalar(width < 760 ? .63 : 1);
       ribbons.updateMatrixWorld(true);
       brushPoint.set(eased.x * width / 2 * factor(), eased.y * height / 2 * factor(), 0);
       ribbons.worldToLocal(brushPoint);
       const brush = { x: brushPoint.x, y: brushPoint.y, strength: eased.strength };
-      days.forEach(day => {
+      days.forEach((day, index) => {
         day.fly(mode === 'entry' ? p : 0, brush);
-        day.face.material.opacity = mode === 'entry' ? smooth(.975, .995, p) : 0;
-        day.mesh.material.opacity = mode === 'entry' ? 1 - smooth(.975, .995, p) : 1;
+        const landing = mode === 'entry' ? smooth(.975, .995, ribbonProgress(index, p)) : 0;
+        day.face.material.opacity = landing; day.mesh.material.opacity = 1 - landing;
       });
-      camera.position.set(0, 0, (width < 760 ? 13 : FINAL_DISTANCE) - travel * .7);
-      camera.lookAt(0, -.1 * (1 - morph), 0);
+      camera.position.set(0, 0, width < 760 ? 13 : FINAL_DISTANCE);
+      camera.lookAt(0, 0, 0);
     }
     if (mode === 'calendar-editor') bridge(ce, calendarRects, editorRects, mode);
     if (mode === 'editor-records') bridge(er, editorRects, recordRects, mode);
