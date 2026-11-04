@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { paintSurface } from './dom-surface.js';
 
-import { STORY, progress, smooth } from './story-time.js';
+import { STORY, MOBILE_STORY, progress, smooth } from './story-time.js';
 import { createRibbonCurve, createFlightRoute } from './ribbon-flight.js';
 const FINAL_DISTANCE = 13.5;
 
@@ -28,7 +28,7 @@ function createSurface() {
 // The same vertices form the orange ribbon and its information-bearing front.
 // Only the final rectangle comes from layout; there is no second grid sliding in.
 function makeRibbon(index, color) {
-  const segments = 120, positions = [], uv = [], indices = [], frontIndices = [];
+  const segments = innerWidth < 760 ? 72 : 120, positions = [], uv = [], indices = [], frontIndices = [];
   const corners = [[-1,-1],[1,-1],[1,1],[-1,1]];
   const curve = createRibbonCurve(index);
   for (let step=0;step<=segments;step++) {
@@ -61,10 +61,13 @@ function makeRibbon(index, color) {
   faceGeometry.setAttribute('uv',geometry.getAttribute('uv'));faceGeometry.setIndex(frontIndices);
   const face=new THREE.Mesh(faceGeometry,new THREE.MeshBasicMaterial({map:surface.texture,transparent:true,side:THREE.DoubleSide,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1,toneMapped:false}));
   face.frustumCulled=false;face.renderOrder=1;
-  let route;
+  let route, targetKey = '';
   const center = new THREE.Vector3(), across = new THREE.Vector3(), normal = new THREE.Vector3();
   return {mesh,face,surface,
     setTarget(rect,factor,width,height){
+      const nextKey = [rect.left,rect.top,rect.width,rect.height,factor,width,height].join(':');
+      if (nextKey === targetKey) return;
+      targetKey = nextKey;
       route = createFlightRoute(index, curve, rect, factor, width, height);
     },
     fly(value, brush){
@@ -140,17 +143,22 @@ export function createWorld(canvas, root, getState) {
   const pointer = { x: 0, y: 0, strength: 0 }, eased = { x: 0, y: 0, strength: 0 };
   const brushPoint = new THREE.Vector3();
   let frame = 0, disposed = false, lost = false, width = 1, height = 1, lastTime = 0;
-  let layoutDirty = true, surfacesDirty = true, storyTop = 0, enhanced = false, texturePhase = '';
+  let layoutDirty = true, surfacesDirty = true, storyTop = 0, enhanced = false, mobile = false, texturePhase = '';
   let animatedScroll = scrollY;
   let dayNodes = [], calendarNodes = [], editorNodes = [], recordNodes = [];
   let calendarRects = [], editorRects = [], recordRects = [];
 
   const factor = () => 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * FINAL_DISTANCE / height;
   const rect = node => {
-    const r = node.getBoundingClientRect(), s = stage.getBoundingClientRect();
+    const r = node.getBoundingClientRect(), s = (mobile ? flights[0].querySelector('.flow-sticky-stage') : stage).getBoundingClientRect();
     return { left: r.left - s.left, top: r.top - s.top, width: r.width, height: r.height };
   };
   function measure() {
+    if (mobile) {
+      const calendarHeight = flights[0].querySelector('.flow-sticky-stage').getBoundingClientRect().height;
+      story.style.setProperty('--mobile-calendar-height', `${Math.ceil(calendarHeight)}px`);
+      story.style.setProperty('--mobile-entry-space', `${MOBILE_STORY.calendarIn * height}px`);
+    }
     storyTop = story.getBoundingClientRect().top + scrollY;
     dayNodes = [...panels[0].querySelectorAll('.toy-day')];
     dayNodes.forEach((node, i) => days[i].setTarget(rect(node), factor(), width, height));
@@ -164,7 +172,7 @@ export function createWorld(canvas, root, getState) {
     layoutDirty = false; surfacesDirty = true;
   }
   function paint(phase) {
-    const ratio = Math.min(devicePixelRatio || 1, 1.65);
+    const ratio = Math.min(devicePixelRatio || 1, mobile ? 1 : 1.65);
     if (phase === 'entry' || phase === 'hero') dayNodes.forEach((node, i) => { days[i].face.material.map = days[i].surface.update(node, ratio); });
     if (phase === 'calendar-editor') panels3d.forEach((panel, i) => {
       panel.front.material.map = panel.source.update(calendarNodes[i], ratio);
@@ -204,8 +212,10 @@ export function createWorld(canvas, root, getState) {
     camera.lookAt(0, 0, 0);
   }
   function resize() {
-    width = innerWidth; height = innerHeight;
-    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, width < 700 ? 1.25 : 1.65));
+    // Match the CSS small viewport so mobile browser chrome does not stretch the
+    // canvas or change the flight's scroll distance when its address bar moves.
+    width = innerWidth; height = canvas.clientHeight || innerHeight;
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, width < 760 ? 1 : 1.65));
     renderer.setSize(width, height, false); camera.aspect = width / height; camera.updateProjectionMatrix();
     layoutDirty = true; invalidate();
   }
@@ -214,21 +224,26 @@ export function createWorld(canvas, root, getState) {
     const { paused } = getState(), reduced = media.matches || paused;
     root.dataset.motionPaused = String(paused);
     const active = !reduced && width >= 1000 && height >= 690;
+    const phone = !reduced && width < 760;
+    if (phone !== mobile) {
+      mobile = phone; root.dataset.mobileStory = String(phone); layoutDirty = true; animatedScroll = scrollY;
+    }
     if (active !== enhanced) {
       story.style.setProperty('--story-height', `${(STORY.end + 1) * 100}svh`);
       enhanced = active; root.dataset.storyReady = String(active); layoutDirty = true; animatedScroll = scrollY;
     }
     if (layoutDirty) measure();
     const dt = Math.min(.05, (time - lastTime) / 1000 || .016); lastTime = time;
-    animatedScroll += (scrollY - animatedScroll) * (reduced ? 1 : 1 - Math.exp(-dt * 12));
+    animatedScroll += (scrollY - animatedScroll) * (reduced || mobile ? 1 : 1 - Math.exp(-dt * 12));
     if (Math.abs(scrollY - animatedScroll) < .08) animatedScroll = scrollY;
     const s = (animatedScroll - storyTop) / height;
+    const entry = mobile ? MOBILE_STORY : STORY;
     let mode = 'none';
-    if (enhanced && s >= STORY.entryStart && s < STORY.calendarIn) mode = 'entry';
+    if ((enhanced || mobile) && s >= entry.entryStart && s < entry.calendarIn) mode = 'entry';
     else if (s < 0) mode = 'hero';
     else if (enhanced && s > STORY.calendarOut && s < STORY.editorIn) mode = 'calendar-editor';
     else if (enhanced && s > STORY.editorOut && s < STORY.recordsIn) mode = 'editor-records';
-    const calendarLive = !enhanced || s >= STORY.calendarIn && s <= STORY.calendarOut;
+    const calendarLive = mobile ? s >= entry.calendarIn : !enhanced || s >= STORY.calendarIn && s <= STORY.calendarOut;
     const editorLive = !enhanced || s >= STORY.editorIn && s <= STORY.editorOut;
     const recordsLive = !enhanced || s >= STORY.recordsIn;
     root.dataset.calendarLive = String(calendarLive); root.dataset.editorLive = String(editorLive); root.dataset.recordsLive = String(recordsLive);
@@ -236,16 +251,16 @@ export function createWorld(canvas, root, getState) {
     const live = [calendarLive, editorLive, recordsLive];
     const show = [!enhanced || s < STORY.editorIn, !enhanced || s >= STORY.calendarOut && s < STORY.recordsIn, !enhanced || s >= STORY.editorOut];
     flights.forEach((node, i) => { node.style.visibility = show[i] ? 'visible' : 'hidden'; panels[i].inert = !live[i]; });
-    const p = progress(STORY.entryStart, STORY.calendarLand, s);
+    const p = progress(entry.entryStart, entry.calendarLand, s);
     // The surfaces finish moving before their contents are revealed and handed to the DOM.
-    const reveal = progress(STORY.calendarLand, STORY.calendarIn, s);
+    const reveal = progress(entry.calendarLand, entry.calendarIn, s);
     const ce = progress(STORY.calendarOut, STORY.editorIn, s);
     const er = progress(STORY.editorOut, STORY.recordsIn, s);
-    story.style.setProperty('--calendar-copy', String(smooth(.18, .85, reveal) * (1 - smooth(0, .2, ce))));
+    story.style.setProperty('--calendar-copy', String(smooth(.18, .85, reveal) * (mobile ? 1 : 1 - smooth(0, .2, ce))));
     story.style.setProperty('--calendar-shell', String(1 - smooth(0, .28, ce)));
     story.style.setProperty('--editor-copy', String(smooth(.83, .99, ce) * (1 - smooth(0, .2, er))));
     story.style.setProperty('--records-copy', String(smooth(.83, .99, er)));
-    root.style.setProperty('--hero-copy', String(enhanced ? 1 - smooth(STORY.entryStart, .04, s) : 1));
+    root.style.setProperty('--hero-copy', String(enhanced || mobile ? 1 - smooth(entry.entryStart, .04, s) : 1));
     const wipe = (from, to, value) => {
       if (value <= 0) return from;
       if (value >= 1) return to;
@@ -264,7 +279,7 @@ export function createWorld(canvas, root, getState) {
     if (ribbons.visible) {
       ribbons.position.set(0, 0, 0);
       ribbons.rotation.set(0, 0, 0);
-      ribbons.scale.setScalar(width < 760 ? .63 : 1);
+      ribbons.scale.setScalar(mobile && mode === 'entry' ? THREE.MathUtils.lerp(.63, 1, smooth(0, .25, p)) : width < 760 ? .63 : 1);
       ribbons.updateMatrixWorld(true);
       brushPoint.set(eased.x * width / 2 * factor(), eased.y * height / 2 * factor(), 0);
       ribbons.worldToLocal(brushPoint);
@@ -274,7 +289,7 @@ export function createWorld(canvas, root, getState) {
         const landing = mode === 'entry' ? smooth(.08, .9, reveal) : 0;
         day.face.material.opacity = landing; day.mesh.material.opacity = 1 - landing;
       });
-      camera.position.set(0, 0, width < 760 ? 13 : FINAL_DISTANCE);
+      camera.position.set(0, 0, mobile && mode === 'entry' ? THREE.MathUtils.lerp(13, FINAL_DISTANCE, smooth(0, .25, p)) : width < 760 ? 13 : FINAL_DISTANCE);
       camera.lookAt(0, 0, 0);
     }
     if (mode === 'calendar-editor') bridge(ce, calendarRects, editorRects, mode);
@@ -299,6 +314,7 @@ export function createWorld(canvas, root, getState) {
   function onVisibility() { if (document.hidden) { cancelAnimationFrame(frame); frame = 0; } else invalidate(); }
   function restorePanels() {
     root.dataset.storyReady = 'false';
+    root.dataset.mobileStory = 'false';
     flights.forEach(node => { node.style.visibility = ''; });
     panels.forEach(panel => { panel.inert = false; });
   }

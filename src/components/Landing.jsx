@@ -5,9 +5,10 @@ import { ProductDemo, landingData } from './landing/ProductDemo.jsx';
 import { EventStudio } from './landing/EventStudio.jsx';
 import { RecordNetwork } from './landing/RecordNetwork.jsx';
 import { LandingWorld } from './landing/world/LandingWorld.jsx';
-import { STORY_STOPS } from './landing/world/story-time.js';
+import { STORY_STOPS, MOBILE_STORY } from './landing/world/story-time.js';
 import { FlowPlayground } from './landing/FlowPlayground.jsx';
 import { saveEvent } from '../lib/events.js';
+import { useMobileLandingMotion } from '../hooks/useMobileLandingMotion.js';
 
 function RibbonPoster() {
   return <svg class="flow-poster" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><g fill="none" stroke="#ff602c" strokeWidth="100"><path d="M-180 250C260 -100 430 1030 920 650S1330 0 1620 210"/><path d="M-160 425C290 45 500 1160 1010 780S1480 120 1700 360"/><path d="M-150 70C240 -280 360 850 840 480S1250 -180 1520 30"/></g></svg>;
@@ -19,6 +20,7 @@ export function Landing({ navigate }) {
   const [selectedId,setSelectedId]=useState('lesson');
   const [selectionVersion,setSelectionVersion]=useState(0);
   const [paused,setPaused]=useState(false);
+  useMobileLandingMotion(root,paused);
   const [preview,setPreview]=useState(null);
   const selected=data.events.find(event=>event.id===selectedId)||data.events[1];
   const go=path=>event=>{if(event.button||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;event.preventDefault();navigate(path);};
@@ -31,9 +33,13 @@ export function Landing({ navigate }) {
     const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const story=root.current.querySelector('.flow-story');
     const stop=STORY_STOPS[id];
-    const destination=flight&&root.current.dataset.storyReady==='true'&&!reduced&&stop!==undefined?story.getBoundingClientRect().top+window.scrollY+stop*window.innerHeight:target.getBoundingClientRect().top+window.scrollY;
+    const viewHeight=root.current.querySelector('.flow-world')?.clientHeight||window.innerHeight;
+    const mobileStop=id==='calendar'&&root.current.dataset.mobileStory==='true'&&!reduced;
+    let destination=target.getBoundingClientRect().top+window.scrollY;
+    if(mobileStop) destination=story.getBoundingClientRect().top+window.scrollY+MOBILE_STORY.calendarIn*viewHeight;
+    else if(flight&&root.current.dataset.storyReady==='true'&&!reduced&&stop!==undefined) destination=story.getBoundingClientRect().top+window.scrollY+stop*viewHeight;
     history.replaceState({},'',`#${id}`);
-    window.scrollTo({top:destination,behavior:'auto'});
+    window.scrollTo({top:Math.ceil(destination),behavior:'auto'});
     target.focus({preventScroll:true});
   };
   const apply=({event,types})=>setData(current=>saveEvent({...current,types},{values:event,original:current.events.find(item=>item.id===event.id),scope:'one',repeat:null}));

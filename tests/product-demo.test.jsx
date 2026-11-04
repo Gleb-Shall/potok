@@ -69,6 +69,36 @@ it('inherits one shared name and actual link address into both connected cards',
   expect(links[0].href).not.toBe(first);
   expect(links[0].href).toBe(links[1].href);
 });
+it('preserves edits across the mobile field, timing and style groups in one live preview', async () => {
+  const onApply=vi.fn();
+  await mount(<EventStudio onApply={onApply}/>);
+  const group = key => root.querySelector(`[data-studio-panel="${key}"]`);
+  const choose = key => click(root.querySelector(`[aria-controls="editor-${key}"]`));
+  await fill(input('Название'),'Моя карточка');
+  await choose('time');
+  expect(group('time').dataset.active).toBe('true');
+  await fill(input('Минут'),'90');
+  await choose('style');
+  await click(button('Тема'));
+  await choose('content');
+  expect(input('Название').value).toBe('Моя карточка');
+  expect(input('Конец').value).toBe('16:30');
+  expect(root.querySelectorAll('.studio-live-card')).toHaveLength(1);
+  expect(root.querySelector('.event-card').textContent).toContain('15:00–16:30');
+  expect(root.querySelector('.event-card').textContent).not.toContain('Производные');
+  await act(()=>root.querySelector('form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+  expect(onApply).toHaveBeenCalledWith(expect.objectContaining({event:expect.objectContaining({title:'Моя карточка',duration:90})}));
+});
+it('lands the phone calendar link past the fractional handoff boundary', async () => {
+  const scroll=vi.spyOn(window,'scrollTo').mockImplementation(()=>{});
+  vi.spyOn(window,'matchMedia').mockImplementation(()=>({matches:false,addEventListener(){},removeEventListener(){}}));
+  await mount(<Landing navigate={()=>{}}/>);
+  root.querySelector('.flow-landing').dataset.mobileStory='true';
+  Object.defineProperty(root.querySelector('.flow-world'),'clientHeight',{value:844});
+  vi.spyOn(root.querySelector('.flow-story'),'getBoundingClientRect').mockReturnValue({top:844});
+  await click(root.querySelector('.skip-link'));
+  expect(scroll).toHaveBeenCalledWith({top:1857,behavior:'auto'});
+});
 it('edits the moved calendar event without duplicating it or undoing its move', async () => {
   await mount(<Landing navigate={()=>{}}/>);
   const days=[...root.querySelectorAll('[data-demo-day]')];

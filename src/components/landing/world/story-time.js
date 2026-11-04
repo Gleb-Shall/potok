@@ -10,6 +10,8 @@ export const STORY = Object.freeze({
   end: 6.3,
 });
 export const STORY_STOPS = { calendar: STORY.calendarIn, editor: STORY.editorIn, records: STORY.recordsIn };
+// A single short pinned entrance on phones; the remaining sections scroll normally.
+export const MOBILE_STORY = Object.freeze({ entryStart: -.3, calendarLand: .85, calendarIn: 1.2 });
 export const clamp = value => Math.max(0, Math.min(1, value));
 export const progress = (start, end, value) => clamp((value - start) / (end - start));
 export const smooth = (start, end, value) => {
