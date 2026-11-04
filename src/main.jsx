@@ -15,6 +15,7 @@ import './design-system.css';
 import './landing-experiment.css';
 import './landing-journey.css';
 import './landing-spatial.css';
+import './calendar-workspace.css';
 
 class AppBoundary extends Component {
   state = { error: null };

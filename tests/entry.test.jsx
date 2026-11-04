@@ -86,13 +86,13 @@ describe('separate public and personal entry points', () => {
     expect(localStorage.getItem('potok:sidebar-collapsed')).toBe('false');
   });
 
-  it('keeps the landing light while preserving the account theme', async () => {
+  it('keeps landing and account light despite a saved dark preference', async () => {
     localStorage.setItem('potok:theme', 'dark');
     await act(() => render(<Site/>, root));
     expect(document.documentElement.classList.contains('dark')).toBe(false);
     expect(localStorage.getItem('potok:theme')).toBe('dark');
     await act(async () => root.querySelector('a[href="/app"]').click());
-    expect(document.documentElement.classList.contains('dark')).toBe(true);
+    expect(document.documentElement.classList.contains('dark')).toBe(false);
     await vi.waitFor(async () => { await act(async () => {}); expect(root.querySelector('.entry-back')).not.toBeNull(); });
     await act(async () => root.querySelector('.entry-back').click());
     expect(document.documentElement.classList.contains('dark')).toBe(false);
@@ -107,16 +107,16 @@ describe('separate public and personal entry points', () => {
     expect(root.querySelector('.calendar-grid')).toBeNull();
   });
 
-  it('restores a saved theme and persists the visible theme switch', async () => {
+  it('ignores the phone dark preference and exposes no theme controls', async () => {
     localStorage.setItem('potok:theme', 'dark');
+    vi.spyOn(window, 'matchMedia').mockImplementation(query => ({ media:query, matches:query.includes('color-scheme'), addEventListener() {}, removeEventListener() {} }));
+    document.documentElement.classList.add('dark');
     history.replaceState({}, '', '/app');
     await act(() => render(<Site/>, root));
-    expect(document.documentElement.classList.contains('dark')).toBe(true);
-    await vi.waitFor(async () => { await act(async () => {}); expect(root.querySelector('.theme-toggle')).not.toBeNull(); });
-    const toggle = root.querySelector('.theme-toggle');
-    await act(async () => { toggle.click(); });
-    expect(localStorage.getItem('potok:theme')).toBe('light');
+    await vi.waitFor(async () => { await act(async () => {}); expect(root.querySelector('.google-signin')).not.toBeNull(); });
     expect(document.documentElement.classList.contains('dark')).toBe(false);
+    expect(document.documentElement.style.colorScheme).toBe('light');
+    expect(root.querySelector('.theme-toggle,.theme-options')).toBeNull();
   });
 
   it('keeps the board readable without motion and lets users choose a scene', async () => {

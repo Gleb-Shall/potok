@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { paintSurface } from './dom-surface.js';
+import { renderPixelRatio, texturePixelRatio } from './render-quality.js';
+import { readAnimationQuality, APPEARANCE_CHANGE, ANIMATION_QUALITY_KEY } from '../../../lib/appearance.js';
 
 import { STORY, MOBILE_STORY, progress, smooth } from './story-time.js';
 import { createRibbonCurve, createFlightRoute } from './ribbon-flight.js';
@@ -10,7 +12,7 @@ function createSurface() {
   const makeTexture = () => {
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
-    texture.generateMipmaps = false; texture.minFilter = THREE.LinearFilter;
+    texture.generateMipmaps = true; texture.minFilter = THREE.LinearMipmapLinearFilter;
     return texture;
   };
   let texture = makeTexture();
@@ -145,6 +147,7 @@ export function createWorld(canvas, root, getState) {
   let frame = 0, disposed = false, lost = false, width = 1, height = 1, lastTime = 0;
   let layoutDirty = true, surfacesDirty = true, storyTop = 0, enhanced = false, mobile = false, texturePhase = '';
   let animatedScroll = scrollY;
+  let quality = readAnimationQuality();
   let dayNodes = [], calendarNodes = [], editorNodes = [], recordNodes = [];
   let calendarRects = [], editorRects = [], recordRects = [];
 
@@ -167,7 +170,7 @@ export function createWorld(canvas, root, getState) {
     layoutDirty = false; surfacesDirty = true;
   }
   function paint(phase) {
-    const ratio = Math.min(devicePixelRatio || 1, mobile ? 1 : 1.65);
+    const ratio = texturePixelRatio(devicePixelRatio || 1, quality);
     if (phase === 'entry' || phase === 'hero') dayNodes.forEach((node, i) => { days[i].face.material.map = days[i].surface.update(node, ratio); });
     if (phase === 'calendar-editor') panels3d.forEach((panel, i) => {
       panel.front.material.map = panel.source.update(calendarNodes[i], ratio);
@@ -221,7 +224,7 @@ export function createWorld(canvas, root, getState) {
     // Match the CSS small viewport so mobile browser chrome does not stretch the
     // canvas or change the flight's scroll distance when its address bar moves.
     width = innerWidth; height = canvas.clientHeight || innerHeight;
-    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, width < 760 ? 1 : 1.65));
+    renderer.setPixelRatio(renderPixelRatio(width, height, devicePixelRatio || 1, quality));
     renderer.setSize(width, height, false); camera.aspect = width / height; camera.updateProjectionMatrix();
     layoutDirty = true; invalidate();
   }
@@ -313,6 +316,11 @@ export function createWorld(canvas, root, getState) {
     if (!reduced && (Math.abs(scrollY - animatedScroll) > .08 || (mode === 'hero' || mode === 'entry') && settling)) frame = requestAnimationFrame(draw);
   }
   function invalidate() { if (!disposed && !lost && !frame && !document.hidden) frame = requestAnimationFrame(draw); }
+  function onQuality(event) {
+    if (event.type === 'storage' && event.key && event.key !== ANIMATION_QUALITY_KEY) return;
+    quality = event.type === APPEARANCE_CHANGE ? event.detail : readAnimationQuality();
+    surfacesDirty = true; resize();
+  }
   function refresh() { layoutDirty = true; surfacesDirty = true; invalidate(); }
   function onPointer(event) {
     const overRibbon = event.pointerType !== 'touch' && hero.contains(event.target) && !event.target.closest('a,button,input');
@@ -331,6 +339,7 @@ export function createWorld(canvas, root, getState) {
     panels.forEach(panel => { panel.inert = false; });
   }
   function onLost(event) { event.preventDefault(); lost = true; cancelAnimationFrame(frame); frame = 0; root.dataset.world = 'fallback'; restorePanels(); }
+  window.addEventListener(APPEARANCE_CHANGE, onQuality); window.addEventListener('storage', onQuality);
   window.addEventListener('scroll', invalidate, { passive: true }); window.addEventListener('resize', resize); window.addEventListener('pointermove', onPointer, { passive: true });
   root.addEventListener('input', refresh); root.addEventListener('click', refresh);
   hero.addEventListener('pointerleave', onPointerLeave);
@@ -340,6 +349,7 @@ export function createWorld(canvas, root, getState) {
   document.fonts?.ready.then(() => { if (!disposed) refresh(); });
   return { invalidate: refresh, dispose() {
     disposed = true; cancelAnimationFrame(frame); observer.disconnect();
+    window.removeEventListener(APPEARANCE_CHANGE, onQuality); window.removeEventListener('storage', onQuality);
     window.removeEventListener('scroll', invalidate); window.removeEventListener('resize', resize); window.removeEventListener('pointermove', onPointer);
     root.removeEventListener('input', refresh); root.removeEventListener('click', refresh);
     hero.removeEventListener('pointerleave', onPointerLeave);

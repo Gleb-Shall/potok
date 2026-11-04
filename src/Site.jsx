@@ -20,6 +20,6 @@ function SiteRoutes() {
   }, [page]);
   useEffect(() => { document.title = page === 'landing' ? 'Поток — события, записи и твой ритм' : 'Моё пространство — Поток'; }, [page]);
   useEffect(() => { if (path === '/demo') { history.replaceState({}, '', '/app'); setPath('/app'); } }, [path]);
-  if (page === 'landing' && path !== '/demo') return <ThemeProvider forceLight><Landing navigate={navigate}/></ThemeProvider>;
+  if (page === 'landing' && path !== '/demo') return <ThemeProvider><Landing navigate={navigate}/></ThemeProvider>;
   return <ThemeProvider><Suspense fallback={<div class="planner-loading"><span class="loading-orbit"/><p>Открываем твоё пространство…</p></div>}><Planner key={page} initialMode="personal" requireAccount onHome={() => navigate('/')} onPersonal={() => navigate('/app')}/></Suspense></ThemeProvider>;
 }

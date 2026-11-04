@@ -87,3 +87,40 @@ it('opens fourteen target dates from a calendar hold and opens time editing only
   expect(document.querySelector('.touch-move-picker')).toBeNull();
   expect(document.body.textContent).toContain('Во сколько начать?');
 });
+
+it('offers fourteen dates from the move button and cancels a drop on the source day', async () => {
+  localStorage.clear();
+  await act(() => render(<App initialMode="demo" demoOnly/>,root));
+  await act(() => root.querySelector('.card-move').click());
+  expect(document.querySelectorAll('[data-press-drop]')).toHaveLength(14);
+  expect(document.querySelector('.press-drag-ghost')).toBeNull();
+  await act(() => document.querySelector('.touch-move-days .is-source').click());
+  expect(document.querySelector('.touch-move-picker')).toBeNull();
+  expect(document.querySelector('dialog')).toBeNull();
+});
+it('opens the same two-week picker for mouse dragging and retains time editing after dragend', async () => {
+  localStorage.clear();
+  HTMLDialogElement.prototype.showModal = vi.fn();
+  HTMLDialogElement.prototype.close = vi.fn();
+  await act(() => render(<App initialMode="demo" demoOnly/>,root));
+  const card = root.querySelector('[data-event-id]');
+  const drag = new Event('dragstart',{bubbles:true,cancelable:true});
+  Object.defineProperty(drag,'dataTransfer',{value:{setData:vi.fn(),setDragImage:vi.fn()}});
+  await act(() => card.dispatchEvent(drag));
+  expect(document.querySelectorAll('[data-press-drop]')).toHaveLength(14);
+  const date = document.querySelector('[data-press-drop]:not(.is-source)');
+  const drop = new Event('drop',{bubbles:true,cancelable:true});
+  await act(() => date.dispatchEvent(drop));
+  await act(() => card.dispatchEvent(new Event('dragend',{bubbles:true})));
+  expect(document.querySelector('.touch-move-picker')).toBeNull();
+  expect(document.body.textContent).toContain('Во сколько начать?');
+});
+it('keeps deferring an event available inside the new date picker', async () => {
+  localStorage.clear();
+  await act(() => render(<App initialMode="demo" demoOnly/>,root));
+  await act(() => root.querySelector('.card-move').click());
+  await act(() => document.querySelector('.touch-move-pending').click());
+  expect(document.querySelector('.touch-move-picker')).toBeNull();
+  expect(root.querySelectorAll('.pending-card')).toHaveLength(1);
+  expect(root.querySelector('.pending-panel').classList.contains('has-pending')).toBe(true);
+});

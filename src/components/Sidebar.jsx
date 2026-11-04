@@ -8,6 +8,7 @@ const SECTIONS = [
   ['types', 'sliders', 'Шаблоны'],
   ['transfers', 'arrows', 'Переносы'],
   ['history', 'history', 'История'],
+  ['appearance', 'sun', 'Внешний вид'],
 ];
 
 export function Sidebar({ collapsed, onToggle, view, onChange, pending, account, onSignIn, onHome }) {
@@ -22,7 +23,6 @@ export function Sidebar({ collapsed, onToggle, view, onChange, pending, account,
     <nav id="workspace-navigation" aria-label="Разделы">{SECTIONS.map(([id, icon, label]) => <button type="button" key={id} class={`nav-item ${view === id ? 'active' : ''}`} aria-label={label} data-tooltip={label} aria-current={view === id ? 'page' : undefined} onClick={() => onChange(id)}>
       <Icon name={icon}/><span class="sidebar-label">{label}</span>{id === 'transfers' && pending > 0 && <span class="nav-count amber" aria-hidden="true">{pending}</span>}
     </button>)}</nav>
-    <div class="sidebar-note"><span class="tiny-spark">✳</span><p>Освободи голову.<br/>Планы уже здесь.</p></div>
     <div class="sidebar-bottom">
       <button type="button" class={`nav-item ${view === 'settings' ? 'active' : ''}`} aria-label="Настройки" aria-current={view === 'settings' ? 'page' : undefined} data-tooltip="Настройки" onClick={() => onChange('settings')}><Icon name="settings"/><span class="sidebar-label">Настройки</span></button>
       <button type="button" class="sidebar-profile" aria-label={`Аккаунт: ${name}`} data-tooltip={name} onClick={() => onChange('settings')}><span class="account-avatar">{account.user ? initials(name) : 'Я'}</span><span class="sidebar-profile-copy"><strong>{name}</strong><small><span class="status-dot"/>{account.user ? 'Google-аккаунт' : 'На этом устройстве'}</small></span></button>
