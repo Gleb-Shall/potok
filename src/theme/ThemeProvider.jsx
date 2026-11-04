@@ -1,5 +1,5 @@
 import { createContext } from 'preact';
-import { useContext, useEffect, useState } from 'preact/hooks';
+import { useContext, useLayoutEffect, useState } from 'preact/hooks';
 
 export const THEME_KEY = 'potok:theme';
 const valid = value => ['light', 'dark', 'system'].includes(value) ? value : 'system';
@@ -16,24 +16,24 @@ function applyTheme(theme) {
   return resolved;
 }
 const ThemeContext = createContext({ theme: 'system', resolved: 'light', setTheme: () => {} });
-export function ThemeProvider({ children }) {
+export function ThemeProvider({ children, forceLight = false }) {
   const [theme, updateTheme] = useState(readTheme);
-  const [resolved, setResolved] = useState(() => resolveTheme(readTheme()));
+  const [resolved, setResolved] = useState(() => forceLight ? 'light' : resolveTheme(readTheme()));
   const setTheme = value => {
     const next = valid(value);
     try { localStorage.setItem(THEME_KEY, next); } catch { /* Theme still works in memory when storage is unavailable. */ }
     updateTheme(next);
-    setResolved(applyTheme(next));
+    setResolved(applyTheme(forceLight ? 'light' : next));
   };
-  useEffect(() => {
-    setResolved(applyTheme(theme));
+  useLayoutEffect(() => {
+    setResolved(applyTheme(forceLight ? 'light' : theme));
     const media = window.matchMedia?.('(prefers-color-scheme: dark)');
-    const changed = () => { if (theme === 'system') setResolved(applyTheme('system')); };
-    const storage = event => { if (event.key === THEME_KEY || event.key === null) { const next = readTheme(); updateTheme(next); setResolved(applyTheme(next)); } };
+    const changed = () => { if (theme === 'system') setResolved(applyTheme(forceLight ? 'light' : 'system')); };
+    const storage = event => { if (event.key === THEME_KEY || event.key === null) { const next = readTheme(); updateTheme(next); setResolved(applyTheme(forceLight ? 'light' : next)); } };
     media?.addEventListener('change', changed);
     window.addEventListener('storage', storage);
     return () => { media?.removeEventListener('change', changed); window.removeEventListener('storage', storage); };
-  }, [theme]);
+  }, [theme, forceLight]);
   return <ThemeContext.Provider value={{ theme, resolved, setTheme }}>{children}</ThemeContext.Provider>;
 }
 export const useTheme = () => useContext(ThemeContext);

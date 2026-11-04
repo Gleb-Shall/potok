@@ -1,4 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'preact/hooks';
+import { usePressDrag, touchDropTarget } from '../../hooks/usePressDrag.js';
+import { PressDragGhost } from '../TouchMovePicker.jsx';
 import { Icon } from '../Icon.jsx';
 import { addDays, minutesToTime } from '../../lib/domain.js';
 import { projectWeek, restoreMove, saveMove } from '../../lib/events.js';
@@ -12,7 +14,7 @@ export function ProductDemo({ data: providedData, onChange, onMove } = {}) {
   const setData = onChange || setLocalData;
   const [dragging, setDragging] = useState('');
   const [over, setOver] = useState('');
-  const [message, setMessage] = useState('Переноси карточки между тремя днями. На телефоне используй стрелку в карточке.');
+  const [message, setMessage] = useState('Переноси карточки между тремя днями. На телефоне удерживай карточку и веди пальцем.');
   const surface = useRef(null);
   const positions = useRef(new Map());
   const interaction = useRef(null);
@@ -55,17 +57,24 @@ export function ProductDemo({ data: providedData, onChange, onMove } = {}) {
     } catch (error) { positions.current.clear(); interaction.current=null; setMessage(error.message); }
   };
 
+  const touch = usePressDrag({ root: surface, enabled: true, selector: '.toy-event',
+    getItem: node => projection.events.find(event => event.id === node.dataset.cardId),
+    hitTest: point => { const date = touchDropTarget(point, '[data-demo-day]', 'data-demo-day'); return days.includes(date) ? date : null; },
+    onDrop: (event, date) => update(event.id, date),
+  });
+  const highlighted = touch.hover || over;
   return <div class="product-demo calendar-toy" id="try" ref={surface} data-ui>
-    <div class="toy-grid">{days.map((date,index) => <section key={date} data-demo-day={date} data-card-count={projection.events.filter(event => event.date===date).length} class={`toy-day ${over===date?'toy-day-over':''}`} onDragOver={input => { if(dragging) { input.preventDefault(); input.dataTransfer.dropEffect='move'; setOver(date); } }} onDragLeave={input => { if(!input.currentTarget.contains(input.relatedTarget)) setOver(''); }} onDrop={input => { input.preventDefault(); update(dragging,date); }}>
+    <div class="toy-grid">{days.map((date,index) => <section key={date} data-demo-day={date} data-card-count={projection.events.filter(event => event.date===date).length} class={`toy-day ${highlighted===date?'toy-day-over':''}`} onDragOver={input => { if(dragging) { input.preventDefault(); input.dataTransfer.dropEffect='move'; setOver(date); } }} onDragLeave={input => { if(!input.currentTarget.contains(input.relatedTarget)) setOver(''); }} onDrop={input => { input.preventDefault(); update(dragging,date); }}>
       <header><span>{['Понедельник','Вторник','Среда'][index]}</span></header>
       <div class="toy-day-content">
         {projection.ghosts.filter(event => event.date===date).map(event => <button key={`ghost-${event.id}`} class="toy-origin ghost-card" onClick={() => update(event.id,date)}><Icon name="arrows"/><span><time>{minutesToTime(event.start)}</time><strong>{event.title}</strong></span><Icon name="repeat"/></button>)}
         {projection.events.filter(event => event.date===date).map(event => <article key={event.id} data-card-id={event.id} class={`toy-event event-card color-${event.color} ${dragging===event.id?'toy-dragging':''}`} draggable onDragStart={input => { input.dataTransfer.setData('application/x-potok-demo-card',event.id); input.dataTransfer.effectAllowed='move'; setDragging(event.id); }} onDragEnd={() => { setDragging(''); setOver(''); }}>
           <div><time>{minutesToTime(event.start)}–{minutesToTime(event.start+event.duration)}</time><span class="toy-grip" aria-hidden="true">⠿</span></div><h3>{event.title}</h3><footer><span>{event.typeId==='class'?'Учёба':event.typeId==='lesson'?'Занятие':'Для себя'}</span><button aria-label={`Перенести «${event.title}» на следующий день примера`} onClick={() => update(event.id,days[(index+1)%3])}><Icon name="arrow"/></button></footer>
         </article>)}
-        <div class={`toy-drop ${over===date?'toy-drop-active':''}`} aria-hidden="true">{over===date&&<><Icon name="down"/><span>Отпусти здесь</span></>}</div>
+        <div class={`toy-drop ${highlighted===date?'toy-drop-active':''}`} aria-hidden="true">{highlighted===date&&<><Icon name="down"/><span>Отпусти здесь</span></>}</div>
       </div>
     </section>)}</div>
+    <PressDragGhost controller={touch} title={touch.drag?.item.title}/>
     <span class="sr-only" role="status">{message}</span>
   </div>;
 }

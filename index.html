@@ -9,7 +9,7 @@
       (() => {
         let theme = 'system';
         try { theme = localStorage.getItem('potok:theme') || 'system'; } catch {}
-        const dark = theme === 'dark' || (theme !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+        const dark = location.pathname.startsWith('/app') && (theme === 'dark' || (theme !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches));
         document.documentElement.classList.toggle('dark', dark);
       })();
     </script>

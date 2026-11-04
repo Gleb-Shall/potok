@@ -394,3 +394,7 @@
  .flow-landing[data-mobile-story=true] .network-event { padding:10px; }
  .flow-landing[data-mobile-story=true] .network-event h3 { font-size:16px; min-height:38px; margin:8px 0; }
 }
+
+/* Landed ribbon surfaces hand control to the live cards before the next scene. */
+.flow-landing { color-scheme:light; }
+.flow-landing[data-story-ready=true][data-calendar-motion=entry][data-calendar-landed=true] .toy-grid { visibility:visible; opacity:var(--calendar-copy,0); }

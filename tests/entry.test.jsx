@@ -50,10 +50,11 @@ describe('separate public and personal entry points', () => {
     expect(root.querySelector('h1').textContent).toBe('ПОТОК');
     expect(connectFirebase).toHaveBeenCalledOnce();
     expect(connection.signIn).not.toHaveBeenCalled();
-    const demo = [...root.querySelectorAll('a')].find(link => link.textContent.includes('Открыть полную демоверсию'));
-    await act(async () => { demo.click(); });
-    expect(location.pathname).toBe('/demo');
-    expect(connectFirebase).toHaveBeenCalledOnce();
+    expect(root.querySelector('a[href="/demo"]')).toBeNull();
+    const personal = root.querySelector('a[href="/app"]');
+    await act(async () => { personal.click(); });
+    expect(location.pathname).toBe('/app');
+    await vi.waitFor(async () => { await act(async () => {}); expect(root.querySelector('.google-signin')).not.toBeNull(); });
     expect(connection.signIn).not.toHaveBeenCalled();
   });
 
@@ -85,11 +86,33 @@ describe('separate public and personal entry points', () => {
     expect(localStorage.getItem('potok:sidebar-collapsed')).toBe('false');
   });
 
-  it('restores a saved theme and persists the visible theme switch', async () => {
+  it('keeps the landing light while preserving the account theme', async () => {
     localStorage.setItem('potok:theme', 'dark');
+    await act(() => render(<Site/>, root));
+    expect(document.documentElement.classList.contains('dark')).toBe(false);
+    expect(localStorage.getItem('potok:theme')).toBe('dark');
+    await act(async () => root.querySelector('a[href="/app"]').click());
+    expect(document.documentElement.classList.contains('dark')).toBe(true);
+    await vi.waitFor(async () => { await act(async () => {}); expect(root.querySelector('.entry-back')).not.toBeNull(); });
+    await act(async () => root.querySelector('.entry-back').click());
+    expect(document.documentElement.classList.contains('dark')).toBe(false);
+    expect(localStorage.getItem('potok:theme')).toBe('dark');
+  });
+
+  it('redirects old demo links to Google entry without exposing demo records', async () => {
     history.replaceState({}, '', '/demo');
     await act(() => render(<Site/>, root));
+    expect(location.pathname).toBe('/app');
+    await vi.waitFor(async () => { await act(async () => {}); expect(root.querySelector('.google-signin')).not.toBeNull(); });
+    expect(root.querySelector('.calendar-grid')).toBeNull();
+  });
+
+  it('restores a saved theme and persists the visible theme switch', async () => {
+    localStorage.setItem('potok:theme', 'dark');
+    history.replaceState({}, '', '/app');
+    await act(() => render(<Site/>, root));
     expect(document.documentElement.classList.contains('dark')).toBe(true);
+    await vi.waitFor(async () => { await act(async () => {}); expect(root.querySelector('.theme-toggle')).not.toBeNull(); });
     const toggle = root.querySelector('.theme-toggle');
     await act(async () => { toggle.click(); });
     expect(localStorage.getItem('potok:theme')).toBe('light');

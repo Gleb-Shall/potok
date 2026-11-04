@@ -184,13 +184,24 @@ export function createWorld(canvas, root, getState) {
     const f = factor();
     panels3d.forEach((panel, i) => {
       const start = outgoing[i], end = incoming[i];
-      const midWidth = width * (mobile ? .72 : .24);
-      // Change proportions while the panel is edge-on, not while its text is readable.
+      const midWidth = width * .24;
       const midHeight = midWidth * THREE.MathUtils.lerp(start.height / start.width, end.height / end.width, smooth(.45, .62, t));
-      const mid = { left: mobile ? (width - midWidth) / 2 : width * (.08 + i * .30), top: height * (mobile ? .22 + i * .28 : .52) - midHeight / 2, width: midWidth, height: midHeight };
+      const mid = { left: width * (.08 + i * .30), top: height * .52 - midHeight / 2, width: midWidth, height: midHeight };
       const box = {};
-      for (const key of ['left', 'top', 'width', 'height']) {
-        box[key] = t < .43 ? THREE.MathUtils.lerp(start[key], mid[key], gather) : THREE.MathUtils.lerp(mid[key], end[key], spread);
+      if (mobile) {
+        const shrink = smooth(0, .23, t), travel = smooth(.23, .76, t), expand = smooth(.76, 1, t);
+        const compactWidth = Math.min(start.width, end.width, width * .22);
+        const compactHeight = Math.min(start.height, end.height, height * .09);
+        const w = THREE.MathUtils.lerp(start.width, compactWidth, shrink);
+        const h = THREE.MathUtils.lerp(start.height, compactHeight, shrink);
+        box.width = THREE.MathUtils.lerp(w, end.width, expand);
+        box.height = THREE.MathUtils.lerp(h, end.height, expand);
+        box.left = THREE.MathUtils.lerp(start.left + start.width / 2, end.left + end.width / 2, travel) - box.width / 2;
+        box.top = THREE.MathUtils.lerp(start.top + start.height / 2, end.top + end.height / 2, travel) - box.height / 2;
+        // Each panel occupies a different horizontal lane during the crossing.
+        box.left += Math.sin(travel * Math.PI) * (i - 1) * width * .27;
+      } else {
+        for (const key of ['left', 'top', 'width', 'height']) box[key] = t < .43 ? THREE.MathUtils.lerp(start[key], mid[key], gather) : THREE.MathUtils.lerp(mid[key], end[key], spread);
       }
       const turn = smooth(.34 + i * .025, .68 + i * .025, t);
       const arc = Math.sin(t * Math.PI);
@@ -203,7 +214,7 @@ export function createWorld(canvas, root, getState) {
       panel.group.position.z -= i === 2 ? smooth(.6, 1, t) * .006 : 0;
       panel.group.visible = true;
     });
-    camera.position.set(Math.sin(t * Math.PI) * (mobile ? .07 : .45), 0, FINAL_DISTANCE - Math.sin(t * Math.PI) * (mobile ? .12 : .35));
+    camera.position.set(mobile ? 0 : Math.sin(t * Math.PI) * .45, 0, FINAL_DISTANCE - (mobile ? 0 : Math.sin(t * Math.PI) * .35));
     camera.lookAt(0, 0, 0);
   }
   function resize() {
@@ -239,10 +250,10 @@ export function createWorld(canvas, root, getState) {
     else if (s < 0) mode = 'hero';
     else if (enhanced && s > entry.calendarOut && s < entry.editorIn) mode = 'calendar-editor';
     else if (enhanced && s > entry.editorOut && s < entry.recordsIn) mode = 'editor-records';
-    const calendarLive = !enhanced || s >= entry.calendarIn && s <= entry.calendarOut;
+    const calendarLive = !enhanced || s >= entry.calendarLand && s <= entry.calendarOut;
     const editorLive = !enhanced || s >= entry.editorIn && s <= entry.editorOut;
     const recordsLive = !enhanced || s >= entry.recordsIn;
-    root.dataset.calendarLive = String(calendarLive); root.dataset.editorLive = String(editorLive); root.dataset.recordsLive = String(recordsLive);
+    root.dataset.calendarLanded = String(s >= entry.calendarLand); root.dataset.calendarLive = String(calendarLive); root.dataset.editorLive = String(editorLive); root.dataset.recordsLive = String(recordsLive);
     root.dataset.calendarMotion = mode === 'entry' || mode === 'hero' ? 'entry' : mode === 'calendar-editor' ? 'exit' : 'idle';
     const live = [calendarLive, editorLive, recordsLive];
     const show = [!enhanced || s < entry.editorIn, !enhanced || s >= entry.calendarOut && s < entry.recordsIn, !enhanced || s >= entry.editorOut];
@@ -282,8 +293,8 @@ export function createWorld(canvas, root, getState) {
       const brush = { x: brushPoint.x, y: brushPoint.y, strength: eased.strength };
       days.forEach(day => {
         day.fly(mode === 'entry' ? p : 0, brush);
-        const landing = mode === 'entry' ? smooth(.08, .9, reveal) : 0;
-        day.face.material.opacity = landing; day.mesh.material.opacity = 1 - landing;
+        const landing = mode === 'entry' ? smooth(0, .8, reveal) : 0;
+        day.face.material.opacity = 0; day.mesh.material.opacity = 1 - landing;
       });
       camera.position.set(0, 0, mobile && mode === 'entry' ? THREE.MathUtils.lerp(13, FINAL_DISTANCE, smooth(0, .25, p)) : width < 760 ? 13 : FINAL_DISTANCE);
       camera.lookAt(0, 0, 0);

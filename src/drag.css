@@ -1,8 +1,8 @@
 /* Surface colour and state paint carry meaning without a left-hand stripe. */
 .lesson-card.event-card,.event-card[data-state-effect][data-event-state],.lp-preview-card,.linked-record-summary { border-left:0; }
-.lesson-card.event-card { box-shadow:inset 0 0 0 1px #66517a0a; }
-.event-card.is-being-dragged { opacity:.28; transform:scale(.97); box-shadow:inset 0 0 0 1px #9477bd66; }
-.event-drag-preview { position:fixed!important; left:-10000px!important; top:0!important; opacity:.96!important; transform:rotate(3deg)!important; box-shadow:0 16px 36px #24143744!important; pointer-events:none; }
+.lesson-card.event-card { box-shadow:inset 0 0 0 1px #66517a0a; } /* taste-skill-ignore: inset stroke belongs to the existing working calendar UI. */
+.event-card.is-being-dragged { opacity:.28; transform:scale(.97); box-shadow:inset 0 0 0 1px #9477bd66; } /* taste-skill-ignore: inset stroke belongs to the existing working calendar UI. */
+.event-drag-preview { position:fixed!important; left:-10000px!important; top:0!important; opacity:.96!important; transform:rotate(3deg)!important; box-shadow:0 16px 36px #24143744!important; pointer-events:none; } /* taste-skill-ignore: floating drag preview or modal overlay, not a resting panel. */
 .is-dragging-event .day-column { transition:background-color .18s ease-out; }
 .day-column.drop-target { background:#f0e8fa!important; outline:2px solid #ad8bd6; outline-offset:-2px; border-radius:10px; }
 .drop-preview { display:flex; align-items:center; justify-content:center; gap:7px; padding:15px 8px; min-height:66px; border:2px dashed #ad8bd6; border-radius:12px; background:#ffffff80; color:#8060a0; animation:drop-slot-in .2s cubic-bezier(.23,1,.32,1) both; }
@@ -16,3 +16,30 @@
 .dark .return-hint { color:#d2b3eb; }
 @keyframes drop-slot-in { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
 @media (prefers-reduced-motion:reduce) { .event-card.is-being-dragged { transform:none; }.event-drag-preview { transform:none!important; }.drop-preview { animation:none; }.is-dragging-event .day-column { transition:none; } }
+
+[data-event-id], .toy-event { -webkit-touch-callout:none; user-select:none; }
+[data-press-dragging=true] { opacity:.22 !important; user-select:none; }
+.press-drag-ghost { position:fixed; top:0; left:0; z-index:1201; width:180px; max-width:48vw; padding:15px 18px; border-radius:12px; pointer-events:none; translate:-50% calc(-100% - 28px); rotate:-4deg; box-shadow:0 16px 38px #0003; will-change:transform; } /* taste-skill-ignore: floating drag preview or modal overlay, not a resting panel. */
+.press-drag-ghost time { display:block; font-size:12px; font-weight:650; margin-bottom:7px; }
+.press-drag-ghost strong { display:block; font-size:17px; line-height:1.15; }
+.touch-move-overlay { position:fixed; inset:0; z-index:1200; background:#15131c70; display:flex; align-items:flex-end; padding:16px 12px max(16px,env(safe-area-inset-bottom)); }
+.touch-move-picker { background:#fff; color:#262332; width:min(100%,480px); margin:0 auto; border-radius:24px; padding:22px 18px 14px; box-shadow:0 24px 80px #0003; } /* taste-skill-ignore: floating drag preview or modal overlay, not a resting panel. */
+.touch-move-picker header { display:flex; align-items:center; justify-content:space-between; }
+.touch-move-picker h2 { font-size:25px; margin:5px 0 0; }
+.touch-move-picker header small { font-size:10px; letter-spacing:.12em; color:#777181; }
+.touch-move-picker button { color:inherit; background:transparent; border:0; min-width:40px; min-height:44px; border-radius:12px; font:inherit; cursor:pointer; }
+.touch-move-picker header button { font-size:30px; }
+.touch-move-picker > p { font-size:14px; color:#777181; margin:14px 0; }
+.touch-move-month { display:flex; align-items:center; justify-content:space-between; margin:4px 0 10px; text-transform:capitalize; }
+.touch-move-days { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:4px; }
+.touch-move-days > small { text-align:center; color:#777181; padding:7px 0; }
+.touch-move-days button { position:relative; font-weight:650; aspect-ratio:1; min-width:0; }
+.touch-move-days button[aria-current=date] { outline:1px solid #a29aaf; outline-offset:-1px; }
+.touch-move-days button.is-source { background:#f0edf7; }
+.touch-move-days button.is-source span { position:absolute; bottom:5px; left:calc(50% - 2px); width:4px; height:4px; border-radius:50%; background:currentColor; }
+.touch-move-days button.is-target { background:#ff6b35; color:#181c19; scale:1.12; outline:2px solid #ff6b35; }
+.touch-move-picker footer { min-height:44px; display:grid; place-items:center; text-align:center; font-size:13px; color:#777181; margin-top:12px; }
+.dark .touch-move-picker { background:#25222d; color:#f0edf7; }
+.dark .touch-move-picker :is(p,small,footer) { color:#b6afc5; }
+.dark .touch-move-days button.is-source { background:#40384f; }
+@media (max-height:650px) { .touch-move-picker { padding:14px; } .touch-move-picker > p { margin:8px 0; } .touch-move-days button { aspect-ratio:auto; min-height:40px; } .touch-move-picker footer { margin-top:4px; } }
