@@ -9,7 +9,7 @@ export function useWorkspace(editing, { initialMode, demoOnly = false } = {}) {
     if (cached?.user && cached.data && mode !== 'demo') return { mode: 'cloud', data: cached.data };
     return { mode, data: loadData(mode) };
   });
-  const [account, setAccount] = useState(() => ({ user: cached?.user || null, loading: !cached?.resolved, authResolved: Boolean(cached?.resolved), hasData: Boolean(cached?.user && cached.data), error: '', ready: Boolean(cached?.user && cached.data && cached.fromServer), saving: false, online: navigator.onLine }));
+  const [account, setAccount] = useState(() => ({ user: cached?.user || null, loading: !cached?.resolved, authResolved: Boolean(cached?.resolved), hasData: Boolean(cached?.user && cached.data), error: '', ready: Boolean(cached?.user && cached.data && cached.fromServer), saving: false, online: navigator.onLine, lastSyncedAt:cached?.lastSyncedAt || null, syncing:false, syncError:'' }));
   const [stale, setStale] = useState(false);
   const latest = useRef({ session, account, editing });
   latest.current = { session, account, editing };
@@ -18,6 +18,7 @@ export function useWorkspace(editing, { initialMode, demoOnly = false } = {}) {
   const remote = useRef(null);
   const currentUid = useRef(null);
   const saving = useRef(false);
+  const syncing = useRef(null);
   const [retry, setRetry] = useState(0);
 
   useEffect(() => {
@@ -31,19 +32,19 @@ export function useWorkspace(editing, { initialMode, demoOnly = false } = {}) {
         if (!active) return;
         unsubscribeData?.(); remote.current = null; currentUid.current = user?.uid || null;
         setStale(false);
-        saving.current = false;
-        setAccount(state => ({ ...state, user, loading: false, authResolved: true, hasData: false, ready: false, saving: false, error: '' }));
+        saving.current = false;syncing.current=null;
+        setAccount(state => ({ ...state, user, loading: false, authResolved: true, hasData: false, ready: false, saving: false, error: '', lastSyncedAt:null, syncing:false, syncError:'' }));
         if (!user) {
           if (latest.current.session.mode === 'cloud') setSession({ mode: 'personal', data: loadData('personal') });
           return;
         }
         setSession({ mode: 'cloud', data: { ...emptyData(), records: [], revision: 0 } });
-        unsubscribeData = connection.subscribe(user.uid, (data, fromServer) => {
+        unsubscribeData = connection.subscribe(user.uid, (data, fromServer, syncedAt) => {
           if (!active || currentUid.current !== user.uid) return;
           // Late cache events must not replace a newer server-confirmed revision.
           if (remote.current && data.revision < remote.current.revision) return;
           remote.current = data;
-          setAccount(state => ({ ...state, hasData: true, ready: fromServer, error: '' }));
+          setAccount(state => ({ ...state, hasData: true, ready: fromServer, error: '', ...(fromServer ? {lastSyncedAt:syncedAt ?? Date.now(),syncError:''} : syncedAt ? {lastSyncedAt:syncedAt} : {}) }));
           const current = latest.current;
           if (current.session.mode !== 'cloud') return;
           if (saving.current?.uid !== user.uid && current.editing && data.revision !== (current.session.data.revision || 0)) setStale(true);
@@ -55,12 +56,12 @@ export function useWorkspace(editing, { initialMode, demoOnly = false } = {}) {
         setAccount(state => ({ ...state, user: null, hasData: false, authResolved: false, loading: false, ready: false, error: explainFirebaseError(error) }));
       });
     }).catch(fail);
-    return () => { active = false; unsubscribeAuth?.(); unsubscribeData?.(); currentUid.current = null; };
+    return () => { active = false; unsubscribeAuth?.(); unsubscribeData?.(); currentUid.current = null; syncing.current=null; };
   }, [retry, demoOnly]);
 
   useEffect(() => {
     const changed = event => { if (event.key === `tutor-schedule:${latest.current.session.mode}:v2`) setStale(true); };
-    const online = () => setAccount(state => ({ ...state, online: navigator.onLine }));
+    const online = () => setAccount(state => ({ ...state, online: navigator.onLine, lastSyncedAt:cached?.lastSyncedAt || null, syncing:false, syncError:'' }));
     window.addEventListener('storage', changed); window.addEventListener('online', online); window.addEventListener('offline', online);
     return () => { window.removeEventListener('storage', changed); window.removeEventListener('online', online); window.removeEventListener('offline', online); };
   }, []);
@@ -84,6 +85,7 @@ export function useWorkspace(editing, { initialMode, demoOnly = false } = {}) {
       // A newer snapshot may arrive while this transaction is acknowledged.
       const newest = remote.current?.revision > data.revision ? remote.current : data;
       remote.current = newest; setSession({ mode: 'cloud', data: newest }); setStale(false);
+      setAccount(state=>({...state,lastSyncedAt:Date.now(),syncError:''}));
       return newest;
     }).catch(error => {
       if (currentUid.current === uid) {
@@ -107,6 +109,31 @@ export function useWorkspace(editing, { initialMode, demoOnly = false } = {}) {
     } else setSession({ mode: session.mode, data: loadData(session.mode) });
     setStale(false);
   }
+  function sync() {
+    const {session:current,account:auth}=latest.current;
+    if(current.mode!=='cloud' || !auth.user || currentUid.current!==auth.user.uid || !client.current?.fetch) return Promise.reject(new Error('Сначала войди в аккаунт.'));
+    if(!navigator.onLine) return Promise.reject(new Error('Нет интернета. Последняя сохранённая копия остаётся доступной.'));
+    if(saving.current) return Promise.reject(new Error('Дождись сохранения изменений.'));
+    if(syncing.current?.uid===auth.user.uid) return syncing.current.promise;
+    const operation={uid:auth.user.uid};syncing.current=operation;
+    setAccount(state=>({...state,syncing:true,syncError:''}));
+    operation.promise=Promise.resolve().then(()=>client.current.fetch(operation.uid)).catch(error=>{
+      if(currentUid.current===operation.uid && syncing.current===operation) setAccount(state=>({...state,syncError:explainFirebaseError(error),...(error.code==='permission-denied'?{ready:false,hasData:false,error:explainFirebaseError(error)}:{})}));
+      throw error;
+    }).finally(()=>{if(syncing.current===operation){syncing.current=null;setAccount(state=>({...state,syncing:false}));}});
+    return operation.promise;
+  }
+  useEffect(()=>{
+    if(demoOnly) return;
+    const automatic=()=>{
+      const {session:current,account:auth}=latest.current;
+      if(document.hidden || !navigator.onLine || current.mode!=='cloud' || !auth.user || !client.current?.fetch || saving.current || Date.now()-(auth.lastSyncedAt || 0)<30000) return;
+      // Errors are retained in account.syncError and shown by the sync control.
+      sync().catch(()=>{});
+    };
+    window.addEventListener('focus',automatic);window.addEventListener('online',automatic);document.addEventListener('visibilitychange',automatic);
+    return()=>{window.removeEventListener('focus',automatic);window.removeEventListener('online',automatic);document.removeEventListener('visibilitychange',automatic);};
+  },[demoOnly]);
   function signIn() {
     if (!client.current || account.loading) return;
     setAccount(state => ({ ...state, loading: true, error: '' }));
@@ -118,5 +145,5 @@ export function useWorkspace(editing, { initialMode, demoOnly = false } = {}) {
     if (saving.current) throw new Error('Дождись сохранения изменений.');
     await client.current.signOut();
   }
-  return { session, account, stale, save, switchMode, refresh, signIn, signOut, reconnect: () => setRetry(value => value + 1) };
+  return { session, account, stale, save, switchMode, refresh, sync, signIn, signOut, reconnect: () => setRetry(value => value + 1) };
 }

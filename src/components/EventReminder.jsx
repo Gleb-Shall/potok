@@ -3,7 +3,7 @@ import { useState } from 'preact/hooks';
 import { activeReminders, reminderDateTime, tomorrowReminder } from '../lib/reminders.js';
 import { Button } from './UI.jsx';
 
-export function EventReminder({ data, event, onSave, onRemove, now=Date.now(), pushReady=false, onEnablePush }) {
+export function EventReminder({ data, event, onSave, onRemove, now=Date.now(), pushReady=false, onEnablePush, standalone=false }) {
   const reminder = activeReminders(data).find(item => item.eventId === event.id);
   const [value,setValue] = useState(() => reminder ? reminderDateTime(reminder.at) : tomorrowReminder(now));
   const [error,setError] = useState('');
@@ -15,7 +15,7 @@ export function EventReminder({ data, event, onSave, onRemove, now=Date.now(), p
     catch (error) { setError(error.message); }
     finally { setBusy(false); }
   };
-  return <section class="event-reminder" aria-label="Напоминание о событии"><div class="reminder-heading"><h3>Напомнить о переносе</h3>{reminder && <button type="button" class="text-button" disabled={busy} onClick={onRemove}>Убрать</button>}</div>
+  return <section class={`event-reminder ${standalone ? 'standalone-reminder' : ''}`} aria-label="Напоминание о событии">{(!standalone || reminder) && <div class="reminder-heading">{!standalone && <h3>Напомнить о переносе</h3>}{reminder && <button type="button" class="text-button" disabled={busy} onClick={onRemove}>Убрать напоминание</button>}</div>}
     {reminder && Date.parse(reminder.at) <= now && <p class="reminder-scheduled">Время напоминания наступило</p>}
     <form class="reminder-time-form" onSubmit={input => { input.preventDefault(); apply(value); }}>
       <div class="reminder-datetime"><label class="field"><span>Дата</span><input type="date" aria-label="Дата напоминания" value={value.split('T')[0]} min={reminderDateTime(now).slice(0,10)} onInput={input => setValue(`${input.currentTarget.value}T${value.split('T')[1] || '09:00'}`)} required/></label><label class="field"><span>Время · МСК</span><TimeInput label="Время напоминания" value={value.split('T')[1] || ''} step="60" onChange={time => setValue(`${value.split('T')[0]}T${time}`)} required/></label></div>

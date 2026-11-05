@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createAccountSession } from '../src/lib/account-session.js';
 
-function setup() {
+function setup(extra={}) {
   let auth, authError;
   const streams = [];
   const client = createAccountSession({
@@ -11,7 +11,7 @@ function setup() {
       const stream = { uid, callback, onError, stopped: false };
       streams.push(stream);
       return () => { stream.stopped = true; };
-    }
+    },...extra
   });
   return { client, streams, login: user => auth(user), failAuth: error => authError(error) };
 }
@@ -57,4 +57,24 @@ test('auth failures discard the verified account and its data', () => {
   assert.equal(client.getSession().user, null);
   assert.equal(client.getSession().data, null);
   assert.equal(streams[0].stopped, true);
+});
+test('only server confirmations advance sync time, including manual refresh and saves', async t => {
+ let now=1000;t.mock.method(Date,'now',()=>now);
+ const remembered=[];
+ const {client,streams,login}=setup({fetch:async()=>({revision:4}),save:async()=>({revision:5}),rememberSync:(uid,at)=>remembered.push([uid,at])});
+ login({uid:'alice'});streams[0].callback({revision:2},false);assert.equal(client.getSession().lastSyncedAt,null);
+ streams[0].callback({revision:3},true);assert.equal(client.getSession().lastSyncedAt,1000);
+ now=2000;streams[0].callback({revision:3},false);assert.equal(client.getSession().lastSyncedAt,1000);
+ let replay;client.subscribe('alice',(_data,_server,at)=>{replay=at;});assert.equal(replay,1000);
+ await client.fetch('alice');assert.equal(client.getSession().data.revision,4);assert.equal(client.getSession().lastSyncedAt,2000);
+ now=3000;await client.save('alice',{},4);assert.equal(client.getSession().lastSyncedAt,3000);assert.deepEqual(remembered.at(-1),['alice',3000]);
+});
+test('an unsuccessful fetch retains the last success and a late fetch cannot cross an account change',async()=>{
+ let finish;
+ const {client,streams,login}=setup({fetch:()=>new Promise(resolve=>{finish=resolve;})});
+ login({uid:'alice'});streams[0].callback({revision:3},true);const stamp=client.getSession().lastSyncedAt;
+ const waiting=client.fetch('alice');login({uid:'bob'});login({uid:'alice'});finish({revision:99});
+ await assert.rejects(waiting,/Аккаунт изменился/);assert.equal(client.getSession().data,null);assert.equal(client.getSession().lastSyncedAt,null);
+ const failing=setup({fetch:async()=>{throw new Error('No connection');}});failing.login({uid:'alice'});failing.streams[0].callback({revision:3},true);const before=failing.client.getSession().lastSyncedAt;
+ await assert.rejects(failing.client.fetch('alice'),/No connection/);assert.equal(failing.client.getSession().lastSyncedAt,before);assert.ok(stamp);
 });

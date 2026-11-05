@@ -32,6 +32,14 @@ async function loadFirebase() {
   const provider = new authSDK.GoogleAuthProvider();
   provider.setCustomParameters({ prompt: 'select_account' });
   sessionClient = createAccountSession({
+    readSync(uid) {
+      try {const value=Number(localStorage.getItem(`potok:last-sync:${uid}`));return Number.isFinite(value) && value>0 && value<=Date.now() ? value : null;}
+      catch {return null;} // Optional UI metadata; cloud data remains authoritative.
+    },
+    rememberSync(uid,at) {
+      try {localStorage.setItem(`potok:last-sync:${uid}`,String(at));}
+      catch { /* A blocked metadata cache must not turn a confirmed cloud save into an error. */ }
+    },
     onAuth: (callback, onError) => authSDK.onAuthStateChanged(auth, callback, onError),
     signIn: () => authSDK.signInWithPopup(auth, provider),
     signOut: async () => {
@@ -43,9 +51,13 @@ async function loadFirebase() {
       return dbSDK.onSnapshot(workspace(uid), { includeMetadataChanges: true }, snapshot => {
         // An absent cached document is not proof that this workspace is empty.
         if (snapshot.metadata.fromCache && !snapshot.exists()) return;
-        try { callback(readWorkspace(snapshot.exists() ? snapshot.data() : null), !snapshot.metadata.fromCache); }
+        try { callback(readWorkspace(snapshot.exists() ? snapshot.data() : null), !snapshot.metadata.fromCache && !snapshot.metadata.hasPendingWrites); }
         catch (error) { onError(error); }
       }, onError);
+    },
+    async fetch(uid) {
+      const snapshot=await dbSDK.getDocFromServer(workspace(uid));
+      return readWorkspace(snapshot.exists() ? snapshot.data() : null);
     },
     save(uid, data, expectedRevision) {
       return dbSDK.runTransaction(db, async transaction => {

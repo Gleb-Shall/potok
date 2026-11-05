@@ -63,6 +63,8 @@ it('opens a reminder directly from the pending queue and saves it for that event
  const remind=[...root.querySelectorAll('.pending-card button')].find(button=>button.textContent==='Напомнить');
  expect(remind).toBeTruthy();await click(remind);
  expect(root.querySelector('[aria-label="Напоминание о событии"]')).not.toBeNull();
+ expect(root.querySelector('.reminder-dialog')).not.toBeNull();expect(root.querySelector('[aria-label="Статус события"]')).toBeNull();
+ expect(root.querySelector('.inspector-footer')).toBeNull();
  await act(async()=>[...root.querySelectorAll('button')].find(button=>button.textContent==='Завтра в 09:00').click());
  const saved=JSON.parse(localStorage.getItem('tutor-schedule:personal:v2'));
  expect(saved.reminders).toHaveLength(1);expect(saved.reminders[0].eventId).toBe('pending-event');

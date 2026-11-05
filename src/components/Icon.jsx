@@ -1,4 +1,5 @@
 const paths = {
+  refresh:'<path d="M20 7a8 8 0 0 0-14-2L3 8m0-5v5h5M4 17a8 8 0 0 0 14 2l3-3m0 5v-5h-5"/>',
   moon: '<path d="M20.8 13.1A8.7 8.7 0 0 1 10.9 3.2 8.7 8.7 0 1 0 20.8 13.1Z"/>',
   monitor: '<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/>',
   pause: '<path d="M8 5v14M16 5v14"/>',
