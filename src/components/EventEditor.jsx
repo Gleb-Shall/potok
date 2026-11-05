@@ -1,6 +1,7 @@
+import { ActionMenu } from './ActionMenu.jsx';
 import { LinkedText } from './LinkedValue.jsx';
 import { useState } from 'preact/hooks';
-import { Field, Select, Check, Colors, Modal, Button, FormFooter, ErrorMessage, dateLabel } from './UI.jsx';
+import { Field, Select, Check, Colors, Modal, Button, FormFooter, ErrorMessage } from './UI.jsx';
 import { minutesToTime, timeToMinutes, todayISO } from '../lib/domain.js';
 import { getType, saveEvent, allRecords, recordKind, RECORD_KINDS } from '../lib/events.js';
 import { Icon } from './Icon.jsx';
@@ -58,10 +59,10 @@ export function EventEditor({ data, original, date, typeId, draft, onSave, onClo
       onSave(saveEvent(data, { values: input, original, scope, repeat: recurrence }), 'Событие сохранено', input.date);
     } catch (error) { setError(error.message); }
   };
-  return <Modal title={original ? 'Редактор события' : 'Новое событие'} subtitle={original?.date ? `Сейчас: ${dateLabel(original.date)} · ${minutesToTime(original.start)}` : 'Начни с главного. Остальное можно добавить позже.'} wide onClose={onClose}>
+  return <Modal title={original ? 'Редактор события' : 'Новое событие'} wide onClose={onClose} className="product-dialog event-editor-dialog" panel>
     <form onSubmit={submit} class="event-form">
       <section class="editor-section"><Select label="Тип события" value={values.typeId} onChange={changeType}>{data.types.filter(item => !item.archived || item.id === original?.typeId).map(item => <option key={item.id} value={item.id}>{item.icon} {item.name}{item.archived ? ' (архив)' : ''}</option>)}</Select>
-      {kind && <div class="student-select-row"><Select label={`${kind === 'any' ? 'Связанная запись' : RECORD_KINDS[kind] || kind}${requiredRecord ? ' *' : ' · необязательно'}`} value={values.recordId} onChange={chooseRecord} required={requiredRecord}><option value="">Выбери запись</option>{records.filter(item => kind === 'any' || item.kind === kind).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</Select><button type="button" class="icon-button" onClick={newRecord} aria-label="Создать связанную запись"><Icon name="plus"/></button></div>}
+      {kind && <div class="student-select-row"><Select label={`Связанная запись${requiredRecord ? ' *' : ' · необязательно'}`} value={values.recordId} onChange={chooseRecord} required={requiredRecord}><option value="">Выбери запись</option>{records.filter(item => kind === 'any' || item.kind === kind).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</Select><button type="button" class="icon-button" onClick={newRecord} aria-label="Создать связанную запись"><Icon name="plus"/></button></div>}
       {values.recordDetached && <p class="quiet-note">Связанная запись удалена. Это самостоятельное событие; при желании можно выбрать другую запись.</p>}
       {linked && <div class="linked-record-summary"><strong>{linked.name}</strong><span>{linked.subject || linked.subtitle || RECORD_KINDS[linked.kind] || linked.kind}</span>{linked.details?.length > 0 && <details><summary>Общие сведения</summary><dl>{linked.details.map(item => <div key={item.id}><dt>{item.label}</dt><dd><LinkedText value={item.value}/></dd></div>)}</dl></details>}</div>}
       <Field label={type.titleLabel || 'Название события'} value={values.title} onChange={value => change('title', value)} required maxLength={200} placeholder={values.typeId === 'class' ? 'Математический анализ' : 'Название события'}/>
@@ -72,7 +73,7 @@ export function EventEditor({ data, original, date, typeId, draft, onSave, onClo
       {(type.enableLocation !== false || values.location) && <LocationField value={values.location} onChange={value => change('location', value)} data={data}/>}
       <details class="editor-disclosure" open={Boolean(values.notes)}><summary>Заметки <span>для этого события</span></summary><div class="editor-disclosure-body"><Field label="Заметка" type="textarea" rows="3" value={values.notes} onChange={value => change('notes', value)} maxLength={5000}/></div></details>
       <details class="editor-disclosure"><summary>Оформление и занятость</summary><div class="editor-disclosure-body"><Colors value={values.color} onChange={value => change('color', value)}/><Check checked={values.busy} onChange={value => change('busy', value)}>Занимает время — предупреждать о пересечениях</Check></div></details>
-      <ErrorMessage error={error}/><FormFooter onClose={onClose} label={original ? 'Сохранить изменения' : 'Добавить событие'}>{original && onDelete && <Button kind="text-button danger-text delete-action" icon="trash" onClick={onDelete}>Удалить событие</Button>}</FormFooter>
+      <ErrorMessage error={error}/><FormFooter onClose={onClose} label={original ? 'Сохранить изменения' : 'Добавить событие'}>{original && onDelete && <ActionMenu label="Ещё" items={[{id:'delete',icon:'trash',label:'Удалить событие',danger:true,onSelect:onDelete}]}/>}</FormFooter>
     </form>
   </Modal>;
 }

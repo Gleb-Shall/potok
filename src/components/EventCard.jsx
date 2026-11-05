@@ -1,3 +1,4 @@
+import { ActionMenu } from './ActionMenu.jsx';
 import { eventType, isEventMoved, getRecord, eventTitle, eventColor, fieldDisplay } from '../lib/events.js';
 import { minutesToTime } from '../lib/domain.js';
 import { LinkedValue, ExternalLink, LinkedText } from './LinkedValue.jsx';
@@ -7,7 +8,7 @@ import { dateLabel } from './UI.jsx';
 import { MarkerPaint } from './MarkerPaint.jsx';
 import { Icon } from './Icon.jsx';
 
-export function EventCard({ event, data, onOpen, onDragStart, onDragEnd, preview = false, onDelete, onMove, expanded = preview, onToggle, now = Date.now(), stateEffects, isDragging = false, canRestore = false, onRestoreDrop }) {
+export function EventCard({ event, data, onOpen, onDragStart, onDragEnd, preview = false, onDelete, onMove, onDefer, expanded = preview, onToggle, now = Date.now(), stateEffects, isDragging = false, canRestore = false, onRestoreDrop }) {
   const type = eventType(data, event);
   const appearance = eventAppearance(event, { now, preview, effects: stateEffects });
   const record = getRecord(data, event);
@@ -43,6 +44,9 @@ export function EventCard({ event, data, onOpen, onDragStart, onDragEnd, preview
       {isEventMoved(event) && <span class="transfer-origin">Было {dateLabel(event.originalDate || event.anchorDate || event.date)} · {minutesToTime(event.originalStart ?? event.start)}</span>}
       {event.busy === false && <span class="not-busy-label">Не блокирует время</span>}
     </div>}
-    {!preview && (onToggle || onDelete || onMove) && <div class="card-controls">{onToggle && <button type="button" class="card-expand" aria-expanded={expanded} onClick={() => onToggle?.(event.id)}>{expanded ? 'Свернуть ↑' : 'Подробнее ↓'}</button>}{onMove && event.status !== 'done' && <button type="button" class="card-move" aria-label={`Перенести событие «${eventTitle(data, event)}»`} onClick={() => onMove(event)}><Icon name="arrows"/></button>}{onDelete && <button type="button" class="card-delete" aria-label={`Удалить событие «${eventTitle(data, event)}»`} onClick={() => onDelete(event)}><Icon name="trash"/></button>}</div>}
+    {!preview && (onToggle || onDelete || onMove) && <div class="card-controls">{onToggle && <button type="button" class="card-expand" aria-expanded={expanded} onClick={() => onToggle?.(event.id)}>{expanded ? 'Свернуть ↑' : 'Подробнее ↓'}</button>}{onMove && event.status !== 'done' && <button type="button" class="card-move" aria-label={`Перенести событие «${eventTitle(data, event)}»`} onClick={() => onMove(event)}><Icon name="arrows"/></button>}{(onDelete || onDefer) && <ActionMenu compact label={`Действия · ${eventTitle(data, event)}`} items={[
+      onDefer && event.status === 'planned' && {id:'pending',icon:'clock',label:'Отложить перенос',description:'Выбрать новую дату позже',onSelect:()=>onDefer(event)},
+      onDelete && {id:'delete',icon:'trash',label:'Удалить событие',danger:true,separate:Boolean(onDefer),onSelect:()=>onDelete(event)},
+    ]}/>}</div>}
   </article>;
 }

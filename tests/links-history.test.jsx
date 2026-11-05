@@ -65,7 +65,7 @@ it('history filters confirmed meetings and opens the actual historical occurrenc
 it('app ends repeats without losing earlier meetings after reopening storage',async()=>{
  const data=base(),today=todayISO();data.series=[{id:'weekly',typeId:'class',recordId:'course',title:'Повтор',from:addDays(today,-14),until:'',weekday:weekdayOf(today),start:0,duration:5,intervalWeeks:1,fields:{}}];
  localStorage.setItem('tutor-schedule:mode','personal');localStorage.setItem('tutor-schedule:personal:v2',JSON.stringify(data));
- await mount(<App/>);await act(()=>root.querySelector('.card-open').click());await click('Завершить повторы с сохранением истории');await submit();
+ await mount(<App/>);await act(()=>root.querySelector('.card-open').click());await act(()=>root.querySelector('[aria-label="Действия с событием"]').click());await click('Завершить повторы');await submit();
  const saved=JSON.parse(localStorage.getItem('tutor-schedule:personal:v2'));expect(saved.series[0].until).toBe(addDays(today,-1));expect(projectWeek(saved,addDays(today,7),7).events).toHaveLength(0);
  expect(projectWeek(saved,addDays(today,-14),7).events).toHaveLength(1);expect(saved.series[0].snapshot.record.name).toBe('Математика');
  await click('История');expect(root.textContent).toContain('Прошедшее время не означает');

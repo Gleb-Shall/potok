@@ -242,7 +242,7 @@ describe('critical user flows', () => {
   it('deletes an event from its card and restores it with undo', async () => {
     const data = base(); data.events.push(sample());
     localStorage.setItem('tutor-schedule:mode', 'personal'); localStorage.setItem('tutor-schedule:personal:v2', JSON.stringify(data));
-    await mount(<App/>); await click(root.querySelector('.card-delete')); await submit(root.querySelector('dialog form'));
+    await mount(<App/>); await click(root.querySelector('.card-controls .action-menu-trigger')); await click([...root.querySelectorAll('.ui-action-menu[data-open="true"] button')].find(button => button.textContent.includes('Удалить событие'))); await submit(root.querySelector('dialog form'));
     expect(JSON.parse(localStorage.getItem('tutor-schedule:personal:v2')).events).toHaveLength(0);
     await click(root.querySelector('.toast-undo'));
     expect(JSON.parse(localStorage.getItem('tutor-schedule:personal:v2')).events).toHaveLength(1);

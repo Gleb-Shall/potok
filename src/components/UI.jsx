@@ -16,15 +16,15 @@ export function Field({ label, value, onChange, type = 'text', children, ...prop
 export function Select({ label, value, onChange, children, ...props }) { return <Field label={label}><select value={value} onChange={event => onChange(event.currentTarget.value)} {...props}>{children}</select></Field>; }
 export function Check({ children, checked, onChange, ...props }) { return <label class="check-label editor-check"><input type="checkbox" checked={checked} onChange={event => onChange(event.currentTarget.checked)} {...props}/><span>{children}</span></label>; }
 export function Colors({ value, onChange }) { return <fieldset class="color-field"><legend>Цвет карточки</legend>{Object.entries(COLOR_NAMES).map(([color, name]) => <label key={color} class={`color-option color-${color}`}><input name="color" type="radio" value={color} checked={value === color} onChange={() => onChange(color)}/><span class="sr-only">{name}</span></label>)}</fieldset>; }
-export function Modal({ title, subtitle, eyebrow, onClose, children, wide = false, className = '', fullscreen = false, onEscape }) {
+export function Modal({ title, subtitle, eyebrow, onClose, children, wide = false, className = '', fullscreen = false, onEscape, panel = false }) {
   const ref = useRef(null);
   const titleId = useId();
   useEffect(() => { const dialog = ref.current; dialog.showModal(); return () => dialog.close(); }, []);
-  return <dialog ref={ref} class={`${wide ? 'wide-modal' : ''} ${className} ${fullscreen ? 'is-fullscreen' : ''}`} aria-labelledby={titleId} onCancel={event => { if (onEscape) { event.preventDefault(); onEscape(); } else onClose(); }} onClick={event => {
+  return <dialog ref={ref} class={`${wide ? 'wide-modal' : ''} ${className} ${fullscreen ? 'is-fullscreen' : ''} ${panel ? 'panel-dialog' : ''}`} aria-labelledby={titleId} onCancel={event => { if (onEscape) { event.preventDefault(); onEscape(); } else onClose(); }} onClick={event => {
     if (event.target !== event.currentTarget) return;
     const rect = event.currentTarget.getBoundingClientRect();
     if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) onClose();
-  }}><button type="button" class="modal-close icon-button" aria-label="Закрыть окно" onClick={onClose}><Icon name="close"/></button>{eyebrow && <p class="eyebrow">{eyebrow}</p>}<h2 id={titleId}>{title}</h2>{subtitle && <p class="modal-subtitle">{subtitle}</p>}{children}</dialog>;
+  }}><button type="button" class="modal-close icon-button" aria-label="Закрыть окно" onClick={onClose}><Icon name="close"/></button>{panel ? <header class="panel-heading">{eyebrow && <p class="eyebrow">{eyebrow}</p>}<h2 id={titleId}>{title}</h2>{subtitle && <p class="modal-subtitle">{subtitle}</p>}</header> : <>{eyebrow && <p class="eyebrow">{eyebrow}</p>}<h2 id={titleId}>{title}</h2>{subtitle && <p class="modal-subtitle">{subtitle}</p>}</>}{children}</dialog>;
 }
 export function FormFooter({ onClose, label = 'Сохранить', children }) { return <div class="modal-footer">{children}<Button onClick={onClose}>Отмена</Button><button type="submit" class="button primary">{label}</button></div>; }
 export function ErrorMessage({ error }) { return error ? <p class="form-error" role="alert">{error}</p> : null; }
