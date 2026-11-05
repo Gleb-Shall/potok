@@ -74,7 +74,7 @@ export function attachPressDrag(root, options) {
     const node = target.closest?.(config.selector);
     if (!node || !root.current?.contains(node) || node.closest('[inert]')) return;
     if (target.closest('a,input,select,textarea,[contenteditable=true],.card-controls') || target.closest('button:not(.card-open)')) return;
-    const item = config.getItem(node);
+    const item = config.getItem(node,point(input));
     if (!item) return;
     gesture = { node, item, kind, id:input.identifier, origin:point(input), last:point(input), active:false, moved:false, quickHandle:Boolean(target.closest('.card-grip')) };
     if (kind === 'touch') {

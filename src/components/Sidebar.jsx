@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'preact/hooks';
 import { Brand } from './Brand.jsx';
 import { Icon } from './Icon.jsx';
 import { initials } from './UI.jsx';
@@ -12,14 +13,21 @@ const SECTIONS = [
 ];
 
 export function Sidebar({ collapsed, onToggle, view, onChange, pending, account, onSignIn, onHome }) {
-  const toggleLabel = collapsed ? 'Развернуть боковую панель' : 'Свернуть боковую панель';
+  const panel=useRef(null);
+  useEffect(()=>{
+    if(collapsed)return;
+    const outside=input=>{if(!panel.current?.contains(input.target))onToggle();};
+    const escape=input=>{if(input.key==='Escape' && !document.querySelector('dialog[open]')){onToggle();panel.current?.querySelector('.sidebar-toggle')?.focus();}};
+    document.addEventListener('pointerdown',outside);document.addEventListener('keydown',escape);
+    return()=>{document.removeEventListener('pointerdown',outside);document.removeEventListener('keydown',escape);};
+  },[collapsed,onToggle]);
+  const toggleLabel = collapsed ? 'Открыть разделы' : 'Свернуть разделы';
   const name = account.user?.displayName || account.user?.email || 'Моё расписание';
-  return <aside class="sidebar" aria-label="Боковая панель">
+  return <aside ref={panel} class="sidebar" aria-label="Боковая панель">
     <div class="sidebar-header">
       <Brand href={onHome ? '/' : '#'} onClick={event => { event.preventDefault(); if (onHome) onHome(); else onChange('schedule'); }}/>
-      <button type="button" class="sidebar-toggle" aria-label={toggleLabel} aria-expanded={!collapsed} aria-controls="workspace-navigation" data-tooltip={toggleLabel} onClick={onToggle}><Icon name="sidebar"/></button>
+      <button type="button" class="sidebar-toggle" title={toggleLabel} aria-label={toggleLabel} aria-expanded={!collapsed} aria-controls="workspace-navigation" data-tooltip={toggleLabel} onClick={onToggle}><Icon name={collapsed?'sections':'close'}/></button>
     </div>
-    <div class="workspace-label">ЛИЧНОЕ ПРОСТРАНСТВО</div>
     <nav id="workspace-navigation" aria-label="Разделы">{SECTIONS.map(([id, icon, label]) => <button type="button" key={id} class={`nav-item ${view === id ? 'active' : ''}`} aria-label={label} data-tooltip={label} aria-current={view === id ? 'page' : undefined} onClick={() => onChange(id)}>
       <Icon name={icon}/><span class="sidebar-label">{label}</span>{id === 'transfers' && pending > 0 && <span class="nav-count amber" aria-hidden="true">{pending}</span>}
     </button>)}</nav>

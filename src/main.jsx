@@ -18,6 +18,8 @@ import './landing-spatial.css';
 import './calendar-workspace.css';
 import './editor-ui.css';
 
+import './week-calendar.css';
+
 class AppBoundary extends Component {
   state = { error: null };
   static getDerivedStateFromError(error) { return { error }; }

@@ -39,6 +39,7 @@ it('defers from the card menu, exposes the waiting queue and supports undo', asy
  const date=todayISO();
  const data={version:2,students:[],records:[],series:[],types:defaultTypes(),events:[{id:'e',typeId:'personal',title:'Встреча',date,anchorDate:date,start:600,duration:60,status:'planned',fields:{},history:[]}]};
  localStorage.setItem('tutor-schedule:mode','personal');localStorage.setItem('tutor-schedule:personal:v2',JSON.stringify(data));
+ localStorage.setItem('potok:week-layout','board');
  await mount(<App/>); await click(root.querySelector('.card-controls .action-menu-trigger'));
  await click([...root.querySelectorAll('.ui-action-menu[data-open=true] button')].find(node=>node.textContent.includes('Отложить перенос')));
  expect(root.querySelectorAll('.pending-card')).toHaveLength(1);expect(root.querySelector('.pending-shortcut').textContent).toContain('1');
@@ -59,6 +60,7 @@ it('keeps a new record field expanded while typing and preserves it when another
 it('opens a reminder directly from the pending queue and saves it for that event', async () => {
  const data={version:2,revision:0,students:[],records:[],types:defaultTypes(),events:[{id:'pending-event',title:'Занятие с Анной',typeId:'personal',date:null,anchorDate:todayISO(),start:600,duration:60,status:'pending',fields:{}}],series:[]};
  localStorage.setItem('tutor-schedule:mode','personal');localStorage.setItem('tutor-schedule:personal:v2',JSON.stringify(data));
+ localStorage.setItem('potok:week-layout','board');
  await mount(<App/>);
  const remind=[...root.querySelectorAll('.pending-card button')].find(button=>button.textContent==='Напомнить');
  expect(remind).toBeTruthy();await click(remind);

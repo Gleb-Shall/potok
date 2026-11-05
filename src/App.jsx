@@ -15,6 +15,8 @@ import { StopSeriesDialog } from './components/StopSeriesDialog.jsx';
 import { DEFAULT_STATE_EFFECTS } from './lib/state-appearance.js';
 import { setEventStatus } from './lib/event-history.js';
 import { EventCard } from './components/EventCard.jsx';
+import { WeekCalendar } from './components/WeekCalendar.jsx';
+import { HOUR_HEIGHT, readTimeTarget, timelineDropTarget } from './lib/week-layout.js';
 import { EventEditor } from './components/EventEditor.jsx';
 import { ReminderDialog } from './components/ReminderDialog.jsx';
 import { SyncStatus } from './components/SyncStatus.jsx';
@@ -61,7 +63,7 @@ export function App({ initialMode, demoOnly = false, requireAccount = false, onH
   const [view, setView] = useState('schedule');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem('potok:sidebar-collapsed');
-    return saved === null ? window.innerWidth <= 1050 : saved === 'true';
+    return saved === null ? true : saved === 'true';
   });
   const toggleSidebar = () => setSidebarCollapsed(previous => {
     const next = !previous;
@@ -71,6 +73,11 @@ export function App({ initialMode, demoOnly = false, requireAccount = false, onH
   const [week, setWeek] = useState(today);
   const [rangeView, setRangeView] = useState('week');
   const [mapView, setMapView] = useState(false);
+  const [weekLayout,setWeekLayout]=useState(()=>localStorage.getItem('potok:week-layout')==='board'?'board':'timeline');
+  const [visibleHours,setVisibleHours]=useState([7,23]);
+  const [mobileDays,setMobileDays]=useState(3);
+  const [pendingOpen,setPendingOpen]=useState(false);
+  const timeline=rangeView==='week' && weekLayout==='timeline';
   const [compact, setCompact] = useState(true);
   const [cardOverrides, setCardOverrides] = useState({});
   const [recordFilter, setRecordFilter] = useState('');
@@ -83,6 +90,8 @@ export function App({ initialMode, demoOnly = false, requireAccount = false, onH
   const [undo, setUndo] = useState(null);
   const [dropTarget, setDropTarget] = useState('');
   const dragId = useRef(null);
+  const grabOffset=useRef(0);
+  const rememberGrab=(node,point)=>{grabOffset.current=timeline && node?.closest('.week-event') && Number.isFinite(point?.y)?Math.max(0,(point.y-node.getBoundingClientRect().top)/HOUR_HEIGHT*60):0;};
   const [draggingId, setDraggingId] = useState('');
   const endDrag = () => { dragId.current = null; setDraggingId(''); setDropTarget(''); setMovePicker(null); setMoveHover(null); };
   const returnEvent = item => attempt(() => { endDrag(); commit(restoreMove(data, item), 'Перенос отменён — событие вернулось на исходное время', item.originalDate || item.anchorDate); });
@@ -90,6 +99,7 @@ export function App({ initialMode, demoOnly = false, requireAccount = false, onH
   const range = useMemo(()=>calendarRange(week,rangeView),[week,rangeView]);
   const projection = useMemo(()=>projectWeek(data,range.start,range.count),[data,range.start,range.count]);
   const days = useMemo(()=>Array.from({length:range.count},(_,index)=>addDays(range.start,index)),[range.start,range.count]);
+  const visibleGhosts=useMemo(()=>showGhosts?projection.ghosts.filter(event=>eventMatches(data,event,query,filterType)):[],[data,projection,query,filterType,showGhosts]);
   const visibleEvents = useMemo(()=>projection.events.filter(event=>eventMatches(data,event,query,filterType)),[data,projection,query,filterType]);
   const notify = (text, canUndo = false) => setNotice({ text, canUndo });
   useEffect(() => { if (!notice) return; const timer = setTimeout(() => setNotice(null), 7000); return () => clearTimeout(timer); }, [notice]);
@@ -109,11 +119,11 @@ export function App({ initialMode, demoOnly = false, requireAccount = false, onH
   };
   const attempt = action => { try { const result = action(); if (result?.catch) result.catch(error => notify(explainFirebaseError(error))); } catch (error) { notify(explainFirebaseError(error)); } };
   const close = () => setDialog(null);
-  const newEvent = (date = selectedDate, studentId = '') => {
+  const newEvent = (date = selectedDate, studentId = '', start) => {
     const typeId = studentId ? (data.types.find(type => !type.archived && recordKind(type) === 'student') || data.types.find(type => !type.archived && recordKind(type) === 'any'))?.id : filterType || data.types.find(type => !type.archived && type.id === 'personal')?.id || data.types.find(type => !type.archived)?.id;
     if (!typeId) { setView('types'); notify('Сначала создай или верни из архива тип карточки.'); return; }
     const student = getStudent(data, studentId);
-    setDialog({ kind: 'event-editor', date, typeId, draft: student ? { studentId, recordId: studentId, title: student.name, color: student.color, fields: { rate: student.rate } } : undefined });
+    setDialog({ kind: 'event-editor', date, typeId, draft: student ? { studentId, recordId: studentId, title: student.name, color: student.color, fields: { rate: student.rate }, ...(start===undefined?{}:{start:minutesToTime(start)}) } : start===undefined?undefined:{start:minutesToTime(start)} });
   };
   const findEvent = id => data.events.find(event => event.id === id) || projection.events.find(event => event.id === id);
   const openEvent = id => { const event = findEvent(id); if (event) setDialog({ kind: 'event-details', event }); };
@@ -135,7 +145,7 @@ export function App({ initialMode, demoOnly = false, requireAccount = false, onH
     if (!type) { setView('types'); close(); notify('В конструкторе выбери для типа связь с этой категорией записей.'); return; }
     setDialog({ kind: 'event-editor', date: selectedDate, typeId: type.id, draft: { recordId: record.id, title: record.name, color: record.color } });
   };
-  const switchView = target => { setView(target); setQuery(''); };
+  const switchView = target => { setView(target); setQuery(''); setSidebarCollapsed(true); };
   const switchMode = nextMode => {
     if (nextMode === 'personal' && onPersonal) { onPersonal(); return; }
     if (nextMode === 'demo' && onDemo) { onDemo(); return; }
@@ -149,17 +159,21 @@ export function App({ initialMode, demoOnly = false, requireAccount = false, onH
   };
   const moveDialog = (event, date) => setDialog({ kind: 'move-editor', event, date });
   const openMovePicker = event => { setDialog(null); setMovePicker({ event, native: false }); };
-  const dropTouchEvent = (event, date, gestureMode) => {
-    if (date === 'pending') { statusEvent(event, 'pending'); return; }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || event.date === date) return;
-    if (isEventMoved(event) && date === (event.originalDate || event.anchorDate)) returnEvent(event);
-    else if (gestureMode === 'board') attempt(()=>commit(saveMove(data,event,date,event.start),'Событие перенесено',date));
-    else moveDialog(event, date);
+  const placeEvent = (event,target,gestureMode='board') => {
+    if(target==='pending') {statusEvent(event,'pending');return;}
+    const parsed=readTimeTarget(target);
+    if(!parsed)return;
+    const {date}=parsed,start=parsed.start??event.start;
+    if(event.date===date && event.start===start)return;
+    if(isEventMoved(event) && date===(event.originalDate||event.anchorDate) && (parsed.start===null || start===(event.originalStart??event.start))) returnEvent(event);
+    else if(gestureMode==='board') attempt(()=>commit(saveMove(data,event,date,start),'Событие перенесено',date));
+    else moveDialog(event,date);
   };
+  const dropTouchEvent = (event,target,gestureMode) => placeEvent(event,target,gestureMode||'calendar');
   const touch = usePressDrag({ root: layoutRef, enabled: view === 'schedule' && !dialog && !deletion && !movePicker && !account.saving && (!requireAccount || account.ready), selector: '[data-event-id]', quickDrag:true,
-    getItem: node => { const event = projection.events.find(item => item.id === node.dataset.eventId); return event?.status !== 'done' ? event : null; },
-    hitTest: (point,mode) => mode === 'board' ? touchDropTarget(point,'[data-board-drop]','data-board-drop') : touchDropTarget(point, '[data-press-drop]', 'data-press-drop') || touchDropTarget(point, '[data-press-page]', 'data-press-page') || touchDropTarget(point, '[data-press-action]', 'data-press-action'),
-    onDrop: dropTouchEvent, onHover:(date,mode)=>{if(mode==='board')setDropTarget(date||'');}, onActiveChange:(active,mode,item)=>{setTouchMoving(active);if(mode==='board')setDraggingId(item.id);if(!active){setDraggingId('');setDropTarget('');}},
+    getItem: (node,point) => { rememberGrab(node,point);const event = [...projection.events,...projection.pending].find(item => item.id === node.dataset.eventId); return event?.status !== 'done' ? event : null; },
+    hitTest: (point,mode) => mode === 'board' ? (timeline && timelineDropTarget(point,findEvent(dragId.current)?.duration,grabOffset.current) || touchDropTarget(point,'[data-board-drop]','data-board-drop')) : touchDropTarget(point, '[data-press-drop]', 'data-press-drop') || touchDropTarget(point, '[data-press-page]', 'data-press-page') || touchDropTarget(point, '[data-press-action]', 'data-press-action'),
+    onDrop: dropTouchEvent, onHover:(date,mode)=>{if(mode==='board')setDropTarget(date||'');}, onActiveChange:(active,mode,item)=>{setTouchMoving(active);if(mode==='board'){dragId.current=item.id;setDraggingId(item.id);}if(!active){dragId.current=null;setDraggingId('');setDropTarget('');}},
   });
   const cancelMovePicker = () => { touch.cancel(); endDrag(); };
   const picker = movePicker ? { drag: { item: movePicker.event }, hover: moveHover, cancel: cancelMovePicker } : touch.drag?.mode === 'board' ? {...touch,drag:null} : touch;
@@ -175,22 +189,19 @@ export function App({ initialMode, demoOnly = false, requireAccount = false, onH
     const id = dragId.current;
     endDrag();
     const item = findEvent(id); if (!item) return;
-    if (target === item.date) return;
-    if (target === 'pending') statusEvent(item, 'pending');
-    else if (isEventMoved(item) && target === (item.originalDate || item.anchorDate)) returnEvent(item);
-    else attempt(()=>commit(saveMove(data,item,target,item.start),'Событие перенесено',target));
+    placeEvent(item,target);
   };
   const dropProps = target => ({ onDragOver: event => { if (dragId.current) { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; if (dropTarget !== target) setDropTarget(target); } }, onDragLeave: event => { if (!event.currentTarget.contains(event.relatedTarget)) setDropTarget(''); }, onDrop: event => drop(event, target) });
-  const pendingCard = event => <article key={event.id} class="pending-card"><button type="button" class="pending-open" onClick={() => openEvent(event.id)}><strong>{eventTitle(data, event)}</strong><small>Было {dateLabel(event.originalDate || event.anchorDate)} · {minutesToTime(event.originalStart ?? event.start)}</small></button><div class="pending-card-actions"><Button onClick={() => setDialog({kind:'reminder',event})}>Напомнить</Button><Button onClick={() => moveDialog(event)}>Выбрать дату</Button></div></article>;
+  const pendingCard = event => <article key={event.id} class="pending-card" data-event-id={event.id} draggable onDragStart={input=>{dragId.current=event.id;setDraggingId(event.id);input.dataTransfer.setData('text/plain',event.id);input.dataTransfer.effectAllowed='move';}} onDragEnd={endDrag}><button type="button" class="pending-open card-open" onClick={() => openEvent(event.id)}><strong>{eventTitle(data, event)}</strong><small>Было {dateLabel(event.originalDate || event.anchorDate)} · {minutesToTime(event.originalStart ?? event.start)}</small></button><div class="pending-card-actions"><Button onClick={() => setDialog({kind:'reminder',event})}>Напомнить</Button><Button onClick={() => moveDialog(event)}>Выбрать дату</Button></div></article>;
 
   function Schedule() {
     const filtered = visibleEvents;
     const hours = filtered.reduce((total, event) => total + event.duration, 0) / 60;
-    return <><section class="schedule-panel" aria-label="Расписание событий" data-ui>
+    return <><section class={`schedule-panel ${timeline?'is-timeline':''}`} aria-label="Расписание событий" data-ui>
       <div class="calendar-toolbar"><div class="calendar-period"><h2>{dateLabel(week, { day: undefined, month: 'long', year: 'numeric' })}</h2>{rangeView !== 'month' && range.start.slice(0, 7) !== range.end.slice(0, 7) && <span>{dateLabel(range.start)} — {dateLabel(range.end)}</span>}</div><div class="week-navigation"><button class="icon-button" aria-label="Предыдущий период" onClick={() => navigateWeek(-1)}><Icon name="left"/></button><Button kind="small secondary" onClick={() => { setWeek(today); setSelectedDate(today); }}>Сегодня</Button><button class="icon-button" aria-label="Следующий период" onClick={() => navigateWeek(1)}><Icon name="right"/></button></div>
         <div class="range-switch" aria-label="Период расписания">{[['week', 'Неделя'], ['fortnight', '2 недели'], ['month', 'Месяц']].map(([id, label]) => <button type="button" key={id} aria-pressed={rangeView === id} class={rangeView === id ? 'active' : ''} onClick={() => { setRangeView(id); setWeek(selectedDate); }}>{label}</button>)}</div></div>
-      <div class="calendar-options-bar"><span class="period-count">{eventCount(filtered.length)} · {hours.toLocaleString('ru-RU', { maximumFractionDigits: 1 })} ч</span>{(query || filterType) && <button type="button" class="text-button filter-reset" onClick={() => { setQuery(''); setFilterType(''); }}>Сбросить фильтры ×</button>}{projection.pending.length > 0 && <button type="button" class="pending-shortcut" onClick={() => switchView('transfers')}><Icon name="clock"/>Ждут переноса <span>{projection.pending.length}</span></button>}<details class="calendar-options"><summary><Icon name="sliders"/>Вид и фильтры{(query || filterType) && <span class="filter-dot"/>}</summary><div class="schedule-controls"><div class="calendar-filters"><Search value={query} onChange={setQuery}/><select aria-label="Тип событий" class="type-filter" value={filterType} onChange={event => setFilterType(event.currentTarget.value)}><option value="">Все типы</option>{data.types.map(type => <option key={type.id} value={type.id}>{type.name}</option>)}</select></div><div class="schedule-view-controls"><Button icon={mapView ? 'calendar' : 'pin'} onClick={() => setMapView(!mapView)}>{mapView ? 'Расписание' : 'На карте'}</Button>{!mapView && <Button onClick={() => { setCompact(!compact); setCardOverrides({}); }}>{compact ? 'Раскрыть карточки' : 'Свернуть карточки'}</Button>}<Check checked={showGhosts} onChange={setShowGhosts}>Показывать старое время</Check></div></div></details></div>
-      {mapView ? <Suspense fallback={<p class="empty-copy">Загружаю карту…</p>}><MapView events={filtered} data={data} onOpen={openEvent}/></Suspense> : <>
+      <div class="calendar-options-bar">{rangeView==='week' && <div class="week-layout-switch" role="group" aria-label="Вид недели">{[['timeline','По времени'],['board','Доска']].map(([id,label])=><button type="button" key={id} aria-pressed={weekLayout===id} onClick={()=>{setWeekLayout(id);localStorage.setItem('potok:week-layout',id);}}>{label}</button>)}</div>}<span class="period-count">{eventCount(filtered.length)} · {hours.toLocaleString('ru-RU', { maximumFractionDigits: 1 })} ч</span>{(query || filterType) && <button type="button" class="text-button filter-reset" onClick={() => { setQuery(''); setFilterType(''); }}>Сбросить фильтры ×</button>}{projection.pending.length > 0 && <button type="button" class="pending-shortcut" onClick={() => setPendingOpen(!pendingOpen)} aria-expanded={pendingOpen} aria-controls="schedule-pending"><Icon name="clock"/>Ждут переноса <span>{projection.pending.length}</span></button>}<details class="calendar-options"><summary><Icon name="sliders"/>Вид и фильтры{(query || filterType) && <span class="filter-dot"/>}</summary><div class="schedule-controls"><div class="calendar-filters"><Search value={query} onChange={setQuery}/><select aria-label="Тип событий" class="type-filter" value={filterType} onChange={event => setFilterType(event.currentTarget.value)}><option value="">Все типы</option>{data.types.map(type => <option key={type.id} value={type.id}>{type.name}</option>)}</select></div><div class="schedule-view-controls"><Button icon={mapView ? 'calendar' : 'pin'} onClick={() => setMapView(!mapView)}>{mapView ? 'Расписание' : 'На карте'}</Button>{!mapView && !timeline && <Button onClick={() => { setCompact(!compact); setCardOverrides({}); }}>{compact ? 'Раскрыть карточки' : 'Свернуть карточки'}</Button>}{timeline && <div class="week-hours"><label>Часы<select aria-label="Начало видимых часов" value={visibleHours[0]} onChange={input=>setVisibleHours([Number(input.currentTarget.value),visibleHours[1]])}>{[0,5,6,7,8,9,10,12].filter(hour=>hour<visibleHours[1]).map(hour=><option key={hour} value={hour}>{minutesToTime(hour*60)}</option>)}</select><span>—</span><select aria-label="Конец видимых часов" value={visibleHours[1]} onChange={input=>setVisibleHours([visibleHours[0],Number(input.currentTarget.value)])}>{[16,18,20,22,23,24].filter(hour=>hour>visibleHours[0]).map(hour=><option key={hour} value={hour}>{hour===24?'24:00':minutesToTime(hour*60)}</option>)}</select></label><small>Диапазон расширяется, если событие выходит за его пределы.</small></div>}<Check checked={showGhosts} onChange={setShowGhosts}>Показывать старое время</Check></div></div></details></div>
+      {mapView ? <Suspense fallback={<p class="empty-copy">Загружаю карту…</p>}><MapView events={filtered} data={data} onOpen={openEvent}/></Suspense> : timeline ? <><div class="week-mobile-controls"><span>Дней на экране</span><div role="group" aria-label="Дней на экране">{[1,3].map(count=><button type="button" key={count} aria-pressed={mobileDays===count} onClick={()=>setMobileDays(count)}>{count}</button>)}</div></div><WeekCalendar days={days} events={filtered} ghosts={visibleGhosts} data={data} now={now} today={today} selectedDate={selectedDate} onSelectDate={setSelectedDate} onOpen={openEvent} onCreate={(date,start)=>newEvent(date,'',start)} onDragStart={(id,input)=>{rememberGrab(input.currentTarget,{y:input.clientY});dragId.current=id;setDraggingId(id);}} onDragEnd={endDrag} onDrop={drop} onHover={setDropTarget} draggingId={draggingId} draggedEvent={findEvent(draggingId)} dropTarget={dropTarget} grabOffset={grabOffset.current} fromHour={visibleHours[0]} toHour={visibleHours[1]} mobileDays={mobileDays}/></> : <>
       <div class={`mobile-days ${rangeView === 'month' ? 'is-month-picker' : ''}`} aria-label="Дни периода">{days.map(date => <button key={date} data-board-drop={date} aria-pressed={date === selectedDate} class={`mobile-day ${date === selectedDate ? 'selected' : ''} ${dropTarget === date ? 'board-drop-target' : ''} ${date === today ? 'is-current-day' : date < today ? 'is-past-picker-day' : ''} ${rangeView === 'month' && date.slice(0,7) !== week.slice(0,7) ? 'outside-picker-month' : ''}`} onClick={() => setSelectedDate(date)} data-state-effect={DEFAULT_STATE_EFFECTS.pastDay}>{date < today && <MarkerPaint/>}<span>{dayNames[weekdayOf(date)]}</span><strong>{Number(date.slice(8))}</strong><i class={filtered.some(event=>event.date===date)?'has-events':''}/></button>)}</div>
       <div class={`calendar-scroll range-${rangeView}`}><div class={`calendar-grid calendar-${rangeView}`}>{days.map(date => {
         const events = filtered.filter(event => event.date === date);
@@ -202,7 +213,7 @@ export function App({ initialMode, demoOnly = false, requireAccount = false, onH
           {!cards.length && <div class="free-day"><span>{query || filterType ? 'Нет событий' : 'Свободно'}</span></div>}<button class="add-slot" onClick={() => newEvent(date)} aria-label={`Добавить событие на ${dateLabel(date)}`}><Icon name="plus"/>Событие</button></div>
         </section>;
       })}</div></div></>}
-      </section><section class={`pending-panel ${projection.pending.length ? 'has-pending' : 'is-empty'} ${dropTarget === 'pending' ? 'drop-target' : ''}`} {...dropProps('pending')}><div class="pending-heading"><span class="pending-symbol"><Icon name="arrows"/></span><div><h2>Ждут переноса <span class="count-pill">{projection.pending.length}</span></h2></div></div>{projection.pending.length ? <div class="pending-cards">{projection.pending.map(pendingCard)}</div> : <span class="all-good"><Icon name="check"/>Все события на своих местах</span>}</section></>;
+      </section><section id="schedule-pending" hidden={!pendingOpen && !draggingId} data-board-drop="pending" class={`pending-panel ${projection.pending.length ? 'has-pending' : 'is-empty'} ${dropTarget === 'pending' ? 'drop-target' : ''}`} {...dropProps('pending')}><div class="pending-heading"><button type="button" class="pending-close icon-button" aria-label="Закрыть очередь переноса" onClick={()=>setPendingOpen(false)}><Icon name="close"/></button><span class="pending-symbol"><Icon name="arrows"/></span><div><h2>Ждут переноса <span class="count-pill">{projection.pending.length}</span></h2></div></div>{projection.pending.length ? <div class="pending-cards">{projection.pending.map(pendingCard)}</div> : <span class="all-good"><Icon name="check"/>Все события на своих местах</span>}</section></>;
   }
   function Students() {
     return <RecordsDirectory data={data} today={today} query={query} onQuery={setQuery} filter={recordFilter} onFilter={setRecordFilter} onOpen={record=>setDialog(record.kind==='student'?{kind:'student-details',student:record}:{kind:'record-details',record})} onAdd={()=>setDialog({kind:'record-choice'})}/>;
@@ -230,7 +241,7 @@ export function App({ initialMode, demoOnly = false, requireAccount = false, onH
   if (requireAccount && (!account.authResolved || (account.user && !account.hasData)) && !account.error) return <div class="planner-loading" role="status"><span class="loading-orbit"/><p>Открываем твоё пространство…</p></div>;
   if (requireAccount && (!account.user || !account.hasData)) return <WorkspaceEntry account={account} onSignIn={workspace.signIn} onRetry={workspace.reconnect} onSignOut={()=>attempt(workspace.signOut)} onHome={onHome} onDemo={onDemo}/>;
   const body = view === 'schedule' ? Schedule() : view === 'students' ? Students() : view === 'types' ? Types() : view === 'transfers' ? Transfers() : view === 'appearance' ? <AppearanceSettings/> : view === 'history' ? <HistoryView data={data} now={now} onOpen={event => setDialog({ kind: 'event-details', event })} onStatus={statusEvent}/> : Settings();
-  return <><div ref={layoutRef} class={`layout ${draggingId ? 'is-dragging-event' : ''} ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}><Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} view={view} onChange={switchView} pending={projection.pending.length} account={account} onSignIn={demoOnly && onPersonal ? onPersonal : workspace.signIn} onHome={onHome}/>
+  return <><div ref={layoutRef} class={`layout ${draggingId ? 'is-dragging-event' : ''} ${sidebarCollapsed ? 'sidebar-collapsed' : ''} ${view==='schedule'?'is-calendar-workspace':''}`}><Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} view={view} onChange={switchView} pending={projection.pending.length} account={account} onSignIn={demoOnly && onPersonal ? onPersonal : workspace.signIn} onHome={onHome}/>
     <main class="main"><div class="mobile-workspace-header"><Brand onClick={event=>{event.preventDefault();onHome?.();}}/><div class="mobile-header-actions"><SyncStatus account={account} mode={mode} onSync={workspace.sync}/><button class="mobile-profile" aria-label="Настройки аккаунта" onClick={()=>switchView('settings')}>{account.user?initials(account.user.displayName||account.user.email):'Я'}</button></div></div><header class="page-header"><div><h1>{TITLES[view]}</h1>{view !== 'schedule' && <p class="subtitle">{SUBTITLES[view]}</p>}</div><div class="header-actions"><SyncStatus account={account} mode={mode} onSync={workspace.sync}/>{!account.user && <Button disabled={account.loading} onClick={demoOnly && onPersonal ? onPersonal : workspace.signIn}>Войти через Google</Button>}<button class="icon-button" aria-label="Настройки" onClick={() => switchView('settings')}><Icon name="settings"/></button>{['schedule','students','types'].includes(view) && <Button kind="primary" icon="plus" onClick={() => view === 'students' ? setDialog({ kind: 'record-choice' }) : view === 'types' ? setDialog({ kind: 'type-editor' }) : newEvent()}>{view === 'students' ? 'Добавить запись' : view === 'types' ? 'Создать тип' : 'Добавить событие'}</Button>}</div></header>
     {mode === 'demo' && <div class="demo-banner"><Icon name="info"/><span>Деморасписание с вымышленными данными. Пробуй карточки, поля и переносы.</span><button class="text-button" onClick={() => attempt(() => switchMode('personal'))}>Создать своё <Icon name="arrow"/></button></div>}
     {account.error && <div class="account-banner error" role="alert"><span>{account.error}</span><Button onClick={workspace.reconnect}>Подключиться заново</Button></div>}

@@ -71,7 +71,7 @@ it('moves a real landing card by touch and restores its original day', async () 
   expect(days[1].querySelector('.ghost-card')).toBeNull();
 });
 it('opens fourteen target dates from a calendar hold and opens time editing only after a drop', async () => {
-  localStorage.clear();
+  localStorage.clear();localStorage.setItem('potok:week-layout','board');
   HTMLDialogElement.prototype.showModal = vi.fn();
   HTMLDialogElement.prototype.close = vi.fn();
   await act(() => render(<App initialMode="demo" demoOnly/>,root));
@@ -89,7 +89,7 @@ it('opens fourteen target dates from a calendar hold and opens time editing only
 });
 
 it('offers fourteen dates from the move button and cancels a drop on the source day', async () => {
-  localStorage.clear();
+  localStorage.clear();localStorage.setItem('potok:week-layout','board');
   await act(() => render(<App initialMode="demo" demoOnly/>,root));
   await act(() => root.querySelector('.card-move').click());
   expect(document.querySelectorAll('[data-press-drop]')).toHaveLength(14);
@@ -99,7 +99,7 @@ it('offers fourteen dates from the move button and cancels a drop on the source 
   expect(document.querySelector('dialog')).toBeNull();
 });
 it('moves a native mouse drag within the board without opening the mini calendar', async () => {
-  localStorage.clear();
+  localStorage.clear();localStorage.setItem('potok:week-layout','board');
   await act(() => render(<App initialMode="demo" demoOnly/>,root));
   const card = root.querySelector('[data-event-id]'),id=card.dataset.eventId;
   const originalTime=card.querySelector('.card-time').textContent.split('–')[0];
@@ -117,7 +117,7 @@ it('moves a native mouse drag within the board without opening the mini calendar
   expect(moved.date).toBe(target.dataset.boardDrop);expect(moved.start).toBe(Number(originalTime.slice(0,2))*60+Number(originalTime.slice(3,5)));
 });
 it('keeps deferring an event available inside the new date picker', async () => {
-  localStorage.clear();
+  localStorage.clear();localStorage.setItem('potok:week-layout','board');
   await act(() => render(<App initialMode="demo" demoOnly/>,root));
   await act(() => root.querySelector('.card-move').click());
   await act(() => document.querySelector('.touch-move-pending').click());
@@ -126,7 +126,7 @@ it('keeps deferring an event available inside the new date picker', async () => 
   expect(root.querySelector('.pending-panel').classList.contains('has-pending')).toBe(true);
 });
 it('opens fourteen dates by holding the mouse, then follows and drops without opening details', async () => {
-  localStorage.clear();
+  localStorage.clear();localStorage.setItem('potok:week-layout','board');
   HTMLDialogElement.prototype.showModal = vi.fn();
   HTMLDialogElement.prototype.close = vi.fn();
   await act(() => render(<App initialMode="demo" demoOnly/>,root));
@@ -170,7 +170,7 @@ it('quick horizontal touch movement starts a board gesture while vertical moveme
  touch(button,'touchend',60,22);expect(options.onDrop).toHaveBeenCalledWith({id:'one'},'2026-11-06','board');
 });
 it('drops a quick finger drag onto a visible week day without opening the date picker',async()=>{
- localStorage.clear();await act(()=>render(<App initialMode="demo" demoOnly/>,root));
+ localStorage.clear();localStorage.setItem('potok:week-layout','board');await act(()=>render(<App initialMode="demo" demoOnly/>,root));
  const card=root.querySelector('[data-event-id]'),id=card.dataset.eventId;
  const target=[...root.querySelectorAll('.mobile-day[data-board-drop]')].at(-1);
  Object.defineProperty(document,'elementFromPoint',{configurable:true,value:vi.fn(()=>target)});

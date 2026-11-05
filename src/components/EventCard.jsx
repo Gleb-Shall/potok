@@ -10,7 +10,7 @@ import { MarkerPaint } from './MarkerPaint.jsx';
 import { Icon } from './Icon.jsx';
 import { cardBackground } from '../lib/card-backgrounds.js';
 
-export function EventCard({ event, data, onOpen, onDragStart, onDragEnd, preview = false, onDelete, onMove, onDefer, expanded = preview, onToggle, now = Date.now(), stateEffects, isDragging = false, canRestore = false, onRestoreDrop }) {
+export function EventCard({ event, data, onOpen, onDragStart, onDragEnd, preview = false, timeline = false, onDelete, onMove, onDefer, expanded = preview, onToggle, now = Date.now(), stateEffects, isDragging = false, canRestore = false, onRestoreDrop }) {
   const nativePreview=useRef(null);
   const releasePreview=()=>{
     if(!nativePreview.current) return;
@@ -31,8 +31,8 @@ export function EventCard({ event, data, onOpen, onDragStart, onDragEnd, preview
   const eventLinkHrefs = new Set((expanded ? meta : compact).flatMap(field => field.type === 'url' && linkHref(event.fields?.[field.id]) ? [linkHref(event.fields[field.id])] : []));
   const eventLinkLabels = new Set((expanded ? meta : compact).filter(field => field.type === 'url' && linkHref(event.fields?.[field.id])).map(field => field.label.trim().toLocaleLowerCase('ru')));
   const inheritedLinks = recordLinks(record).filter(link => !eventLinkHrefs.has(link.href) && !eventLinkLabels.has(link.label.trim().toLocaleLowerCase('ru')));
-  const summary = <><span class="card-time">{minutesToTime(event.start)}–{minutesToTime(event.start + event.duration)}<span class="card-time-icons">{appearance.icon && <span class="event-state-mark" role="img" aria-label={appearance.label} title={appearance.label}><Icon name={appearance.icon}/></span>}<span class="card-grip" aria-hidden="true">⠿</span></span></span><strong class="card-name">{eventTitle(data, event)}</strong><span class="event-type-label">{type.name}{isEventMoved(event) ? ' · ↔' : event.seriesId ? ' · ↻' : ''}</span></>;
-  return <article class={`lesson-card event-card color-${eventColor(data, event)} ${expanded ? 'is-expanded' : 'is-compact'} ${isDragging ? 'is-being-dragged' : ''} ${appearance.state === 'confirmed' ? 'is-done' : appearance.state === 'elapsed' ? 'is-past' : ''}`} data-event-id={!preview ? event.id : undefined} data-event-state={appearance.state} data-state-effect={appearance.effect} draggable={!preview && event.status !== 'done' && Boolean(onDragStart)} onDragStart={eventObject => {
+  const summary = <><span class="card-time">{minutesToTime(event.start)}–{minutesToTime(event.start + event.duration)}<span class="card-time-icons">{appearance.icon && <span class="event-state-mark" role="img" aria-label={appearance.label} title={appearance.label}><Icon name={appearance.icon}/></span>}<span class="card-grip" aria-hidden="true">⠿</span></span></span><strong class="card-name">{eventTitle(data, event)}</strong><span class="event-type-label">{timeline && record?.name && record.name!==eventTitle(data,event)?record.name:type.name}{isEventMoved(event) ? ' · ↔' : event.seriesId ? ' · ↻' : ''}{timeline && event.location && <Icon name="pin"/>}</span></>;
+  return <article class={`lesson-card event-card ${timeline?'timeline-card':''} color-${eventColor(data, event)} ${expanded ? 'is-expanded' : 'is-compact'} ${isDragging ? 'is-being-dragged' : ''} ${appearance.state === 'confirmed' ? 'is-done' : appearance.state === 'elapsed' ? 'is-past' : ''}`} data-event-id={!preview ? event.id : undefined} data-event-state={appearance.state} data-state-effect={appearance.effect} draggable={!preview && event.status !== 'done' && Boolean(onDragStart)} onDragStart={eventObject => {
     if (eventObject.target.closest?.('a')) { eventObject.preventDefault(); return; }
     const source = eventObject.currentTarget;
     releasePreview();
@@ -43,7 +43,7 @@ export function EventCard({ event, data, onOpen, onDragStart, onDragEnd, preview
     eventObject.dataTransfer.setDragImage?.(image, 25, 25);
     const current={node:image,frame:0};nativePreview.current=current;
     current.frame=requestAnimationFrame(releasePreview);
-    eventObject.dataTransfer.setData('text/plain', event.id); eventObject.dataTransfer.effectAllowed = 'move'; onDragStart?.(event.id);
+    eventObject.dataTransfer.setData('text/plain', event.id); eventObject.dataTransfer.effectAllowed = 'move'; onDragStart?.(event.id,eventObject);
   }} onDragEnd={input=>{releasePreview();onDragEnd?.(input);}}>
     {background && <img class="card-background-image" src={background} alt="" aria-hidden="true" draggable={false} decoding="async" style={{opacity: Math.min(50, Math.max(0, type.cardBackgroundStrength ?? 20)) / 100}}/>}
     {appearance.effect === 'marker' && ['elapsed', 'confirmed'].includes(appearance.state) && <MarkerPaint key={appearance.state}/>}

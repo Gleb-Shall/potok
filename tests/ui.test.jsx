@@ -63,6 +63,7 @@ afterEach(async () => { await act(() => render(null, root)); root.remove(); vi.u
 
 describe('critical user flows', () => {
   it('opens 7, 14 and all month days and expands cards independently', async () => {
+    localStorage.setItem('potok:week-layout','board');
     const data = base(); data.events.push(sample());
     localStorage.setItem('tutor-schedule:mode', 'personal'); localStorage.setItem('tutor-schedule:personal:v2', JSON.stringify(data));
     await mount(<App/>);
@@ -78,6 +79,7 @@ describe('critical user flows', () => {
     expect(root.querySelector('.card-expanded-content')).toBeTruthy();
   });
   it('quick board drag preserves time and persists a single transfer', async () => {
+    localStorage.setItem('potok:week-layout','board');
     const data = base(); data.events.push(sample());
     localStorage.setItem('tutor-schedule:mode', 'personal'); localStorage.setItem('tutor-schedule:personal:v2', JSON.stringify(data));
     await mount(<App/>);
@@ -236,7 +238,8 @@ describe('critical user flows', () => {
     await submit(root.querySelector('form'));
     const saved = onSave.mock.calls[0][0].events[0]; expect(saved.start).toBe(660); expect(saved.duration).toBe(45); expect(saved).not.toHaveProperty('end');
   });
-  it('deletes an event from its card and restores it with undo', async () => {
+  it('deletes an event from its board card and restores it with undo', async () => {
+    localStorage.setItem('potok:week-layout','board');
     const data = base(); data.events.push(sample());
     localStorage.setItem('tutor-schedule:mode', 'personal'); localStorage.setItem('tutor-schedule:personal:v2', JSON.stringify(data));
     await mount(<App/>); await click(root.querySelector('.card-controls .action-menu-trigger')); await click([...root.querySelectorAll('.ui-action-menu[data-open="true"] button')].find(button => button.textContent.includes('Удалить событие'))); await submit(root.querySelector('dialog form'));
