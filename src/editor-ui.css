@@ -172,3 +172,11 @@ dialog.product-dialog::backdrop { background:#1c241f55; }
 @media (prefers-reduced-motion:no-preference) { .product-dialog.panel-dialog[open] { animation:panel-arrive .2s cubic-bezier(.23,1,.32,1); } }
 @keyframes panel-arrive { from { opacity:0; transform:translateX(16px); } to { opacity:1; transform:none; } }
 .ui-action-menu > button:focus-visible { outline:2px solid var(--ink); outline-offset:-2px; }
+.event-card { isolation:isolate; }
+.card-background-image { position:absolute; inset:0; z-index:-1; width:100%; height:100%; border-radius:inherit; object-fit:cover; pointer-events:none; user-select:none; }
+.background-upload-row { display:flex; align-items:center; gap:16px; }
+.background-thumbnail { width:72px; height:88px; object-fit:cover; border-radius:6px; flex:none; background:var(--surface-soft); }
+.background-strength { display:grid; grid-template-columns:1fr auto; gap:12px; margin-top:16px; color:var(--text-secondary); font-size:14px; }
+.background-strength input { grid-column:1/-1; width:100%; min-height:44px; accent-color:var(--accent); }
+.background-strength output { font-variant-numeric:tabular-nums; }
+.background-error { color:var(--danger); font-size:14px; }

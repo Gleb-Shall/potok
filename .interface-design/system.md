@@ -24,3 +24,5 @@
 Linear: https://linear.app/docs/creating-issues — редактирование объекта и отдельные свойства.
 Notion: https://www.notion.com/help/layouts — группировка свойств, основное содержимое и детали.
 Airtable: https://support.airtable.com/articles/5805061650-airtable-interface-layout-record-detail — отдельная настройка выбранного поля.
+
+- Фон карточки: свой PNG в шаблоне, отдельное сворачиваемое свойство; видимость 20% по умолчанию. Текст и действия поверх изображения. Декоративные символы типов убраны.

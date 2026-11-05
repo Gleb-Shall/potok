@@ -1,4 +1,5 @@
 import { linkHref } from './links.js';
+import { saveCardBackground } from './card-backgrounds.js';
 import { addDays, mondayOf, weekdayOf, validateStudent } from './domain.js';
 
 export const FIELD_TYPES = { text: 'Текст', url: 'Ссылка', textarea: 'Длинный текст', number: 'Число', date: 'Дата', select: 'Один вариант', multiselect: 'Несколько вариантов', checkbox: 'Флажок' };
@@ -218,8 +219,8 @@ export function saveType(data, input) {
     if (!field.label.trim()) throw new Error('У каждого поля должно быть название.');
     if (['select', 'multiselect'].includes(field.type) && !field.archived && !field.options.length) throw new Error(`Добавь варианты для поля «${field.label}».`);
   }
-  const type = { ...input, name: input.name.trim(), version: (input.version || 0) + 1 };
-  return { ...data, types: upsert(data.types, type) };
+  const saved = saveCardBackground(data, { ...input, name: input.name.trim(), version: (input.version || 0) + 1 });
+  return { ...data, cardBackgrounds: saved.cardBackgrounds, types: upsert(data.types, saved.type) };
 }
 export function fieldDisplay(field, value) {
   if (value === undefined || value === null || value === '') return '';

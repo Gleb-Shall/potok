@@ -12,7 +12,7 @@ export function EventDetails({ data, event, onEdit, onMove, onStatus, onStudent,
   const student = getStudent(data, event.studentId);
   const record = getRecord(data, event);
   const labels = { planned: 'Запланировано', done: 'Проведено', pending: 'Ждёт переноса', cancelled: 'Отменено' };
-  return <Modal title={eventTitle(data, event)} eyebrow={`${type.icon} ${type.name.toLocaleUpperCase('ru')}`} subtitle={record?.kind === 'student' && record.name !== eventTitle(data, event) ? `Ученик: ${record.name}` : undefined} onClose={onClose} className="product-dialog event-inspector" panel>
+  return <Modal title={eventTitle(data, event)} eyebrow={type.name.toLocaleUpperCase('ru')} subtitle={record?.kind === 'student' && record.name !== eventTitle(data, event) ? `Ученик: ${record.name}` : undefined} onClose={onClose} className="product-dialog event-inspector" panel>
     <div class="inspector-content"><div class="inspector-toolbar"><label class="event-status-control"><span class={`event-status-dot status-${event.status}`}/><select aria-label="Статус события" value={event.status} onChange={input => onStatus(input.currentTarget.value)}>{Object.entries(labels).map(([id,label]) => <option key={id} value={id}>{label}</option>)}</select></label><ActionMenu label="Действия с событием" compact items={[
       event.status === 'planned' && {id:'pending',icon:'clock',label:'Отложить перенос',description:'Убрать дату и выбрать новую позже',onSelect:()=>onStatus('pending')},
       event.seriesId && onStop && {id:'stop',icon:'repeat',label:'Завершить повторы',description:'История проведённых событий сохранится',onSelect:onStop},

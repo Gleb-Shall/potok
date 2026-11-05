@@ -7,9 +7,11 @@ import { eventAppearance } from '../lib/state-appearance.js';
 import { dateLabel } from './UI.jsx';
 import { MarkerPaint } from './MarkerPaint.jsx';
 import { Icon } from './Icon.jsx';
+import { cardBackground } from '../lib/card-backgrounds.js';
 
 export function EventCard({ event, data, onOpen, onDragStart, onDragEnd, preview = false, onDelete, onMove, onDefer, expanded = preview, onToggle, now = Date.now(), stateEffects, isDragging = false, canRestore = false, onRestoreDrop }) {
   const type = eventType(data, event);
+  const background = cardBackground(data, type);
   const appearance = eventAppearance(event, { now, preview, effects: stateEffects });
   const record = getRecord(data, event);
   if (event.ghost) return <button class={`ghost-card ${canRestore ? 'is-return-target' : ''}`} onDragOver={input => { if (canRestore) { input.preventDefault(); input.stopPropagation(); input.dataTransfer.dropEffect = 'move'; } }} onDrop={input => { if (canRestore) { input.preventDefault(); input.stopPropagation(); onRestoreDrop?.(); } }} type="button" onClick={() => onOpen(event.id)}>{canRestore && <span class="return-hint">↩ Вернуть сюда</span>}<span class="ghost-time">{minutesToTime(event.start)}</span><span>{eventTitle(data, event)}</span><small>{event.status === 'pending' ? 'Ждёт нового времени' : event.status === 'cancelled' ? 'Отменено' : `→ ${dateLabel(event.destinationDate)} · ${minutesToTime(event.destinationStart)}`}</small></button>;
@@ -19,7 +21,7 @@ export function EventCard({ event, data, onOpen, onDragStart, onDragEnd, preview
   const eventLinkHrefs = new Set((expanded ? meta : compact).flatMap(field => field.type === 'url' && linkHref(event.fields?.[field.id]) ? [linkHref(event.fields[field.id])] : []));
   const eventLinkLabels = new Set((expanded ? meta : compact).filter(field => field.type === 'url' && linkHref(event.fields?.[field.id])).map(field => field.label.trim().toLocaleLowerCase('ru')));
   const inheritedLinks = recordLinks(record).filter(link => !eventLinkHrefs.has(link.href) && !eventLinkLabels.has(link.label.trim().toLocaleLowerCase('ru')));
-  const summary = <><span class="card-time">{minutesToTime(event.start)}–{minutesToTime(event.start + event.duration)}<span class="card-time-icons">{appearance.icon && <span class="event-state-mark" role="img" aria-label={appearance.label} title={appearance.label}><Icon name={appearance.icon}/></span>}<span class="card-grip" aria-hidden="true">⠿</span></span></span><strong class="card-name">{eventTitle(data, event)}</strong><span class="event-type-label">{type.icon} {type.name}{isEventMoved(event) ? ' · ↔' : event.seriesId ? ' · ↻' : ''}</span></>;
+  const summary = <><span class="card-time">{minutesToTime(event.start)}–{minutesToTime(event.start + event.duration)}<span class="card-time-icons">{appearance.icon && <span class="event-state-mark" role="img" aria-label={appearance.label} title={appearance.label}><Icon name={appearance.icon}/></span>}<span class="card-grip" aria-hidden="true">⠿</span></span></span><strong class="card-name">{eventTitle(data, event)}</strong><span class="event-type-label">{type.name}{isEventMoved(event) ? ' · ↔' : event.seriesId ? ' · ↻' : ''}</span></>;
   return <article class={`lesson-card event-card color-${eventColor(data, event)} ${expanded ? 'is-expanded' : 'is-compact'} ${isDragging ? 'is-being-dragged' : ''} ${appearance.state === 'confirmed' ? 'is-done' : appearance.state === 'elapsed' ? 'is-past' : ''}`} data-event-id={!preview ? event.id : undefined} data-event-state={appearance.state} data-state-effect={appearance.effect} draggable={!preview && event.status !== 'done' && Boolean(onDragStart)} onDragStart={eventObject => {
     if (eventObject.target.closest?.('a')) { eventObject.preventDefault(); return; }
     const source = eventObject.currentTarget;
@@ -31,6 +33,7 @@ export function EventCard({ event, data, onOpen, onDragStart, onDragEnd, preview
     requestAnimationFrame(() => image.remove());
     eventObject.dataTransfer.setData('text/plain', event.id); eventObject.dataTransfer.effectAllowed = 'move'; onDragStart?.(event.id);
   }} onDragEnd={onDragEnd}>
+    {background && <img class="card-background-image" src={background} alt="" aria-hidden="true" draggable={false} decoding="async" style={{opacity: Math.min(50, Math.max(0, type.cardBackgroundStrength ?? 20)) / 100}}/>}
     {appearance.effect === 'marker' && ['elapsed', 'confirmed'].includes(appearance.state) && <MarkerPaint key={appearance.state}/>}
     {preview ? <div class="card-open">{summary}</div> : <button type="button" class="card-open" onClick={() => onOpen(event.id)} aria-label={`${eventTitle(data, event)}, ${dateLabel(event.date)}, ${minutesToTime(event.start)}${appearance.icon ? `, ${appearance.label}` : ''}`}>{summary}</button>}
     {!expanded && compact.length > 0 && <dl class="card-fields compact-fields">{compact.map(field => <div key={field.id}><dt>{field.label}</dt><dd><LinkedValue field={field} value={event.fields[field.id]}/></dd></div>)}</dl>}
