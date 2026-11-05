@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { paintSurface } from './dom-surface.js';
+import { createSurface } from './canvas-surface.js';
 import { renderPixelRatio, texturePixelRatio } from './render-quality.js';
 import { readAnimationQuality, APPEARANCE_CHANGE, ANIMATION_QUALITY_KEY } from '../../../lib/appearance.js';
 
@@ -7,30 +7,10 @@ import { STORY, MOBILE_STORY, progress, smooth } from './story-time.js';
 import { createRibbonCurve, createFlightRoute } from './ribbon-flight.js';
 const FINAL_DISTANCE = 13.5;
 
-function createSurface() {
-  const canvas = document.createElement('canvas');
-  const makeTexture = () => {
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.generateMipmaps = true; texture.minFilter = THREE.LinearMipmapLinearFilter;
-    return texture;
-  };
-  let texture = makeTexture();
-  return { get texture() { return texture; }, update(element, ratio) {
-    const width = canvas.width, height = canvas.height;
-    if (paintSurface(element, canvas, ratio)) {
-      // Uploaded textures have immutable storage; a new layout can need a new size.
-      if (canvas.width !== width || canvas.height !== height) { texture.dispose(); texture = makeTexture(); }
-      else texture.needsUpdate = true;
-    }
-    return texture;
-  } };
-}
-
-// The same vertices form the orange ribbon and its information-bearing front.
-// Only the final rectangle comes from layout; there is no second grid sliding in.
+// Solid ribbons deform into the measured day-column rectangles.
+// Information stays in live HTML, so the ribbons need no textured front faces.
 function makeRibbon(index, color) {
-  const segments = innerWidth < 760 ? 72 : 120, positions = [], uv = [], indices = [], frontIndices = [];
+  const segments = innerWidth < 760 ? 72 : 120, positions = [], indices = [];
   const corners = [[-1,-1],[1,-1],[1,1],[-1,1]];
   const curve = createRibbonCurve(index);
   for (let step=0;step<=segments;step++) {
@@ -42,30 +22,23 @@ function makeRibbon(index, color) {
     const depth=new THREE.Vector3().crossVectors(tangent,across).normalize();
     for(const [u,v] of corners){
       const p=center.clone().addScaledVector(across,u*.65).addScaledVector(depth,v*.07);
-      positions.push(p.x,p.y,p.z);uv.push((u+1)/2,1-t);
+      positions.push(p.x,p.y,p.z);
     }
     if(step<segments) for(let side=0;side<4;side++){
       const a=step*4+side,b=step*4+(side+1)%4,c=a+4,d=b+4;
       indices.push(a,b,c,b,d,c);
-      if(side===2)frontIndices.push(a,b,c,b,d,c);
     }
   }
   indices.push(0,2,1,0,3,2,segments*4,segments*4+1,segments*4+2,segments*4,segments*4+2,segments*4+3);
   const geometry=new THREE.BufferGeometry();
   geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
-  geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));geometry.setIndex(indices);geometry.computeVertexNormals();
+  geometry.setIndex(indices);geometry.computeVertexNormals();
   const initial=new Float32Array(positions);
-  const surface=createSurface();
   const material=new THREE.MeshStandardMaterial({color,roughness:.65,metalness:.08,side:THREE.DoubleSide,transparent:true});
   const mesh=new THREE.Mesh(geometry,material);mesh.frustumCulled=false;
-  const faceGeometry=new THREE.BufferGeometry();
-  faceGeometry.setAttribute('position',geometry.getAttribute('position'));
-  faceGeometry.setAttribute('uv',geometry.getAttribute('uv'));faceGeometry.setIndex(frontIndices);
-  const face=new THREE.Mesh(faceGeometry,new THREE.MeshBasicMaterial({map:surface.texture,transparent:true,side:THREE.DoubleSide,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1,toneMapped:false}));
-  face.frustumCulled=false;face.renderOrder=1;
   let route, targetKey = '';
   const center = new THREE.Vector3(), across = new THREE.Vector3(), normal = new THREE.Vector3();
-  return {mesh,face,surface,
+  return {mesh,
     setTarget(rect,factor,width,height){
       const nextKey = [rect.left,rect.top,rect.width,rect.height,factor,width,height].join(':');
       if (nextKey === targetKey) return;
@@ -133,7 +106,7 @@ export function createWorld(canvas, root, getState) {
   const rim = new THREE.DirectionalLight(0xffc09d, 2); rim.position.set(6, -2, 1); scene.add(rim);
   const ribbons = new THREE.Group(); scene.add(ribbons);
   const days = [0xff5b24, 0xf04d19, 0xff743d].map((color, index) => makeRibbon(index, color));
-  days.forEach(day => ribbons.add(day.mesh, day.face));
+  days.forEach(day => ribbons.add(day.mesh));
   const panels3d = Array.from({ length: 3 }, makePanel);
   panels3d.forEach(panel => scene.add(panel.group));
 
@@ -171,7 +144,6 @@ export function createWorld(canvas, root, getState) {
   }
   function paint(phase) {
     const ratio = texturePixelRatio(devicePixelRatio || 1, quality);
-    if (phase === 'entry' || phase === 'hero') dayNodes.forEach((node, i) => { days[i].face.material.map = days[i].surface.update(node, ratio); });
     if (phase === 'calendar-editor') panels3d.forEach((panel, i) => {
       panel.front.material.map = panel.source.update(calendarNodes[i], ratio);
       panel.back.material.map = panel.destination.update(editorNodes[i], ratio);
@@ -302,7 +274,7 @@ export function createWorld(canvas, root, getState) {
       days.forEach(day => {
         day.fly(mode === 'entry' ? p : 0, brush);
         const landing = mode === 'entry' ? smooth(0, .8, reveal) : 0;
-        day.face.material.opacity = 0; day.mesh.material.opacity = 1 - landing;
+        day.mesh.material.opacity = 1 - landing;
       });
       camera.position.set(0, 0, mobile && mode === 'entry' ? THREE.MathUtils.lerp(13, FINAL_DISTANCE, smooth(0, .25, p)) : width < 760 ? 13 : FINAL_DISTANCE);
       camera.lookAt(0, 0, 0);
@@ -348,17 +320,22 @@ export function createWorld(canvas, root, getState) {
   const observer = new ResizeObserver(refresh); observer.observe(root); panels.forEach(panel => observer.observe(panel));
   document.fonts?.ready.then(() => { if (!disposed) refresh(); });
   return { invalidate: refresh, dispose() {
+    if(disposed) return;
     disposed = true; cancelAnimationFrame(frame); observer.disconnect();
     window.removeEventListener(APPEARANCE_CHANGE, onQuality); window.removeEventListener('storage', onQuality);
     window.removeEventListener('scroll', invalidate); window.removeEventListener('resize', resize); window.removeEventListener('pointermove', onPointer);
     root.removeEventListener('input', refresh); root.removeEventListener('click', refresh);
     hero.removeEventListener('pointerleave', onPointerLeave);
     document.removeEventListener('visibilitychange', onVisibility); media.removeEventListener('change', refresh); canvas.removeEventListener('webglcontextlost', onLost);
-    const geometries = new Set(), materials = new Set(), textures = new Set();
+    const geometries = new Set(), materials = new Set();
     scene.traverse(object => {
       if (object.geometry) geometries.add(object.geometry);
-      for (const material of object.material ? [object.material].flat() : []) { materials.add(material); if (material.map) textures.add(material.map); }
+      for (const material of object.material ? [object.material].flat() : []) { materials.add(material); }
     });
-    geometries.forEach(geometry => geometry.dispose()); textures.forEach(texture => texture.dispose()); materials.forEach(material => material.dispose()); renderer.dispose(); restorePanels();
+    panels3d.forEach(panel=>{panel.source.dispose();panel.destination.dispose();});
+    geometries.forEach(geometry=>geometry.dispose());
+    materials.forEach(material=>{material.map=null;material.dispose();});
+    scene.clear();renderer.dispose();renderer.forceContextLoss();
+    canvas.width=canvas.height=0;restorePanels();
   } };
 }

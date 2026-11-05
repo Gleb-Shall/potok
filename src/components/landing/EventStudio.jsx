@@ -28,6 +28,7 @@ export function EventStudio({ data: providedData, selectedEvent, onApply, onPrev
   const [error,setError] = useState('');
   const [panel,setPanel] = useState('content');
   const timer = useRef(null);
+  const focusFrame=useRef(0);
   const motion = useMotionVisibility();
   const selectPanel = key => {
     setPanel(key);
@@ -37,7 +38,7 @@ export function EventStudio({ data: providedData, selectedEvent, onApply, onPrev
     // Bring the new controls below the pinned preview rather than behind it.
     if (offset < 0) window.scrollTo({ top:window.scrollY + offset, behavior:'instant' });
   };
-  useEffect(() => () => clearTimeout(timer.current),[]);
+  useEffect(() => () => {clearTimeout(timer.current);cancelAnimationFrame(focusFrame.current);},[]);
   const change = patch => { setSaved(false); setError(''); setValues(previous => ({...previous,...patch})); };
   const types = base.types.map(type => ({...type,fields:type.fields.map(field => ({...field,showOnCard:field.id==='topic'?values.showTopic:field.id==='call'?values.showCall:field.id==='rate'?false:field.showOnCard}))}));
   const data = {...base,types};
@@ -65,7 +66,8 @@ export function EventStudio({ data: providedData, selectedEvent, onApply, onPrev
       if (!group || group.dataset.studioPanel === panel || !window.matchMedia?.('(max-width: 759px)').matches) return;
       input.preventDefault(); selectPanel(group.dataset.studioPanel);
       const field = input.target;
-      requestAnimationFrame(() => { if (field.isConnected) { field.focus({preventScroll:true}); field.reportValidity(); } });
+      cancelAnimationFrame(focusFrame.current);
+      focusFrame.current=requestAnimationFrame(() => { focusFrame.current=0;if (field.isConnected) { field.focus({preventScroll:true}); field.reportValidity(); } });
     }}>
       <div class="studio-settings-panel" data-studio-panel="content" data-active={panel==='content'} id={`${id}-content`}>
       <div class="studio-presets" role="group" aria-label="Вид события">{Object.entries(PRESETS).map(([id,preset]) => <button type="button" key={id} aria-pressed={values.typeId===id} onClick={() => change({...preset,typeId:id,studentId:preset.studentId||'',recordId:preset.recordId||''})}>{preset.label}</button>)}</div>

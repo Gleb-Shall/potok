@@ -1,4 +1,4 @@
-import { useRef, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { Brand } from './Brand.jsx';
 import { Icon } from './Icon.jsx';
 import { ProductDemo, landingData } from './landing/ProductDemo.jsx';
@@ -16,6 +16,10 @@ function RibbonPoster() {
 
 export function Landing({ navigate }) {
   const root=useRef(null);
+  const focusFrames=useRef(new Set());
+  const cancelFocus=()=>{focusFrames.current.forEach(cancelAnimationFrame);focusFrames.current.clear();};
+  const scheduleFocus=callback=>{const id=requestAnimationFrame(()=>{focusFrames.current.delete(id);callback();});focusFrames.current.add(id);};
+  useEffect(()=>cancelFocus,[]);
   const [data,setData]=useState(landingData);
   const [selectedId,setSelectedId]=useState('lesson');
   const [selectionVersion,setSelectionVersion]=useState(0);
@@ -40,7 +44,7 @@ export function Landing({ navigate }) {
     history.replaceState({},'',`#${id}`);
     window.scrollTo({top:Math.ceil(destination),behavior:'instant'});
     // The scene controller removes inert on the next paint before focus moves in.
-    requestAnimationFrame(()=>requestAnimationFrame(()=>{if(target.isConnected)target.focus({preventScroll:true});}));
+    cancelFocus();scheduleFocus(()=>scheduleFocus(()=>{if(target.isConnected)target.focus({preventScroll:true});}));
   };
   const apply=({event,types})=>setData(current=>saveEvent({...current,types},{values:event,original:current.events.find(item=>item.id===event.id),scope:'one',repeat:null}));
   return <div class="flow-landing" ref={root} data-world="pending">

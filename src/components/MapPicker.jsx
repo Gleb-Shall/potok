@@ -73,7 +73,7 @@ export default function MapPicker({ value, saved = [], onChange, onClose }) {
       if (controller.signal.aborted) return;
       applyLocation(resolved);
     } catch (error) { if (selecting.current === controller) setError(controller.signal.aborted ? 'Не удалось загрузить место. Попробуй ещё раз.' : error.message); }
-    finally { clearTimeout(timeout); if (selecting.current === controller) setResolving(false); }
+    finally { clearTimeout(timeout); if (selecting.current === controller) {selecting.current=null;setResolving(false);} }
   };
   const pickPoint = async (point, options = {}) => {
     cancelLocation(); if (options.focus) setFocusRequest(value => value + 1);

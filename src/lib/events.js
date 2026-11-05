@@ -7,7 +7,12 @@ export const FIELD_TYPES = { text: 'Текст', url: 'Ссылка', textarea: 
 export const RECORD_KINDS = { student: 'Ученик', person: 'Человек', course: 'Предмет', place: 'Место', project: 'Проект' };
 export const recordKind = type => type.recordKind ?? (type.linkStudent ? 'student' : type.id === 'class' ? 'course' : type.id === 'personal' ? 'any' : '');
 export const allRecords = data => [...data.students.map(item => ({ ...item, kind: 'student' })), ...(data.records || [])];
-export const getRecord = (data, event) => event.snapshot?.record || allRecords(data).find(item => item.id === (event.recordId || event.studentId));
+export function getRecord(data,event) {
+  if(event.snapshot?.record) return event.snapshot.record;
+  const id=event.recordId || event.studentId;
+  const student=data.students.find(item=>item.id===id);
+  return student ? {...student,kind:'student'} : data.records?.find(item=>item.id===id);
+}
 export const COLOR_NAMES = { violet: 'Сиреневый', blue: 'Голубой', green: 'Зелёный', peach: 'Персиковый', pink: 'Розовый' };
 const field = (id, label, type = 'text', extra = {}) => ({ id, label, type, required: false, showOnCard: true, archived: false, options: [], ...extra });
 export function defaultTypes() {

@@ -3,9 +3,13 @@
 export function paintSurface(element, canvas, pixelRatio = 1.5) {
   const bounds = element.getBoundingClientRect();
   if (!bounds.width || !bounds.height) return false;
-  canvas.width = Math.ceil(bounds.width * pixelRatio);
-  canvas.height = Math.ceil(bounds.height * pixelRatio);
+  const width=Math.ceil(bounds.width*pixelRatio),height=Math.ceil(bounds.height*pixelRatio);
+  if(canvas.width!==width) canvas.width=width;
+  if(canvas.height!==height) canvas.height=height;
   const ctx = canvas.getContext('2d');
+  if(!ctx) return false;
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.scale(pixelRatio, pixelRatio);
   ctx.textBaseline = 'alphabetic';
   const box = node => {

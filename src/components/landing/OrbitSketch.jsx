@@ -3,10 +3,12 @@ const ellipse = angle => Array.from({length:65}, (_, index) => {
   return `${index?'L':'M'}${300 + x * Math.cos(angle) - y * Math.sin(angle)} ${300 + x * Math.sin(angle) + y * Math.cos(angle)}`;
 }).join(' ') + 'Z';
 
+const ORBITS=[0,Math.PI/3,-Math.PI/3].map(ellipse);
+
 // A third calendar card sheds its content and becomes this orbital background.
 export function OrbitSketch() {
   return <div class="studio-orbit" aria-hidden="true"><svg viewBox="0 0 600 600" fill="none">
-    {[0,Math.PI/3,-Math.PI/3].map(angle => <path key={angle} d={ellipse(angle)}/>)}
+    {ORBITS.map((path,index)=><path key={index} d={path}/>)}
     <path d="M70 300a230 230 0 1 0 460 0a230 230 0 1 0-460 0"/>
     <g class="orbit-runner"><circle cx="530" cy="300" r="9"/></g>
     <g class="orbit-runner orbit-runner-second"><circle cx="70" cy="300" r="5"/></g>

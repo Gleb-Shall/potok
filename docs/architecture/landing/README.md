@@ -9,3 +9,5 @@
 
 `landing-spatial.css` определяет композицию главной; старые landing CSS остаются нижними слоями системы. Нельзя добавлять постоянный render-loop ради неактивной сцены. Уважать reduced motion, уход страницы в фон и потерю WebGL-контекста.
 Проверки: `tests/product-demo.test.jsx`, `tests/ribbon-flight.test.js`, `tests/flow-playground.test.jsx`.
+
+Текущий жизненный цикл GPU и ленивой загрузки описан в [разделе памяти](../performance/README.md). Старый Atmosphere/Threads удалён как недостижимый модуль; внешний референс сохранён в исследовательских документах.

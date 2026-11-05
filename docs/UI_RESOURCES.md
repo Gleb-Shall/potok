@@ -2,19 +2,17 @@
 
 Новая визуальная система и рабочий пример на лендинге описаны в [DESIGN_DIRECTION.md](DESIGN_DIRECTION.md).
 
-## Использовано
+## Изучено и использовано в прототипах
 
-- [Animate UI skill](https://github.com/imskyleen/animate-ui/blob/main/skills/animate-ui/SKILL.md): прочитаны основной навык, каталог, правила, рекомендации по CSS-токенам и воспроизведению эффектов. Используется официальный `ThemeToggler` из `@animate-ui/react/primitives/effects/theme-toggler`: View Transition на 700 мс, плавное раскрытие слева направо, мгновенная смена при reduced motion или отсутствии поддержки браузера. Уровень — как в указанном примере. Иконка использует CSS-аналог `transition.spin` (300 мс, ease.out). Постоянные анимации останавливаются вне экрана, в скрытой вкладке и при reduced motion.
+- [Animate UI skill](https://github.com/imskyleen/animate-ui/blob/main/skills/animate-ui/SKILL.md): изучены рекомендации и переключатель темы. Прототип переключателя снят вместе с тёмной темой; неиспользуемые зависимости Animate UI и Motion удалены.
 - [Aceternity Text Flipping Board](https://ui.aceternity.com/components/text-flipping-board): изучен открытый исходник. Конструкция разделённых половинок адаптирована для Preact и CSS; добавлены кириллица, короткий перебор символов, три примера, пауза и остановка вне экрана. Звук не добавлен. [Условия использования Aceternity](https://ui.aceternity.com/licence).
 - [React Bits SpotlightCard](https://reactbits.dev/components/spotlight-card): адаптирован приём подсветки через CSS-переменные координат указателя. Без постоянного цикла отрисовки, без обновления состояния компонентов при движении мыши; на сенсорных устройствах эффект не запускается. Исходник: https://github.com/DavidHDev/react-bits/blob/main/src/content/Components/SpotlightCard/SpotlightCard.jsx. Лицензия сохранена в `licenses/react-bits.txt`.
 
-- [React Bits Threads](https://reactbits.dev/backgrounds/threads): интерактивный WebGL-фон лендинга. Адаптирован к Preact, загружается отдельно, поддерживает паузу и reduced motion.
+- [React Bits Threads](https://reactbits.dev/backgrounds/threads): референс интерактивного WebGL-фона. Старый неподключённый прототип удалён; текущая сцена реализована в landing/world.
 
-## Темы
+## Текущая реализация
 
-Светлая, тёмная и системная тема. Настройка хранится отдельно от расписаний в `potok:theme`, синхронизируется между вкладками и не зависит от входа в аккаунт. Тема применяется до первого отображения страницы. Настройки доступны в рабочем пространстве; быстрая кнопка — на главной, экране входа и в шапке приложения.
-
-В `src/lib/react-compat.js` вызов React 19 `use(Context)` направляется в Preact `useContext`; работа с Promise остаётся на Preact Suspense. Это позволяет использовать официальный переключатель, сохранив Preact. Vitest обрабатывает Animate UI и Motion с теми же алиасами, что и сборка.
+Интерфейс использует светлую тему. Старые переключатель и React-bridge удалены; Preact совместимость подключается напрямую. Настройка качества анимаций остаётся доступна во внешнем виде. Владение текстурами, очистка сцены и проверки описаны в [архитектуре производительности](architecture/performance/README.md).
 
 ## Дальнейший выбор
 

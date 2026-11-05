@@ -16,6 +16,7 @@ export function LandingWorld({ root, paused, event, data }) {
       if (disposed) return;
       controller.current = createWorld(canvas.current, element, () => latest.current);
     }).catch(error => {
+      if(disposed) return;
       console.warn('Potok spatial scene unavailable:', error);
       element.dataset.world = 'fallback';
     });

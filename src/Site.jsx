@@ -1,14 +1,12 @@
 import { useEffect, useState } from 'preact/hooks';
 import { lazy, Suspense } from 'preact/compat';
 import { ThemeProvider } from './theme/ThemeProvider.jsx';
-import { Landing } from './components/Landing.jsx';
 import { connectFirebase } from './lib/firebase-client.js';
 const loadPlanner = () => import('./App.jsx').then(module => ({ default: module.App }));
 const Planner = lazy(loadPlanner);
+const Landing = lazy(()=>import('./components/Landing.jsx').then(module=>({default:module.Landing})));
 
-export function Site() { return <SiteRoutes/>; }
-
-function SiteRoutes() {
+export function Site() {
   const [path, setPath] = useState(() => location.pathname);
   useEffect(() => { const back = () => setPath(location.pathname); window.addEventListener('popstate', back); return () => window.removeEventListener('popstate', back); }, []);
   const navigate = next => { if (location.pathname !== next) history.pushState({}, '', next); setPath(next); window.scrollTo(0, 0); };
@@ -20,6 +18,6 @@ function SiteRoutes() {
   }, [page]);
   useEffect(() => { document.title = page === 'landing' ? 'Поток — события, записи и твой ритм' : 'Моё пространство — Поток'; }, [page]);
   useEffect(() => { if (path === '/demo') { history.replaceState({}, '', '/app'); setPath('/app'); } }, [path]);
-  if (page === 'landing' && path !== '/demo') return <ThemeProvider><Landing navigate={navigate}/></ThemeProvider>;
+  if (page === 'landing' && path !== '/demo') return <ThemeProvider><Suspense fallback={<div class="planner-loading" role="status">Открываем Поток…</div>}><Landing navigate={navigate}/></Suspense></ThemeProvider>;
   return <ThemeProvider><Suspense fallback={<div class="planner-loading"><span class="loading-orbit"/><p>Открываем твоё пространство…</p></div>}><Planner key={page} initialMode="personal" requireAccount onHome={() => navigate('/')} onPersonal={() => navigate('/app')}/></Suspense></ThemeProvider>;
 }

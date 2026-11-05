@@ -1,4 +1,5 @@
 import { ActionMenu } from './ActionMenu.jsx';
+import { useEffect, useRef } from 'preact/hooks';
 import { eventType, isEventMoved, getRecord, eventTitle, eventColor, fieldDisplay } from '../lib/events.js';
 import { minutesToTime } from '../lib/domain.js';
 import { LinkedValue, ExternalLink, LinkedText } from './LinkedValue.jsx';
@@ -10,6 +11,13 @@ import { Icon } from './Icon.jsx';
 import { cardBackground } from '../lib/card-backgrounds.js';
 
 export function EventCard({ event, data, onOpen, onDragStart, onDragEnd, preview = false, onDelete, onMove, onDefer, expanded = preview, onToggle, now = Date.now(), stateEffects, isDragging = false, canRestore = false, onRestoreDrop }) {
+  const nativePreview=useRef(null);
+  const releasePreview=()=>{
+    if(!nativePreview.current) return;
+    cancelAnimationFrame(nativePreview.current.frame);
+    nativePreview.current.node.remove();nativePreview.current=null;
+  };
+  useEffect(()=>releasePreview,[]);
   const type = eventType(data, event);
   const background = cardBackground(data, type);
   const appearance = eventAppearance(event, { now, preview, effects: stateEffects });
@@ -27,14 +35,16 @@ export function EventCard({ event, data, onOpen, onDragStart, onDragEnd, preview
   return <article class={`lesson-card event-card color-${eventColor(data, event)} ${expanded ? 'is-expanded' : 'is-compact'} ${isDragging ? 'is-being-dragged' : ''} ${appearance.state === 'confirmed' ? 'is-done' : appearance.state === 'elapsed' ? 'is-past' : ''}`} data-event-id={!preview ? event.id : undefined} data-event-state={appearance.state} data-state-effect={appearance.effect} draggable={!preview && event.status !== 'done' && Boolean(onDragStart)} onDragStart={eventObject => {
     if (eventObject.target.closest?.('a')) { eventObject.preventDefault(); return; }
     const source = eventObject.currentTarget;
+    releasePreview();
     const image = source.cloneNode(true);
     image.classList.remove('is-being-dragged'); image.classList.add('event-drag-preview');
     image.style.width = `${Math.min(240, source.getBoundingClientRect().width)}px`;
     image.setAttribute('aria-hidden', 'true'); document.body.append(image);
     eventObject.dataTransfer.setDragImage?.(image, 25, 25);
-    requestAnimationFrame(() => image.remove());
+    const current={node:image,frame:0};nativePreview.current=current;
+    current.frame=requestAnimationFrame(releasePreview);
     eventObject.dataTransfer.setData('text/plain', event.id); eventObject.dataTransfer.effectAllowed = 'move'; onDragStart?.(event.id);
-  }} onDragEnd={onDragEnd}>
+  }} onDragEnd={input=>{releasePreview();onDragEnd?.(input);}}>
     {background && <img class="card-background-image" src={background} alt="" aria-hidden="true" draggable={false} decoding="async" style={{opacity: Math.min(50, Math.max(0, type.cardBackgroundStrength ?? 20)) / 100}}/>}
     {appearance.effect === 'marker' && ['elapsed', 'confirmed'].includes(appearance.state) && <MarkerPaint key={appearance.state}/>}
     {preview ? <div class="card-open">{summary}</div> : <button type="button" class="card-open" onClick={() => onOpen(event.id)} aria-label={`${eventTitle(data, event)}, ${dateLabel(event.date)}, ${minutesToTime(event.start)}${appearance.icon ? `, ${appearance.label}` : ''}`}>{summary}</button>}

@@ -14,19 +14,20 @@ export default function AppleMapCanvas({ location, points = emptyPoints, onPick,
   const [error, setError] = useState('');
   useEffect(() => {
     let active = true, map, kit, observer, wheel;
+    const host=element.current;
     const fail = () => { if (active) setError('Apple Maps отклонила запрос. Проверь Maps Token и доступ для текущего домена.'); };
     loadAppleMaps().then(loaded => {
       if (!active) return;
       kit = loaded; kit.addEventListener('error', fail);
-      map = new kit.Map(element.current, { center: new kit.Coordinate(59.9343, 30.3351), cameraDistance: 18000, isScrollEnabled: true, isZoomEnabled: true, isRotationEnabled: false, showsZoomControl: false, showsMapTypeControl: false, showsUserLocationControl: false, tintColor: '#8076cc' });
+      map = new kit.Map(host, { center: new kit.Coordinate(59.9343, 30.3351), cameraDistance: 18000, isScrollEnabled: true, isZoomEnabled: true, isRotationEnabled: false, showsZoomControl: false, showsMapTypeControl: false, showsUserLocationControl: false, tintColor: '#8076cc' });
       instance.current = { map, kit };
       // Handle wheel zoom directly so it works without Ctrl on a mouse or trackpad.
       wheel = event => {
         event.preventDefault(); event.stopPropagation();
-        const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? element.current.clientHeight : 1);
+        const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? host.clientHeight : 1);
         map.cameraDistance = Math.min(50000000, Math.max(100, map.cameraDistance * Math.exp(Math.max(-500, Math.min(500, delta)) * .002)));
       };
-      element.current.addEventListener('wheel', wheel, { passive: false, capture: true });
+      host.addEventListener('wheel', wheel, { passive: false, capture: true });
       map.addEventListener('single-tap', event => {
         if (!callbacks.current.onPick) return;
         const coordinate = map.convertPointOnPageToCoordinate(event.pointOnPage);
@@ -39,10 +40,10 @@ export default function AppleMapCanvas({ location, points = emptyPoints, onPick,
         const next = { lat: coordinate.latitude, lng: coordinate.longitude, label: callbacks.current.location?.labelIsCustom ? callbacks.current.location.label : 'Выбранное место', labelIsCustom: Boolean(callbacks.current.location?.labelIsCustom) };
         lastPicked.current = next; callbacks.current.onPick?.(next);
       });
-      observer = new ResizeObserver(() => { map.element.style.width = '100%'; map.element.style.height = '100%'; }); observer.observe(element.current);
+      observer = new ResizeObserver(() => { map.element.style.width = '100%'; map.element.style.height = '100%'; }); observer.observe(host);
       setReady(true);
     }).catch(error => { if (active) setError(error.message); });
-    return () => { active = false; observer?.disconnect(); if (wheel) element.current?.removeEventListener('wheel', wheel, true); map?.destroy(); kit?.removeEventListener('error', fail); instance.current = null; };
+    return () => { active = false; observer?.disconnect(); if (wheel) host.removeEventListener('wheel', wheel, true); map?.destroy(); kit?.removeEventListener('error', fail); instance.current = null; };
   }, []);
   useEffect(() => {
     if (!ready || !instance.current) return;

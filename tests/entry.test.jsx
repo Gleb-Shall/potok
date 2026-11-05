@@ -47,6 +47,7 @@ describe('separate public and personal entry points', () => {
   });
   it('warms the saved session on the landing without starting Google sign-in', async () => {
     await act(() => render(<Site/>, root));
+    await vi.waitFor(async()=>{await act(async()=>{});expect(root.querySelector('h1')?.textContent).toBe('ПОТОК');});
     expect(root.querySelector('h1').textContent).toBe('ПОТОК');
     expect(connectFirebase).toHaveBeenCalledOnce();
     expect(connection.signIn).not.toHaveBeenCalled();
@@ -89,6 +90,7 @@ describe('separate public and personal entry points', () => {
   it('keeps landing and account light despite a saved dark preference', async () => {
     localStorage.setItem('potok:theme', 'dark');
     await act(() => render(<Site/>, root));
+    await vi.waitFor(async()=>{await act(async()=>{});expect(root.querySelector('a[href="/app"]')).not.toBeNull();});
     expect(document.documentElement.classList.contains('dark')).toBe(false);
     expect(localStorage.getItem('potok:theme')).toBe('dark');
     await act(async () => root.querySelector('a[href="/app"]').click());

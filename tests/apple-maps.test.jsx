@@ -75,3 +75,9 @@ it('selects Apple autocomplete in the same event place picker', async () => {
   await act(() => confirm.click());
   expect(onChange).toHaveBeenCalledWith({ lat: 59.94, lng: 30.3, label: 'Учебный корпус', address: 'Санкт-Петербург' });
 });
+it('removes the wheel listener from the original map element after its ref is cleared',async()=>{
+ await mount(<AppleMapCanvas/>);await vi.waitFor(()=>expect(sdk.maps).toHaveLength(1));
+ const host=root.querySelector('.apple-map'),remove=vi.spyOn(host,'removeEventListener'),destroy=vi.spyOn(sdk.maps[0],'destroy');
+ await mount(null);expect(remove).toHaveBeenCalledWith('wheel',expect.any(Function),true);
+ expect(destroy).toHaveBeenCalledOnce();
+});

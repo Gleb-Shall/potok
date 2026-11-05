@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { lazy, Suspense } from 'preact/compat';
 import { AppearanceSettings } from './components/AppearanceSettings.jsx';
 import { RecordsDirectory } from './components/RecordsDirectory.jsx';
@@ -27,7 +27,7 @@ import { RecordEditor, RecordDetails } from './components/RecordEditor.jsx';
 import { Modal } from './components/UI.jsx';
 const MapView = lazy(() => import('./components/MapView.jsx'));
 import { addDays, todayISO, weekdayOf, minutesToTime } from './lib/domain.js';
-import { getType, getStudent, projectWeek, eventTitle, eventColor, eventMatches, moveEvent, saveMove, restoreMove, isEventMoved, assertNoConflict, normalizeData, calendarRange, recordKind } from './lib/events.js';
+import { getStudent, projectWeek, eventTitle, eventColor, eventMatches, moveEvent, saveMove, restoreMove, isEventMoved, assertNoConflict, normalizeData, calendarRange, recordKind } from './lib/events.js';
 import { loadData, demoData, exportData } from './lib/storage.js';
 import { TouchMovePicker, PressDragGhost } from './components/TouchMovePicker.jsx';
 import { usePressDrag, touchDropTarget } from './hooks/usePressDrag.js';
@@ -87,9 +87,10 @@ export function App({ initialMode, demoOnly = false, requireAccount = false, onH
   const endDrag = () => { dragId.current = null; setDraggingId(''); setDropTarget(''); setMovePicker(null); setMoveHover(null); };
   const returnEvent = item => attempt(() => { endDrag(); commit(restoreMove(data, item), 'Перенос отменён — событие вернулось на исходное время', item.originalDate || item.anchorDate); });
   const importRef = useRef(null);
-  const range = calendarRange(week, rangeView);
-  const projection = projectWeek(data, range.start, range.count);
-  const days = Array.from({ length: range.count }, (_, index) => addDays(range.start, index));
+  const range = useMemo(()=>calendarRange(week,rangeView),[week,rangeView]);
+  const projection = useMemo(()=>projectWeek(data,range.start,range.count),[data,range.start,range.count]);
+  const days = useMemo(()=>Array.from({length:range.count},(_,index)=>addDays(range.start,index)),[range.start,range.count]);
+  const visibleEvents = useMemo(()=>projection.events.filter(event=>eventMatches(data,event,query,filterType)),[data,projection,query,filterType]);
   const notify = (text, canUndo = false) => setNotice({ text, canUndo });
   useEffect(() => { if (!notice) return; const timer = setTimeout(() => setNotice(null), 7000); return () => clearTimeout(timer); }, [notice]);
   useEffect(() => { setDialog(null); setDeletion(null); setUndo(null); setNotice(null); setQuery(''); setFilterType(''); setWeek(todayISO()); setSelectedDate(todayISO()); setRangeView('week'); setView('schedule'); setMovePicker(null); }, [account.user?.uid]);
@@ -183,7 +184,7 @@ export function App({ initialMode, demoOnly = false, requireAccount = false, onH
   const pendingCard = event => <article key={event.id} class="pending-card"><button type="button" class="pending-open" onClick={() => openEvent(event.id)}><strong>{eventTitle(data, event)}</strong><small>Было {dateLabel(event.originalDate || event.anchorDate)} · {minutesToTime(event.originalStart ?? event.start)}</small></button><div class="pending-card-actions"><Button onClick={() => setDialog({kind:'reminder',event})}>Напомнить</Button><Button onClick={() => moveDialog(event)}>Выбрать дату</Button></div></article>;
 
   function Schedule() {
-    const filtered = projection.events.filter(event => eventMatches(data, event, query, filterType));
+    const filtered = visibleEvents;
     const hours = filtered.reduce((total, event) => total + event.duration, 0) / 60;
     return <><section class="schedule-panel" aria-label="Расписание событий" data-ui>
       <div class="calendar-toolbar"><div class="calendar-period"><h2>{dateLabel(week, { day: undefined, month: 'long', year: 'numeric' })}</h2>{rangeView !== 'month' && range.start.slice(0, 7) !== range.end.slice(0, 7) && <span>{dateLabel(range.start)} — {dateLabel(range.end)}</span>}</div><div class="week-navigation"><button class="icon-button" aria-label="Предыдущий период" onClick={() => navigateWeek(-1)}><Icon name="left"/></button><Button kind="small secondary" onClick={() => { setWeek(today); setSelectedDate(today); }}>Сегодня</Button><button class="icon-button" aria-label="Следующий период" onClick={() => navigateWeek(1)}><Icon name="right"/></button></div>

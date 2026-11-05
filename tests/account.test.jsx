@@ -32,7 +32,8 @@ describe('account workspace', () => {
   await act(() => auth({ uid: 'alice', email: 'alice@example.com' }));
   await act(() => snapshot({ ...empty(), revision: 1 }, false));
   expect(root.textContent).toContain('Показана сохранённая копия');
+  expect(root.querySelector('.sync-copy').textContent).not.toContain('Обновлено');
   await act(() => snapshot({ ...empty(), revision: 1 }, true));
-  expect(root.textContent).toContain('Синхронизировано с аккаунтом');
+  expect(root.querySelector('.sync-copy').textContent).toContain('Обновлено');
  });
 });
