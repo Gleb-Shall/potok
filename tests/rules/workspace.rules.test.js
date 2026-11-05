@@ -33,3 +33,15 @@ test('unknown fields, invalid schema and unrelated paths are denied', async () =
  await assertFails(setDoc(doc(db, 'users/alice/workspaces/other'), value(1)));
  await assertFails(setDoc(doc(db, 'users/alice/students/old'), { name: 'test' }));
 });
+test('push devices are private and delivery receipts can only be written by the server', async () => {
+ const alice=env.authenticatedContext('alice').firestore(),bob=env.authenticatedContext('bob').firestore();
+ const path='users/alice/pushDevices/'+'a'.repeat(64);
+ const device={token:'registration-token-at-least-twenty-chars',updatedAt:serverTimestamp()};
+ await assertSucceeds(setDoc(doc(alice,path),device));
+ await assertFails(getDoc(doc(bob,path)));await assertFails(setDoc(doc(bob,path),device));
+ await assertFails(setDoc(doc(alice,path),{...device,uid:'bob'}));
+ await assertFails(setDoc(doc(alice,'users/alice/reminderDeliveries/r'),{state:'sent'}));
+ await assertSucceeds(deleteDoc(doc(alice,path)));
+ await assertSucceeds(setDoc(ref(alice),{...value(1),nextReminderAt:1800000000000}));
+ await assertFails(setDoc(ref(alice),{...value(2),nextReminderAt:'tomorrow'}));
+});

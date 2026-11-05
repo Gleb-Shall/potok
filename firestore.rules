@@ -6,14 +6,23 @@ service cloud.firestore {
       function validWorkspace() {
         let data = request.resource.data;
         return data.keys().hasAll(['version', 'revision', 'payload', 'updatedAt'])
-          && data.keys().hasOnly(['version', 'revision', 'payload', 'updatedAt'])
+          && data.keys().hasOnly(['version', 'revision', 'payload', 'updatedAt', 'nextReminderAt'])
           && data.version == 2 && data.revision is int
           && data.payload is string && data.payload.size() <= 900000
-          && data.updatedAt == request.time;
+          && data.updatedAt == request.time
+          && (!('nextReminderAt' in data) || (data.nextReminderAt is int && data.nextReminderAt >= 0));
       }
       allow read: if owner();
       allow create: if owner() && validWorkspace() && request.resource.data.revision == 1;
       allow update: if owner() && validWorkspace() && request.resource.data.revision == resource.data.revision + 1;
+    }
+    match /users/{uid}/pushDevices/{id} {
+      function owner() { return request.auth != null && request.auth.uid == uid; }
+      allow read, delete: if owner();
+      allow create, update: if owner() && id.matches('^[a-f0-9]{64}$')
+        && request.resource.data.keys().hasOnly(['token','updatedAt'])
+        && request.resource.data.token is string && request.resource.data.token.size() >= 20 && request.resource.data.token.size() <= 4096
+        && request.resource.data.updatedAt == request.time;
     }
   }
 }

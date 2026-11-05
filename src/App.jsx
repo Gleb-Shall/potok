@@ -30,6 +30,8 @@ import { loadData, demoData, exportData } from './lib/storage.js';
 import { TouchMovePicker, PressDragGhost } from './components/TouchMovePicker.jsx';
 import { usePressDrag, touchDropTarget } from './hooks/usePressDrag.js';
 import { useWorkspace } from './hooks/useWorkspace.js';
+import { activeReminders, saveReminder, removeReminder, reminderMessage } from './lib/reminders.js';
+import { PUSH_READY, enablePushForUser } from './lib/push-notifications.js';
 import { explainFirebaseError } from './lib/firebase-client.js';
 
 const TITLES = { appearance:'Внешний вид', schedule: 'Расписание', students: 'Записи', types: 'Шаблоны', transfers: 'Переносы', history: 'История событий', settings: 'Настройки' };
@@ -112,6 +114,17 @@ export function App({ initialMode, demoOnly = false, requireAccount = false, onH
   };
   const findEvent = id => data.events.find(event => event.id === id) || projection.events.find(event => event.id === id);
   const openEvent = id => { const event = findEvent(id); if (event) setDialog({ kind: 'event-details', event }); };
+  useEffect(() => {
+    if (requireAccount && (!account.user || !account.hasData)) return;
+    const params = new URLSearchParams(window.location.search);
+    const eventId = params.get('event');
+    if (!eventId || params.get('uid') && params.get('uid') !== account.user?.uid) return;
+    const event = data.events.find(item => item.id === eventId);
+    if (!event) return;
+    setDialog({kind:'event-details',event});
+    params.delete('event'); params.delete('uid');
+    history.replaceState(null,'',window.location.pathname + (params.size ? '?' + params.toString() : '') + window.location.hash);
+  }, [account.user?.uid, account.hasData, data.revision]);
   const editEvent = (event, date) => setDialog({ kind: 'event-editor', original: event, date });
   const newEventForRecord = record => {
     if (record.kind === 'student') { newEvent(selectedDate, record.id); return; }
@@ -219,11 +232,12 @@ export function App({ initialMode, demoOnly = false, requireAccount = false, onH
     {account.error && <div class="account-banner error" role="alert"><span>{account.error}</span><Button onClick={workspace.reconnect}>Подключиться заново</Button></div>}
     {mode === 'cloud' && (!account.ready || !account.online) && <div class="account-banner" role="status">{!account.online ? 'Нет интернета. Расписание доступно для просмотра; для сохранения нужно подключение.' : 'Показана сохранённая копия. Обновляем расписание… Сохранение станет доступно после подключения.'}</div>}
     {stale && <div class="demo-banner"><span>Расписание изменилось в другой вкладке или на другом устройстве.</span><Button onClick={() => attempt(() => { if (dialog && !confirm('Закрыть редактор и загрузить обновлённое расписание?')) return; workspace.refresh(); close(); setDeletion(null); setUndo(null); })}>Обновить данные</Button></div>}
+    <div class="reminder-inbox" aria-label="Напоминания" aria-live="polite">{activeReminders(data).filter(reminder => Date.parse(reminder.at) <= now).map(reminder => <article class="reminder-notice" key={reminder.id}><div><strong>{reminderMessage(data,reminder).title}</strong><p>Всё ещё ждёт переноса</p></div><Button onClick={()=>openEvent(reminder.eventId)}>Открыть событие</Button><button type="button" class="text-button" onClick={()=>attempt(()=>commit(removeReminder(data,reminder.eventId),'Напоминание убрано'))}>Убрать</button></article>)}</div>
     {body}<footer class="page-footer"><span aria-live="polite"><span class="status-dot"/>{mode !== 'cloud' ? 'Сохранено в этом браузере' : account.saving ? 'Сохраняем в аккаунте…' : account.error ? 'Синхронизация приостановлена' : !account.online ? 'Нет связи' : account.ready ? 'Синхронизировано с аккаунтом' : 'Подключаем аккаунт…'}</span><span>Московское время · UTC+3</span></footer></main></div>
     <TouchMovePicker controller={picker} dragging={Boolean(touch.drag || movePicker?.native)} onHover={setMoveHover} title={picker.drag ? eventTitle(data, picker.drag.item) : ''} onChoose={(event, date) => { cancelMovePicker(); dropTouchEvent(event, date); }}/>
     <PressDragGhost controller={touch} title={touch.drag ? eventTitle(data, touch.drag.item) : ''}/>
     {dialog?.kind === 'event-editor' && <EventEditor key={dialog.original?.id || 'new-event'} data={data} {...dialog} onDelete={() => setDeletion({ kind: 'event', value: dialog.original })} onSave={commit} onClose={close} onNewStudent={draft => setDialog({ kind: 'student-editor', returnTo: { ...dialog, draft } })} onNewRecord={(category, draft) => setDialog({ kind: 'record-editor', category, returnTo: { ...dialog, draft } })}/>}
-    {dialog?.kind === 'event-details' && <EventDetails data={data} event={dialog.event} now={now} onStop={() => setDialog({ kind: 'stop-series', event: dialog.event })} onClose={close} onDelete={() => setDeletion({ kind: 'event', value: dialog.event })} onEdit={() => editEvent(dialog.event)} onMove={() => openMovePicker(dialog.event)} onRecord={record => setDialog({ kind: 'record-details', record })} onStatus={status => statusEvent(dialog.event, status)} onStudent={student => setDialog({ kind: 'student-details', student })}/>}
+    {dialog?.kind === 'event-details' && <EventDetails data={data} event={dialog.event} now={now} onReminder={value=>commit(saveReminder(data,dialog.event.id,value),'Напоминание сохранено')} onRemoveReminder={()=>attempt(()=>commit(removeReminder(data,dialog.event.id),'Напоминание убрано'))} pushReady={PUSH_READY && mode === 'cloud'} onEnablePush={()=>enablePushForUser(account.user)} onStop={() => setDialog({ kind: 'stop-series', event: dialog.event })} onClose={close} onDelete={() => setDeletion({ kind: 'event', value: dialog.event })} onEdit={() => editEvent(dialog.event)} onMove={() => openMovePicker(dialog.event)} onRecord={record => setDialog({ kind: 'record-details', record })} onStatus={status => statusEvent(dialog.event, status)} onStudent={student => setDialog({ kind: 'student-details', student })}/>}
     {dialog?.kind === 'student-editor' && <StudentEditor data={data} original={dialog.original} onDelete={() => setDeletion({ kind: 'record', value: dialog.original })} onClose={() => dialog.returnTo ? setDialog(dialog.returnTo) : close()} onSave={(next, message, student) => { const returnTo = dialog.returnTo; const finish = ok => { if (!ok) return; if (returnTo) setDialog({ ...returnTo, draft: { ...returnTo.draft, studentId: student.id, recordId: student.id, title: returnTo.draft.title || student.name, color: student.color } }); }; const result = commit(next, message); return result?.then ? result.then(finish) : finish(result); }}/>}
     {dialog?.kind === 'student-details' && <StudentDetails data={data} student={dialog.student} onDelete={() => setDeletion({ kind: 'record', value: dialog.student })} onClose={close} onEdit={() => setDialog({ kind: 'student-editor', original: dialog.student })} onEvent={() => newEvent(selectedDate, dialog.student.id)}/>}
     {dialog?.kind === 'stop-series' && <StopSeriesDialog data={data} event={dialog.event} onSave={commit} onClose={close}/>}

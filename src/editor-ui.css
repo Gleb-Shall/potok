@@ -180,3 +180,18 @@ dialog.product-dialog::backdrop { background:#1c241f55; }
 .background-strength input { grid-column:1/-1; width:100%; min-height:44px; accent-color:var(--accent); }
 .background-strength output { font-variant-numeric:tabular-nums; }
 .background-error { color:var(--danger); font-size:14px; }
+.event-reminder { margin-top:24px; padding:20px; background:var(--control-surface); border-radius:8px; }
+.reminder-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.reminder-heading h3 { font-size:16px; margin:0; font-weight:500; }
+.reminder-presets { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+.reminder-presets .button { font-size:14px; }
+.reminder-scheduled { font-size:15px; font-weight:500; margin:8px 0; }
+.product-dialog .reminder-time-form { padding:16px 0 0; overflow:visible; flex:none; }
+.reminder-time-form input { min-width:0; width:100%; }
+.reminder-inbox { display:grid; gap:12px; margin-bottom:16px; }
+.reminder-inbox:empty { display:none; }
+.reminder-notice { display:flex; align-items:center; flex-wrap:wrap; gap:12px; padding:16px; background:#fff1e7; border-radius:8px; }
+.reminder-notice > div { flex:1; min-width:160px; }
+.reminder-notice strong { font-size:16px; font-weight:550; }
+.reminder-notice p { margin:4px 0 0; font-size:14px; color:var(--muted); }
+.reminder-notice .text-button { min-height:44px; }

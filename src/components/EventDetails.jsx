@@ -1,3 +1,4 @@
+import { EventReminder } from './EventReminder.jsx';
 import { ActionMenu } from './ActionMenu.jsx';
 import { Modal, Button, dateLabel } from './UI.jsx';
 import { minutesToTime } from '../lib/domain.js';
@@ -7,7 +8,7 @@ import { recordLinks } from '../lib/links.js';
 import { eventHasEnded } from '../lib/event-history.js';
 import { Icon } from './Icon.jsx';
 
-export function EventDetails({ data, event, onEdit, onMove, onStatus, onStudent, onRecord, onClose, onDelete, onStop, now = Date.now() }) {
+export function EventDetails({ data, event, onEdit, onMove, onStatus, onStudent, onRecord, onClose, onDelete, onStop, onReminder, onRemoveReminder, pushReady, onEnablePush, now = Date.now() }) {
   const type = eventType(data, event);
   const student = getStudent(data, event.studentId);
   const record = getRecord(data, event);
@@ -20,6 +21,7 @@ export function EventDetails({ data, event, onEdit, onMove, onStatus, onStudent,
       onDelete && {id:'delete',icon:'trash',label:'Удалить событие',danger:true,separate:true,onSelect:onDelete},
     ]}/></div><div class="lesson-detail-time"><Icon name="calendar"/><strong>{event.date ? dateLabel(event.date, { weekday: 'long', year: 'numeric' }) : 'Новое время ещё не выбрано'}</strong>{event.date && <span>{minutesToTime(event.start)}–{minutesToTime(event.start + event.duration)}</span>}</div>{event.status === 'planned' && eventHasEnded(event, now) && <p class="detail-time-note">Время прошло — отметь, состоялось ли событие.</p>}
     {event.seriesId && <span class="inspector-recurrence"><Icon name="repeat"/>Повторяется по расписанию</span>}
+    {event.status === 'pending' && onReminder && <EventReminder key={event.id} data={data} event={event} now={now} onSave={onReminder} onRemove={onRemoveReminder} pushReady={pushReady} onEnablePush={onEnablePush}/>}
     <dl class="detail-fields">{type.fields.filter(field => fieldDisplay(field, event.fields?.[field.id]) !== '').map(field => <div key={field.id}><dt>{field.label}{field.archived ? ' · скрыто в форме' : ''}</dt><dd><LinkedValue field={field} value={event.fields[field.id]}/></dd></div>)}</dl>
     {recordLinks(record).length > 0 && <div class="detail-record-links"><h3 class="detail-section-title">Ссылки записи · {record?.name}</h3>{recordLinks(record).map(link => <ExternalLink key={link.href} href={link.href} className="card-link-chip">{link.label}</ExternalLink>)}</div>}
     {event.notes && <p class="notes-text"><LinkedText value={event.notes}/></p>}

@@ -107,5 +107,16 @@
       "enabled": false
     },
     "singleProjectMode": true
-  }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "reminders",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "*-debug.log"
+      ]
+    }
+  ]
 }

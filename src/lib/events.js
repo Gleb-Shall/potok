@@ -1,5 +1,6 @@
 import { linkHref } from './links.js';
 import { saveCardBackground } from './card-backgrounds.js';
+import { activeReminders } from '../../functions/reminder-model.js';
 import { addDays, mondayOf, weekdayOf, validateStudent } from './domain.js';
 
 export const FIELD_TYPES = { text: 'Текст', url: 'Ссылка', textarea: 'Длинный текст', number: 'Число', date: 'Дата', select: 'Один вариант', multiselect: 'Несколько вариантов', checkbox: 'Флажок' };
@@ -36,6 +37,7 @@ export function normalizeData(source) {
     if (!['students', 'types', 'series', 'events'].every(key => Array.isArray(source[key]))) throw new Error('Неизвестный формат данных. Исходная копия сохранена.');
     if (source.records !== undefined && !Array.isArray(source.records)) throw new Error('Не удалось прочитать общие записи. Исходная копия сохранена.');
     const normalized = { ...structuredClone(source), records: structuredClone(source.records || []) };
+    if (normalized.reminders) normalized.reminders = activeReminders(normalized);
     normalized.events = normalized.events.map(event => event.status === 'done' && !event.snapshot ? snapshotEvent(normalized, event) : event);
     return normalized;
   }

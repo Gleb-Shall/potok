@@ -27,7 +27,7 @@ export function persistData(mode, data, revision = 0) {
   const key = `tutor-schedule:${mode}:v2`;
   const current = localStorage.getItem(key);
   if (current && (JSON.parse(current).revision || 0) !== revision) throw new Error('Расписание изменилось в другой вкладке. Обнови данные перед сохранением.');
-  const next = { ...data, revision: revision + 1 };
+  const next = { ...normalizeData(data), revision: revision + 1 };
   try { localStorage.setItem(key, JSON.stringify(next)); }
   catch { throw new Error('Не удалось сохранить изменения. Проверь свободное место и разрешение на хранение данных в браузере.'); }
   return next;

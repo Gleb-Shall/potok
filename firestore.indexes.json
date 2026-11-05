@@ -1,4 +1,20 @@
 {
   "indexes": [],
-  "fieldOverrides": [{ "collectionGroup": "workspaces", "fieldPath": "payload", "indexes": [] }]
+  "fieldOverrides": [
+    {
+      "collectionGroup": "workspaces",
+      "fieldPath": "payload",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "workspaces",
+      "fieldPath": "nextReminderAt",
+      "indexes": [
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION_GROUP"
+        }
+      ]
+    }
+  ]
 }

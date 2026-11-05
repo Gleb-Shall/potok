@@ -34,7 +34,11 @@ async function loadFirebase() {
   sessionClient = createAccountSession({
     onAuth: (callback, onError) => authSDK.onAuthStateChanged(auth, callback, onError),
     signIn: () => authSDK.signInWithPopup(auth, provider),
-    signOut: () => authSDK.signOut(auth),
+    signOut: async () => {
+      const {disablePushForUser} = await import('./push-notifications.js');
+      await disablePushForUser(auth.currentUser);
+      return authSDK.signOut(auth);
+    },
     subscribe(uid, callback, onError) {
       return dbSDK.onSnapshot(workspace(uid), { includeMetadataChanges: true }, snapshot => {
         // An absent cached document is not proof that this workspace is empty.
@@ -47,7 +51,7 @@ async function loadFirebase() {
       return dbSDK.runTransaction(db, async transaction => {
         const reference = workspace(uid);
         const snapshot = await transaction.get(reference);
-        const document = prepareWorkspace(data, expectedRevision, snapshot.exists() ? snapshot.data() : null);
+        const document = prepareWorkspace(data, expectedRevision, snapshot.exists() ? snapshot.data() : null, {publishReminders:import.meta.env.VITE_EVENT_PUSH_ENABLED === 'true' && Boolean(import.meta.env.VITE_FIREBASE_VAPID_KEY)});
         transaction.set(reference, { ...document, updatedAt: dbSDK.serverTimestamp() });
         return readWorkspace(document);
       });
