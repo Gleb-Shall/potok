@@ -56,3 +56,14 @@ it('keeps a new record field expanded while typing and preserves it when another
  expect(root.querySelector('.record-detail-editor input').value).toBe('Доска');
  expect(root.querySelectorAll('.record-detail-editor input')[1].value).toBe('https://example.com/board');
 });
+it('opens a reminder directly from the pending queue and saves it for that event', async () => {
+ const data={version:2,revision:0,students:[],records:[],types:defaultTypes(),events:[{id:'pending-event',title:'Занятие с Анной',typeId:'personal',date:null,anchorDate:todayISO(),start:600,duration:60,status:'pending',fields:{}}],series:[]};
+ localStorage.setItem('tutor-schedule:mode','personal');localStorage.setItem('tutor-schedule:personal:v2',JSON.stringify(data));
+ await mount(<App/>);
+ const remind=[...root.querySelectorAll('.pending-card button')].find(button=>button.textContent==='Напомнить');
+ expect(remind).toBeTruthy();await click(remind);
+ expect(root.querySelector('[aria-label="Напоминание о событии"]')).not.toBeNull();
+ await act(async()=>[...root.querySelectorAll('button')].find(button=>button.textContent==='Завтра в 09:00').click());
+ const saved=JSON.parse(localStorage.getItem('tutor-schedule:personal:v2'));
+ expect(saved.reminders).toHaveLength(1);expect(saved.reminders[0].eventId).toBe('pending-event');
+});

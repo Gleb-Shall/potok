@@ -177,7 +177,7 @@ export function App({ initialMode, demoOnly = false, requireAccount = false, onH
     else moveDialog(item, target);
   };
   const dropProps = target => ({ onDragOver: event => { if (dragId.current) { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; if (dropTarget !== target) setDropTarget(target); } }, onDragLeave: event => { if (!event.currentTarget.contains(event.relatedTarget)) setDropTarget(''); }, onDrop: event => drop(event, target) });
-  const pendingCard = event => <button key={event.id} class="pending-card" onClick={() => moveDialog(event)}><span><strong>{eventTitle(data, event)}</strong><small>Было {dateLabel(event.originalDate || event.anchorDate)} · {minutesToTime(event.originalStart ?? event.start)}</small></span><span class="pending-choose">Выбрать дату <Icon name="arrow"/></span></button>;
+  const pendingCard = event => <article key={event.id} class="pending-card"><button type="button" class="pending-open" onClick={() => openEvent(event.id)}><strong>{eventTitle(data, event)}</strong><small>Было {dateLabel(event.originalDate || event.anchorDate)} · {minutesToTime(event.originalStart ?? event.start)}</small></button><div class="pending-card-actions"><Button onClick={() => openEvent(event.id)}>Напомнить</Button><Button onClick={() => moveDialog(event)}>Выбрать дату</Button></div></article>;
 
   function Schedule() {
     const filtered = projection.events.filter(event => eventMatches(data, event, query, filterType));

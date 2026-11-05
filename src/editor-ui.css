@@ -133,7 +133,10 @@ dialog.product-dialog::backdrop { background:#1c241f55; }
 .layout .pending-heading { margin-bottom:16px; }
 .layout .pending-heading h2 { font-size:20px; margin:0; font-weight:500; }
 .layout .pending-symbol { display:none; }
-.layout .pending-card { box-shadow:none; border-radius:8px; background:var(--surface-soft); border:0; }
+.layout .pending-card { box-shadow:none; border-radius:8px; background:var(--surface-soft); border:0; flex-wrap:wrap; }
+.pending-open { flex:1; min-width:160px; min-height:44px; border:0; background:transparent; color:inherit; text-align:left; padding:0; }
+.pending-card-actions { display:flex; gap:8px; flex-wrap:wrap; }
+.layout .pending-card-actions .button { min-height:44px; font-size:14px; }
 .layout .pending-choose { color:var(--ink); }
 @media (max-width:760px) {
  dialog.product-dialog.panel-dialog { width:100%; max-width:100%; height:100dvh; max-height:100dvh; padding:0; }
