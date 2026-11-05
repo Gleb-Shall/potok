@@ -11,7 +11,7 @@ export function LinkedText({ value }) {
 export function LinkedValue({ field, value }) {
   if (field.type === 'url') {
     const href = linkHref(value);
-    return href ? <ExternalLink href={href}>{field.linkLabel || field.label}</ExternalLink> : <>{fieldDisplay(field, value)}</>;
+    return href ? <ExternalLink href={href}>{field.linkLabel?.trim() || field.label}</ExternalLink> : <>{fieldDisplay(field, value)}</>;
   }
   return <LinkedText value={fieldDisplay(field, value)}/>;
 }

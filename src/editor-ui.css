@@ -186,8 +186,11 @@ dialog.product-dialog::backdrop { background:#1c241f55; }
 .event-reminder { margin-top:24px; padding:20px; background:var(--control-surface); border-radius:8px; }
 .reminder-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
 .reminder-heading h3 { font-size:16px; margin:0; font-weight:500; }
-.reminder-presets { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
-.reminder-presets .button { font-size:14px; }
+.reminder-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:4px; }
+.reminder-actions .button { font-size:14px; }
+.reminder-datetime { display:grid; grid-template-columns:minmax(0,1.4fr) minmax(0,1fr); gap:12px; }
+.reminder-datetime .field { min-width:0; }
+.product-dialog .reminder-datetime input { padding-inline:10px; }
 .reminder-scheduled { font-size:15px; font-weight:500; margin:8px 0; }
 .product-dialog .reminder-time-form { padding:16px 0 0; overflow:visible; flex:none; }
 .reminder-time-form input { min-width:0; width:100%; }
@@ -198,3 +201,20 @@ dialog.product-dialog::backdrop { background:#1c241f55; }
 .reminder-notice strong { font-size:16px; font-weight:550; }
 .reminder-notice p { margin:4px 0 0; font-size:14px; color:var(--muted); }
 .reminder-notice .text-button { min-height:44px; }
+.time-wheel-trigger { display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%; min-height:44px; padding:10px 12px; background:var(--control-surface,var(--surface-soft)); color:var(--ink); border:1px solid var(--control-border,var(--line)); border-radius:8px; font:inherit; font-size:16px; font-variant-numeric:tabular-nums; }
+.time-wheel-trigger .icon { width:16px; height:16px; }
+.time-wheel-trigger:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+dialog.time-wheel-dialog { height:auto; width:min(360px,calc(100vw - 24px)); max-height:calc(100dvh - 24px); padding:24px; background:var(--surface); color:var(--ink); border:0; border-radius:20px; }
+.time-wheel-dialog > h2 { font-size:22px; padding-right:36px; margin:0 0 20px; }
+.time-wheels { position:relative; display:grid; grid-template-columns:1fr 20px 1fr; gap:8px; }
+.time-wheel-column { min-width:0; }
+.time-wheel-column > span { display:block; text-align:center; font-size:13px; color:var(--muted); height:28px; }
+.time-wheel-list { height:220px; overflow-y:auto; overscroll-behavior:contain; touch-action:pan-y; scroll-snap-type:y mandatory; scroll-padding-block:88px; padding-block:88px; box-sizing:border-box; scrollbar-width:none; background:linear-gradient(to bottom,transparent 88px,var(--surface-soft) 88px,var(--surface-soft) 132px,transparent 132px); mask-image:linear-gradient(transparent,#000 30%,#000 70%,transparent); }
+.time-wheel-list::-webkit-scrollbar { display:none; }
+.time-wheel-option { height:44px; line-height:44px; scroll-snap-align:center; text-align:center; font-size:27px; font-weight:450; font-variant-numeric:tabular-nums; color:var(--muted); cursor:pointer; }
+.time-wheel-option[aria-selected=true] { color:var(--ink); font-weight:600; }
+.time-wheel-list:focus-visible { outline:2px solid var(--accent); outline-offset:2px; border-radius:8px; }
+.time-wheel-colon { align-self:center; margin-top:28px; text-align:center; font-size:24px; }
+.time-wheel-footer { display:flex; gap:12px; padding-top:20px; }
+.time-wheel-footer .button { flex:1; min-height:44px; }
+@media(max-width:760px) { dialog.time-wheel-dialog { position:fixed; inset:auto 0 0; margin:0; width:100%; max-width:100%; max-height:calc(100dvh - 16px); border-radius:20px 20px 0 0; padding-bottom:calc(24px + env(safe-area-inset-bottom)); } }

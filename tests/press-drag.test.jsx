@@ -98,22 +98,23 @@ it('offers fourteen dates from the move button and cancels a drop on the source 
   expect(document.querySelector('.touch-move-picker')).toBeNull();
   expect(document.querySelector('dialog')).toBeNull();
 });
-it('opens the same two-week picker for mouse dragging and retains time editing after dragend', async () => {
+it('moves a native mouse drag within the board without opening the mini calendar', async () => {
   localStorage.clear();
-  HTMLDialogElement.prototype.showModal = vi.fn();
-  HTMLDialogElement.prototype.close = vi.fn();
   await act(() => render(<App initialMode="demo" demoOnly/>,root));
-  const card = root.querySelector('[data-event-id]');
+  const card = root.querySelector('[data-event-id]'),id=card.dataset.eventId;
+  const originalTime=card.querySelector('.card-time').textContent.split('–')[0];
   const drag = new Event('dragstart',{bubbles:true,cancelable:true});
   Object.defineProperty(drag,'dataTransfer',{value:{setData:vi.fn(),setDragImage:vi.fn()}});
   await act(() => card.dispatchEvent(drag));
-  expect(document.querySelectorAll('[data-press-drop]')).toHaveLength(14);
-  const date = document.querySelector('[data-press-drop]:not(.is-source)');
-  const drop = new Event('drop',{bubbles:true,cancelable:true});
-  await act(() => date.dispatchEvent(drop));
-  await act(() => card.dispatchEvent(new Event('dragend',{bubbles:true})));
   expect(document.querySelector('.touch-move-picker')).toBeNull();
-  expect(document.body.textContent).toContain('Во сколько начать?');
+  const columns=[...root.querySelectorAll('.day-column')];
+  const target=columns.at(-1);
+  const drop = new Event('drop',{bubbles:true,cancelable:true});
+  await act(() => target.dispatchEvent(drop));
+  expect(document.querySelector('dialog')).toBeNull();
+  const saved=JSON.parse(localStorage.getItem('tutor-schedule:demo:v2'));
+  const moved=saved.events.find(event=>event.id===id);
+  expect(moved.date).toBe(target.dataset.boardDrop);expect(moved.start).toBe(Number(originalTime.slice(0,2))*60+Number(originalTime.slice(3,5)));
 });
 it('keeps deferring an event available inside the new date picker', async () => {
   localStorage.clear();
@@ -157,4 +158,28 @@ it('keeps quick mouse clicks and immediate native dragging available', () => {
   vi.advanceTimersByTime(400);
   expect(native.defaultPrevented).toBe(false);
   expect(options.onStart).not.toHaveBeenCalled();
+});
+
+it('quick horizontal touch movement starts a board gesture while vertical movement still scrolls', () => {
+ const {options,button}=setup();options.quickDrag=true;
+ touch(button,'touchstart');const vertical=touch(button,'touchmove',20,55);
+ expect(vertical.defaultPrevented).toBe(false);expect(options.onStart).not.toHaveBeenCalled();
+ touch(button,'touchstart');const horizontal=touch(button,'touchmove',60,22);
+ expect(horizontal.defaultPrevented).toBe(true);expect(options.onStart.mock.calls[0][0].mode).toBe('board');
+ vi.advanceTimersByTime(400);expect(options.onStart).toHaveBeenCalledTimes(1);
+ touch(button,'touchend',60,22);expect(options.onDrop).toHaveBeenCalledWith({id:'one'},'2026-11-06','board');
+});
+it('drops a quick finger drag onto a visible week day without opening the date picker',async()=>{
+ localStorage.clear();await act(()=>render(<App initialMode="demo" demoOnly/>,root));
+ const card=root.querySelector('[data-event-id]'),id=card.dataset.eventId;
+ const target=[...root.querySelectorAll('.mobile-day[data-board-drop]')].at(-1);
+ Object.defineProperty(document,'elementFromPoint',{configurable:true,value:vi.fn(()=>target)});
+ await act(()=>touch(card.querySelector('.card-open'),'touchstart'));
+ await act(()=>touch(card,'touchmove',80,22));
+ expect(document.querySelector('.touch-move-picker')).toBeNull();
+ expect(document.querySelector('.press-drag-ghost')).not.toBeNull();
+ await act(()=>touch(card,'touchend',80,22));
+ const saved=JSON.parse(localStorage.getItem('tutor-schedule:demo:v2'));
+ expect(saved.events.find(event=>event.id===id).date).toBe(target.dataset.boardDrop);
+ expect(document.querySelector('.touch-move-picker')).toBeNull();expect(document.querySelector('dialog')).toBeNull();
 });

@@ -34,6 +34,15 @@ it('hidden event fields and hidden record links stay hidden in compact cards',as
  await mount(<EventCard data={data} event={event()} expanded={false} now={now} onOpen={()=>{}}/>);
  expect(root.querySelectorAll('a')).toHaveLength(0);
 });
+it('renders custom link captions once without printing raw addresses in either card mode',async()=>{
+ const data=base();data.types[1].fields.push({id:'call',label:'Телемост',linkLabel:'Подключиться',type:'url',showOnCard:true,showCompact:true});
+ for(const expanded of [false,true]) {
+  await mount(<EventCard data={data} event={event()} expanded={expanded} now={now} onOpen={()=>{}}/>);
+  expect([...root.querySelectorAll('a')].map(link=>link.textContent)).toEqual(['Подключиться','Доска']);
+  expect(root.querySelector('a').href).toBe('https://telemost.yandex.ru/j/123');
+  expect(root.textContent).not.toContain('https://');expect(root.querySelector('.card-fields dt')?.textContent).not.toBe('Телемост');
+ }
+});
 it('named text hyperlinks remain text-safe and reject executable protocols',async()=>{
  await mount(<LinkedText value={'[Доска](https://board.example.com) <img src=x onerror=alert(1)> [Нет](javascript:alert(1))'}/>);
  expect(root.querySelectorAll('a')).toHaveLength(1);expect(root.querySelector('a').textContent).toBe('Доска');expect(root.querySelector('img')).toBeNull();expect(root.textContent).toContain('javascript:alert(1)');

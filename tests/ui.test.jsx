@@ -77,7 +77,7 @@ describe('critical user flows', () => {
     await click(byText('Раскрыть карточки'));
     expect(root.querySelector('.card-expanded-content')).toBeTruthy();
   });
-  it('drag to another day opens only quick time form and persists transfer', async () => {
+  it('quick board drag preserves time and persists a single transfer', async () => {
     const data = base(); data.events.push(sample());
     localStorage.setItem('tutor-schedule:mode', 'personal'); localStorage.setItem('tutor-schedule:personal:v2', JSON.stringify(data));
     await mount(<App/>);
@@ -88,12 +88,9 @@ describe('critical user flows', () => {
     const target = [...root.querySelectorAll('.day-column')].find(day => !day.getAttribute('aria-label').includes(new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(todayISO() + 'T00:00:00Z'))));
     const drop = new Event('drop', { bubbles: true, cancelable: true }); Object.defineProperty(drop, 'dataTransfer', { value: transfer });
     await act(() => target.dispatchEvent(drop));
-    expect(root.querySelectorAll('dialog input')).toHaveLength(1);
-    expect(root.querySelector('dialog').textContent).toContain('Расширенное редактирование');
-    await input(root.querySelector('dialog input[type=time]'), '13:00');
-    await submit(root.querySelector('dialog form'));
+    expect(root.querySelector('dialog')).toBeNull();
     const saved = JSON.parse(localStorage.getItem('tutor-schedule:personal:v2'));
-    expect(saved.events[0].start).toBe(780);
+    expect(saved.events[0].start).toBe(data.events[0].start);
     expect(saved.events[0].duration).toBe(90);
     expect(saved.events[0].originalDate).toBe(todayISO());
     expect(saved.events[0].history).toHaveLength(1);

@@ -18,6 +18,8 @@ export function EventCard({ event, data, onOpen, onDragStart, onDragEnd, preview
   const available = type.fields.filter(field => !field.archived && fieldDisplay(field, event.fields?.[field.id]) !== '');
   const meta = available.filter(field => field.showOnCard !== false);
   const compact = available.filter(field => field.showCompact ?? (field.type === 'url' && field.showOnCard !== false));
+  const linkFields = (expanded ? meta : compact).filter(field => field.type === 'url' && linkHref(event.fields?.[field.id]));
+  const isPlainField = field => !linkFields.includes(field);
   const eventLinkHrefs = new Set((expanded ? meta : compact).flatMap(field => field.type === 'url' && linkHref(event.fields?.[field.id]) ? [linkHref(event.fields[field.id])] : []));
   const eventLinkLabels = new Set((expanded ? meta : compact).filter(field => field.type === 'url' && linkHref(event.fields?.[field.id])).map(field => field.label.trim().toLocaleLowerCase('ru')));
   const inheritedLinks = recordLinks(record).filter(link => !eventLinkHrefs.has(link.href) && !eventLinkLabels.has(link.label.trim().toLocaleLowerCase('ru')));
@@ -36,11 +38,11 @@ export function EventCard({ event, data, onOpen, onDragStart, onDragEnd, preview
     {background && <img class="card-background-image" src={background} alt="" aria-hidden="true" draggable={false} decoding="async" style={{opacity: Math.min(50, Math.max(0, type.cardBackgroundStrength ?? 20)) / 100}}/>}
     {appearance.effect === 'marker' && ['elapsed', 'confirmed'].includes(appearance.state) && <MarkerPaint key={appearance.state}/>}
     {preview ? <div class="card-open">{summary}</div> : <button type="button" class="card-open" onClick={() => onOpen(event.id)} aria-label={`${eventTitle(data, event)}, ${dateLabel(event.date)}, ${minutesToTime(event.start)}${appearance.icon ? `, ${appearance.label}` : ''}`}>{summary}</button>}
-    {!expanded && compact.length > 0 && <dl class="card-fields compact-fields">{compact.map(field => <div key={field.id}><dt>{field.label}</dt><dd><LinkedValue field={field} value={event.fields[field.id]}/></dd></div>)}</dl>}
-    {inheritedLinks.length > 0 && <div class="card-record-links" aria-label="Ссылки связанной записи">{inheritedLinks.map(link => <ExternalLink key={link.href} href={link.href} className="card-link-chip">{link.label}</ExternalLink>)}</div>}
+    {!expanded && compact.some(isPlainField) && <dl class="card-fields compact-fields">{compact.filter(isPlainField).map(field => <div key={field.id}><dt>{field.label}</dt><dd><LinkedValue field={field} value={event.fields[field.id]}/></dd></div>)}</dl>}
+    {(linkFields.length > 0 || inheritedLinks.length > 0) && <div class="card-record-links" aria-label="Ссылки события">{linkFields.map(field => <ExternalLink key={field.id} href={linkHref(event.fields[field.id])} className="card-link-chip">{field.linkLabel?.trim() || field.label}</ExternalLink>)}{inheritedLinks.map(link => <ExternalLink key={link.href} href={link.href} className="card-link-chip">{link.label}</ExternalLink>)}</div>}
     {expanded && <div class="card-expanded-content">
       {record && record.name !== eventTitle(data, event) && <span class="card-subject">{record.name}{(record.subject || record.subtitle) && ` · ${record.subject || record.subtitle}`}</span>}
-      {meta.length > 0 && <dl class="card-fields">{meta.map(field => <div key={field.id}><dt>{field.label}</dt><dd><LinkedValue field={field} value={event.fields[field.id]}/></dd></div>)}</dl>}
+      {meta.some(isPlainField) && <dl class="card-fields">{meta.filter(isPlainField).map(field => <div key={field.id}><dt>{field.label}</dt><dd><LinkedValue field={field} value={event.fields[field.id]}/></dd></div>)}</dl>}
       {event.location && <span class="card-place"><Icon name="pin"/>{event.location.label}</span>}
       {event.notes && <p class="card-note"><LinkedText value={event.notes}/></p>}
       <span class="card-bottom"><span><Icon name={event.status === 'done' ? 'check' : isEventMoved(event) ? 'arrows' : event.seriesId ? 'repeat' : 'calendar'}/>{event.status === 'done' ? 'Проведено' : isEventMoved(event) ? 'Перенос' : event.seriesId ? 'Повторяется' : 'Разовое'}</span><span>{event.duration} мин</span></span>

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 
-// Short clicks and touch scrolling stay native until a hold completes.
+// Optional board drags start on movement; a stationary hold opens the date picker.
 export function attachPressDrag(root, options) {
   let gesture, timer, suppressUntil = 0, lastTouchAt = -Infinity;
   const read = () => options.current || options;
@@ -21,19 +21,31 @@ export function attachPressDrag(root, options) {
     document.removeEventListener('mouseup', endMouse);
   };
   const cancel = () => stop();
+  const activate = mode => {
+    clearTimeout(timer);
+    gesture.active = true; gesture.mode = mode;
+    gesture.node.setAttribute('data-press-dragging', 'true');
+    const style = getComputedStyle(gesture.node);
+    read().onStart?.({item:gesture.item,point:gesture.last,background:style.backgroundColor,color:style.color,mode});
+  };
   const track = (event, next) => {
-    if (!gesture.active) { if (distance(next, gesture.origin) > 9) stop(); return; }
+    if (!gesture.active) {
+      if (distance(next, gesture.origin) <= 9) return;
+      const horizontal = Math.abs(next.x-gesture.origin.x) > Math.abs(next.y-gesture.origin.y);
+      if (read().quickDrag && (gesture.kind === 'mouse' || horizontal || gesture.quickHandle)) activate('board');
+      else { stop(); return; }
+    }
     if (event.cancelable) event.preventDefault();
     gesture.moved ||= distance(next, gesture.origin) > 9;
     gesture.last = next;
-    read().onMove?.(next);
+    read().onMove?.(next,gesture.mode);
   };
   const finish = (event, next) => {
     const current = gesture;
     if (current.active && event.cancelable) event.preventDefault();
-    const drop = current.active && current.moved ? read().hitTest?.(next) : null;
+    const drop = current.active && current.moved ? read().hitTest?.(next,current.mode) : null;
     stop();
-    if (drop) read().onDrop?.(current.item, drop);
+    if (drop) { if(current.mode==='board') read().onDrop?.(current.item,drop,'board');else read().onDrop?.(current.item,drop); }
   };
   const move = event => {
     if (gesture?.kind !== 'touch') return;
@@ -64,7 +76,7 @@ export function attachPressDrag(root, options) {
     if (target.closest('a,input,select,textarea,[contenteditable=true],.card-controls') || target.closest('button:not(.card-open)')) return;
     const item = config.getItem(node);
     if (!item) return;
-    gesture = { node, item, kind, id:input.identifier, origin:point(input), last:point(input), active:false, moved:false };
+    gesture = { node, item, kind, id:input.identifier, origin:point(input), last:point(input), active:false, moved:false, quickHandle:Boolean(target.closest('.card-grip')) };
     if (kind === 'touch') {
       document.addEventListener('touchmove', move, { passive:false });
       document.addEventListener('touchend', end, { passive:false });
@@ -75,10 +87,7 @@ export function attachPressDrag(root, options) {
     }
     timer = setTimeout(() => {
       if (!gesture) return;
-      gesture.active = true;
-      node.setAttribute('data-press-dragging', 'true');
-      const style = getComputedStyle(node);
-      read().onStart?.({ item, point:gesture.last, background:style.backgroundColor, color:style.color });
+      activate('calendar');
     }, 360);
   };
   const start = event => {
@@ -96,6 +105,7 @@ export function attachPressDrag(root, options) {
     else if (gesture?.kind === 'mouse' && event.type === 'dragstart') stop();
   };
   const visibility = () => { if (document.hidden) stop(); };
+  const escape = event => { if(event.key==='Escape' && gesture?.active) {event.preventDefault();stop();} };
   document.addEventListener('touchstart', start, { passive:true });
   document.addEventListener('mousedown', startMouse);
   document.addEventListener('click', click, true);
@@ -104,6 +114,7 @@ export function attachPressDrag(root, options) {
   window.addEventListener('blur', cancel);
   window.addEventListener('pagehide', cancel);
   document.addEventListener('visibilitychange', visibility);
+  document.addEventListener('keydown',escape);
   const dispose = () => {
     stop();
     document.removeEventListener('touchstart', start);
@@ -114,6 +125,7 @@ export function attachPressDrag(root, options) {
     window.removeEventListener('blur', cancel);
     window.removeEventListener('pagehide', cancel);
     document.removeEventListener('visibilitychange', visibility);
+    document.removeEventListener('keydown',escape);
   };
   dispose.cancel = stop;
   return dispose;
@@ -136,8 +148,8 @@ export function usePressDrag(config) {
   };
   options.current = {
     ...config,
-    onStart: value => { setDrag(value); config.onActiveChange?.(true); paint(value.point); },
-    onMove: point => { paint(point); setHover(config.hitTest(point)); },
+    onStart: value => { setDrag(value); config.onActiveChange?.(true,value.mode,value.item); paint(value.point); },
+    onMove: (point,mode) => { paint(point);const target=config.hitTest(point,mode);setHover(target);config.onHover?.(target,mode); },
     onEnd: () => { setDrag(null); setHover(null); config.onActiveChange?.(false); cancelAnimationFrame(frame.current); frame.current = 0; },
   };
   useEffect(() => {
