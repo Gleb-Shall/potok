@@ -12,3 +12,5 @@
 @import './calendar-workspace.css';
 @import './editor-ui.css';
 @import './week-calendar.css';
+@import './theme/colors.css';
+@import './workspace-shell.css';

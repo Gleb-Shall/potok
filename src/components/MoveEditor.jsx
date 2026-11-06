@@ -5,7 +5,7 @@ import { minutesToTime, timeToMinutes, todayISO } from '../lib/domain.js';
 import { eventEnd } from '../lib/timing.js';
 import { eventTitle, saveMove, isEventMoved } from '../lib/events.js';
 
-export function MoveEditor({ data, event, date, onSave, onAdvanced, onClose }) {
+export function MoveEditor({ data, event, date, onSave, onAdvanced, onRestore, onClose }) {
   const [target, setTarget] = useState(date || event.date || todayISO());
   const [time, setTime] = useState(minutesToTime(event.start));
   const [changeDay, setChangeDay] = useState(!date);
@@ -17,7 +17,7 @@ export function MoveEditor({ data, event, date, onSave, onAdvanced, onClose }) {
       <Field label="Во сколько начать?"><TimeInput label="Во сколько начать?" value={time} onChange={setTime} required autoFocus/></Field>
       <p class="quiet-note">Конец — {eventEnd(time, event.duration) || '—'} · {event.duration} мин. Переносится только это событие; обычное время остаётся в истории.</p>
       <Button kind="text-button" onClick={() => onAdvanced({ date: target, start: time })}>Расширенное редактирование →</Button>
-      <ErrorMessage error={error}/><FormFooter onClose={onClose} label="Перенести"/>
+      <ErrorMessage error={error}/><FormFooter onClose={onClose} label="Перенести">{event.status === 'pending' && onRestore && <Button onClick={onRestore}>Вернуть на место</Button>}</FormFooter>
     </form>
   </Modal>;
 }

@@ -1,0 +1,86 @@
+/* Workspace palettes. The landing never activates data-theme=dark. */
+:root {
+  --control-surface:#f3f4ee; --control-border:#e1e5d9; --text-secondary:#69725f;
+  --surface-selected:#e8ebe1; --selection-border:#a7b595; --navigation-surface:#fbfcf9;
+  --primary-hover:#363e31; --danger:#ae443c; --danger-surface:#fff2ed;
+  --focus-color:#81936b; --focus-outline:#81936b30;
+  --card-secondary:#5b6256; --glass-surface:#ffffff80; --glass-border:#22261f20;
+  --calendar-line:#e9ebe5; --calendar-subline:#f3f4ef; --calendar-today:#fffcf8;
+  --scrollbar-thumb:#cdd1c7; --today-accent:#e7693b; --today-ink:#fff;
+  --now-accent:#bf4b25; --now-ink:#fff; --drop-surface:#fce7dc99; --drop-label:#c24d25;
+  --pending-surface:#f8ecd9; --pending-ink:#805a25;
+  --card-violet:#ece9ef; --card-violet-ink:#6c5d79;
+  --card-blue:#e5edf2; --card-blue-ink:#4c6b7c;
+  --card-green:#e5ece0; --card-green-ink:#537042;
+  --card-peach:#f0e5dc; --card-peach-ink:#886b51;
+  --card-pink:#eee3e8; --card-pink-ink:#835d70;
+  background:var(--page); color:var(--ink);
+}
+:root[data-theme=dark] {
+  --page:#171a17; --surface:#1e221e; --surface-soft:#272c27; --surface-raised:#2c322c;
+  --ink:#e9eee5; --muted:#adb8a8; --line:#394137; --accent:#ff9c70; --accent-ink:#21190f;
+  --control-surface:#292f29; --control-border:#414b3e; --text-secondary:#b4bfaf;
+  --surface-selected:#343e31; --selection-border:#8d9f82; --navigation-surface:#252b25;
+  --primary-hover:#cbd8c3; --danger:#ff9b92; --danger-surface:#3e2827;
+  --focus-color:#ffa978; --focus-outline:#ffa97840;
+  --card-secondary:#b8c3b3; --glass-surface:#ffffff0d; --glass-border:#ffffff20;
+  --calendar-line:#384034; --calendar-subline:#2b3129; --calendar-today:#27251f;
+  --scrollbar-thumb:#58634f; --today-accent:#f48e5e; --today-ink:#21190f;
+  --now-accent:#ff9768; --now-ink:#21190f; --drop-surface:#dc71332b; --drop-label:#a34725;
+  --pending-surface:#3c3220; --pending-ink:#efc680;
+  --card-violet:#393347; --card-violet-ink:#e0d4f0;
+  --card-blue:#2b3c4b; --card-blue-ink:#c6e0f2;
+  --card-green:#323e2d; --card-green-ink:#d0e6bd;
+  --card-peach:#493929; --card-peach-ink:#f2d9bb;
+  --card-pink:#46313e; --card-pink-ink:#f1cee3;
+  --violet:var(--card-violet); --blue:var(--card-blue); --green:var(--card-green);
+  --peach:var(--card-peach); --pink:var(--card-pink); --lime:#a8c392;
+}
+
+/* Persistent choice with a small calendar specimen, rather than an animated transition. */
+.color-theme-options { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; padding:0; margin:0; border:0; }
+.color-theme-options label { position:relative; display:grid; grid-template-columns:1fr auto; gap:14px 8px; padding:12px; border:1px solid var(--line); border-radius:9px; cursor:pointer; }
+.color-theme-options label.selected { border-color:var(--selection-border); background:var(--surface-soft); }
+.color-theme-options label:focus-within { outline:2px solid var(--accent); outline-offset:3px; }
+.color-theme-options input { width:18px; height:18px; margin:3px 0 0; accent-color:var(--ink); }
+.theme-option-copy strong { display:block; color:var(--ink); font-size:16px; font-weight:550; }
+.theme-option-copy small { display:block; color:var(--muted); font-size:12px; line-height:1.5; margin-top:5px; }
+.theme-preview { grid-column:1/-1; height:90px; display:flex; gap:7px; align-items:center; padding:14px 10px; border:1px solid #00000012; border-radius:5px; background:#fafbf7; }
+.theme-preview i { flex:1; height:46px; border-radius:3px; background:#e3e9dc; border-top:8px solid #d3dccc; }
+.theme-preview i:nth-child(2) { height:34px; align-self:flex-end; background:#ffd9be; border-color:#f3af86; }
+.theme-preview i:nth-child(3) { background:#dce8f1; border-color:#b5cee0; }
+.theme-preview-dark { background:#1e221e; border-color:#ffffff12; }
+.theme-preview-dark i { background:#323e2d; border-color:#60774f; }
+.theme-preview-dark i:nth-child(2) { background:#493929; border-color:#ce8650; }
+.theme-preview-dark i:nth-child(3) { background:#2b3c4b; border-color:#557d9a; }
+.theme-preview-system { background:linear-gradient(120deg,#fafbf7 50%,#1e221e 50%); }
+.theme-preview-system i:last-child { background:#2b3c4b; border-color:#557d9a; }
+@media(max-width:600px) {
+  .color-theme-options { grid-template-columns:1fr; }
+  .color-theme-options label { grid-template-columns:80px 1fr auto; align-items:center; gap:12px; }
+  .color-theme-options .theme-preview { grid-column:1; height:66px; padding:7px; gap:4px; }
+  .theme-preview i { height:36px; }
+  .theme-preview i:nth-child(2) { height:27px; }
+  .color-theme-options input { margin:0; }
+}
+
+/* Legacy surfaces still shared by entry, maps and portable dialogs. */
+:root[data-theme=dark] .layout .button.primary { color:var(--surface); }
+:root[data-theme=dark] :is(.account-banner.error,.entry-error,.form-error) { background:var(--danger-surface); color:var(--danger); border-color:#7d4a43; }
+:root[data-theme=dark] .touch-move-picker { background:var(--surface); color:var(--ink); }
+:root[data-theme=dark] .touch-move-picker :is(p,small,footer) { color:var(--muted); }
+:root[data-theme=dark] .touch-move-days button.is-target { color:var(--accent-ink); }
+:root[data-theme=dark] :is(.card-fields,.detail-fields,.profile-facts,.record-edit-preview) :is(dt,small) { color:var(--muted); }
+:root[data-theme=dark] .layout :is(.pending-card,.history-event) { background:var(--surface-soft); border-color:var(--line); color:var(--ink); }
+:root[data-theme=dark] .text-button { color:var(--muted); }
+:root[data-theme=dark] .danger-text { color:var(--danger); }
+:root[data-theme=dark] :is(.map-actions,.map-view-expand) .button,
+:root[data-theme=dark] :is(.map-current-place,.map-location-details,.place-results,.place-results button,.map-source-switch,.place-location,.location-trigger) { background:var(--surface-raised); color:var(--ink); border-color:var(--line); }
+:root[data-theme=dark] .event-card :is(.card-link-chip,.inline-value-link,.card-record-links a) { color:inherit; }
+:root[data-theme=dark] .event-card[data-event-state=confirmed] .event-state-mark { background:#264331; color:#b1d8b0; }
+:root[data-theme=dark] .event-card[data-event-state=cancelled] .event-state-mark { background:#4c2d35; color:#f0bac4; }
+:root[data-theme=dark] .event-card .event-state-mark { color:var(--muted); }
+:root[data-theme=dark] .ui-action-menu[popover] { box-shadow:0 0 0 1px #0003,0 12px 32px #0004; }
+:root[data-theme=dark] dialog::backdrop { background:#080c0ab3; }
+:root[data-theme=dark] .quality-options label.selected { outline-color:var(--selection-border); }
+:root[data-theme=dark] .color-option { border-color:var(--line); }

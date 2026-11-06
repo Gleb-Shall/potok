@@ -6,7 +6,7 @@ import { ActionMenu } from '../src/components/ActionMenu.jsx';
 import { EventDetails } from '../src/components/EventDetails.jsx';
 import { RecordFields } from '../src/components/RecordFields.jsx';
 import { App } from '../src/App.jsx';
-import { defaultTypes } from '../src/lib/events.js';
+import { defaultTypes, moveEvent } from '../src/lib/events.js';
 import { todayISO } from '../src/lib/domain.js';
 vi.mock('../src/lib/firebase-client.js', () => ({ connectFirebase:vi.fn(async () => ({onAuth:callback => {callback(null);return ()=>{};}})), getFirebaseSession:()=>undefined, explainFirebaseError:error=>error.message }));
 let root;
@@ -20,6 +20,9 @@ it.each(['header', 'directory'])('creates and persists a project from the %s add
  await mount(<App/>);
  await click(root.querySelector('.sidebar-toggle'));
  await click([...root.querySelectorAll('.nav-item')].find(node=>node.textContent.includes('Записи')));
+ expect(root.querySelector('.layout').dataset.workspaceView).toBe('students');
+ expect(root.querySelector('.page-header h1').classList.contains('sr-only')).toBe(true);
+ expect(root.querySelector('.directory-toolbar h2')).toBeNull();
  const add=source==='header' ? root.querySelector('.header-actions .primary') :
    [...root.querySelectorAll('button')].find(node=>!node.closest('.page-header') && /Создать запись|Добавить запись/.test(node.textContent));
  expect(add).toBeTruthy(); await click(add);
@@ -86,4 +89,30 @@ it('opens a reminder directly from the pending queue and saves it for that event
  await act(async()=>[...root.querySelectorAll('button')].find(button=>button.textContent==='Завтра в 09:00').click());
  const saved=JSON.parse(localStorage.getItem('tutor-schedule:personal:v2'));
  expect(saved.reminders).toHaveLength(1);expect(saved.reminders[0].eventId).toBe('pending-event');
+});
+it.each([false,true])('restores a waiting event to its original slot, respecting a conflict (%s)', async conflict => {
+ const date=todayISO();
+ const original={id:'waiting',title:'Занятие',typeId:'personal',date,anchorDate:date,start:600,duration:60,status:'planned',fields:{},busy:true,history:[]};
+ const waiting=moveEvent(original,null,630,60);
+ const events=[waiting,...(conflict?[{...original,id:'occupied',title:'Другая встреча'}]:[])];
+ const data={version:2,revision:0,students:[],records:[],types:defaultTypes(),series:[],events,reminders:[{id:'reminder-one',eventId:'waiting',at:new Date(Date.now()+86400000).toISOString()}]};
+ localStorage.setItem('tutor-schedule:mode','personal');localStorage.setItem('tutor-schedule:personal:v2',JSON.stringify(data));
+ await mount(<App/>);
+ await click(root.querySelector('[data-event-id="waiting"] .pending-open'));
+ expect(root.querySelector('.event-reminder')).toBeNull();
+ expect(root.querySelector('.pending-original-time').textContent).toContain('10:00');
+ await click([...root.querySelectorAll('.inspector-footer button')].find(node=>node.textContent==='Вернуть на место'));
+ const saved=JSON.parse(localStorage.getItem('tutor-schedule:personal:v2'));
+ const event=saved.events.find(item=>item.id==='waiting');
+ if(conflict) {
+  expect(event.status).toBe('pending');expect(root.querySelector('.event-inspector')).toBeTruthy();
+  expect(root.querySelector('#notice').textContent).toMatch(/пересечен/i);
+ } else {
+  expect(event).toMatchObject({date,start:600,status:'planned'});
+  expect(event.history).toHaveLength(2);expect(saved.reminders).toHaveLength(0);
+  expect(root.querySelector('.event-inspector')).toBeNull();
+  await click(root.querySelector('.toast-undo'));
+  const undone=JSON.parse(localStorage.getItem('tutor-schedule:personal:v2'));
+  expect(undone.events.find(item=>item.id==='waiting').status).toBe('pending');expect(undone.reminders).toHaveLength(1);
+ }
 });
