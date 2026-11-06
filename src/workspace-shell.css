@@ -42,6 +42,7 @@
 /* Shared portable dialogs use the same controls as the workbench panels. */
 :root[data-theme-scope=workspace] dialog > .modal-close { border:0; background:var(--control-surface); color:var(--muted); border-radius:8px; }
 :root[data-theme-scope=workspace] dialog .external-link { color:var(--link-ink); }
+.link-open-error { color:var(--danger); font-size:12px; line-height:1.5; overflow-wrap:anywhere; }
 :root[data-theme-scope=workspace] dialog :is(.notes-text,.profile-slot) { color:var(--muted); font-size:14px; }
 :root[data-theme-scope=workspace] dialog .profile-slot strong { color:var(--ink); }
 dialog.compact-dialog { width:min(560px,calc(100vw - 32px)); padding:28px; }

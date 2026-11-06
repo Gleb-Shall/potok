@@ -16,6 +16,8 @@
   },
   "dependencies": {
     "@apple/mapkit-loader": "^1.0.0",
+    "@tauri-apps/api": "^2.12.4",
+    "@tauri-apps/plugin-opener": "^2.7.2",
     "firebase": "^12.19.0",
     "maplibre-gl": "^6.16.0",
     "preact": "^11.1.0"
@@ -23,11 +25,11 @@
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.2",
     "@preact/preset-vite": "^2.10.6",
+    "@tauri-apps/cli": "^2.0.0",
     "firebase-tools": "^15.34.2",
     "jsdom": "^29.1.1",
     "vite": "^8.3.5",
-    "vitest": "^5.0.5",
-    "@tauri-apps/cli": "^2.0.0"
+    "vitest": "^5.0.5"
   },
   "version": "0.3.0-alpha.1",
   "engines": {

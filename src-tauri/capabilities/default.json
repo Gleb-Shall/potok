@@ -1,1 +1,6 @@
-{"identifier":"default","description":"Main application window","windows":["main"],"permissions":["core:default"]}
+{
+  "identifier":"default",
+  "description":"Main application window; web links open in the system browser",
+  "windows":["main"],
+  "permissions":["core:default",{"identifier":"opener:allow-open-url","allow":[{"url":"https://*"},{"url":"http://*"}]}]
+}
