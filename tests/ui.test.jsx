@@ -62,7 +62,7 @@ beforeEach(() => {
 afterEach(async () => { await act(() => render(null, root)); root.remove(); vi.unstubAllGlobals(); });
 
 describe('critical user flows', () => {
-  it('opens 7, 14 and all month days and expands cards independently', async () => {
+  it('opens day, week and month views and expands cards independently', async () => {
     localStorage.setItem('potok:week-layout','board');
     const data = base(); data.events.push(sample());
     localStorage.setItem('tutor-schedule:mode', 'personal'); localStorage.setItem('tutor-schedule:personal:v2', JSON.stringify(data));
@@ -71,8 +71,10 @@ describe('critical user flows', () => {
     expect(root.querySelector('.card-expanded-content')).toBeNull();
     await click(byText('Подробнее'));
     expect(root.querySelector('.card-expanded-content').textContent).toContain('204');
-    await click(byText('2 недели'));
-    expect(root.querySelectorAll('.day-column')).toHaveLength(14);
+    await click(byText('День'));
+    expect(root.querySelectorAll('[data-time-date]')).toHaveLength(1);
+    await click(byText('Неделя'));
+    expect(root.querySelectorAll('.day-column')).toHaveLength(7);
     await click(byText('Месяц'));
     expect(root.querySelectorAll('.day-column')).toHaveLength(calendarRange(todayISO(), 'month').count);
     await click(byText('Раскрыть карточки'));

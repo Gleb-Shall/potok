@@ -8,6 +8,8 @@ const event = (extra = {}) => ({ id: 'once', typeId: 'class', title: 'Тесто
 const recurring = () => ({ ...base(), series: [{ ...event(), id: 'weekly', date: undefined, from: '2026-10-26', until: '', weekday: 5, intervalWeeks: 1 }] });
 
 test('calendar ranges include full weeks across years and leap months', () => {
+  assert.deepEqual(calendarRange('2026-10-30', 'day'), { start: '2026-10-30', count: 1, end: '2026-10-30' });
+  assert.deepEqual(calendarRange('2026-10-30', 'week', '2026-10-27'), { start: '2026-10-27', count: 7, end: '2026-11-02' });
   assert.deepEqual(calendarRange('2026-10-30', 'fortnight'), { start: '2026-10-26', count: 14, end: '2026-11-08' });
   assert.deepEqual(calendarRange('2026-11-15', 'month'), { start: '2026-10-26', count: 42, end: '2026-12-06' });
   assert.deepEqual(calendarRange('2027-02-01', 'month'), { start: '2027-02-01', count: 28, end: '2027-02-28' });

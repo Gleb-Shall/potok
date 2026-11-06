@@ -22,7 +22,7 @@ export function WeekCalendar({days,events,ghosts,data,now,today,selectedDate,onS
     const first = events.length ? Math.min(...events.map(event=>event.start)) : 9*60;
     const minute = days.includes(today) ? currentMinute-60 : first-30;
     scroller.current.scrollTop = Math.max(0,(minute-bounds.start)/60*HOUR_HEIGHT);
-  },[days[0],bounds.start,bounds.end]);
+  },[bounds.start,bounds.end]);
   useEffect(()=>{
     const align=()=>{
       if(!window.matchMedia('(max-width: 760px)').matches)return;
@@ -39,8 +39,8 @@ export function WeekCalendar({days,events,ghosts,data,now,today,selectedDate,onS
     return timeTarget(date,minuteAt(input.clientY-offset/60*HOUR_HEIGHT,rect.top,rect.height,bounds.start,bounds.end,draggedEvent?.duration));
   };
   const position = ({event,column,columns}) => ({top:`${(event.start-bounds.start)/60*HOUR_HEIGHT}px`,height:`${Math.max(18,event.duration/60*HOUR_HEIGHT)}px`,left:`calc(${column/columns*100}% + 3px)`,width:`calc(${100/columns}% - 6px)`});
-  return <div class="week-timeline" style={{'--hour-height':`${HOUR_HEIGHT}px`,'--mobile-day-count':mobileDays}}>
-    <div class="week-scroller" ref={scroller} tabIndex="0" aria-label="Недельное расписание по часам">
+  return <div class={`week-timeline ${days.length === 1 ? 'is-day-view' : ''}`} style={{'--hour-height':`${HOUR_HEIGHT}px`,'--mobile-day-count':mobileDays,'--week-day-count':days.length}}>
+    <div class="week-scroller" ref={scroller} tabIndex="0" aria-label={days.length === 1 ? 'Расписание дня по часам' : 'Недельное расписание по часам'}>
       <div class="week-table">
         <div class="week-axis-heading"><span>МСК</span></div>
         {days.map(date=><header key={date} class={`week-day-heading ${date===today?'is-today':''} ${date<today?'is-past-day':''}`} data-board-drop={date} data-day-state={date<today?'past':date===today?'today':'future'} data-state-effect={DEFAULT_STATE_EFFECTS.pastDay}>

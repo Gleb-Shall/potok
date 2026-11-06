@@ -30,10 +30,11 @@ import { MoveEditor } from './components/MoveEditor.jsx';
 import { RecordEditor, RecordDetails } from './components/RecordEditor.jsx';
 import { Modal } from './components/UI.jsx';
 const MapView = lazy(() => import('./components/MapView.jsx'));
-import { addDays, todayISO, weekdayOf, minutesToTime } from './lib/domain.js';
-import { getStudent, projectWeek, eventTitle, eventColor, eventMatches, moveEvent, saveMove, restoreMove, isEventMoved, assertNoConflict, normalizeData, calendarRange, recordKind } from './lib/events.js';
+import { addDays, monthStart, todayISO, weekdayOf, minutesToTime } from './lib/domain.js';
+import { getStudent, projectWeek, eventTitle, eventColor, eventMatches, moveEvent, saveMove, restoreMove, isEventMoved, assertNoConflict, normalizeData, calendarRange, recordKind, RECORD_KINDS } from './lib/events.js';
 import { loadData, demoData, exportData } from './lib/storage.js';
 import { TouchMovePicker, PressDragGhost } from './components/TouchMovePicker.jsx';
+import { useCalendarSwipe } from './hooks/useCalendarSwipe.js';
 import { usePressDrag, touchDropTarget } from './hooks/usePressDrag.js';
 import { useWorkspace } from './hooks/useWorkspace.js';
 import { activeReminders, saveReminder, removeReminder, reminderMessage } from './lib/reminders.js';
@@ -76,12 +77,14 @@ export function App({ initialMode, demoOnly = false, requireAccount = false, onH
   });
   const [week, setWeek] = useState(today);
   const [rangeView, setRangeView] = useState('week');
+  const [weekStart, setWeekStart] = useState(null);
+  const scheduleRef = useRef(null);
   const [mapView, setMapView] = useState(false);
   const [weekLayout,setWeekLayout]=useState(()=>localStorage.getItem('potok:week-layout')==='board'?'board':'timeline');
   const [visibleHours,setVisibleHours]=useState([0,24]);
   const [mobileDays,setMobileDays]=useState(3);
   const [pendingOpen,setPendingOpen]=useState(false);
-  const timeline=rangeView==='week' && weekLayout==='timeline';
+  const timeline=rangeView==='day' || rangeView==='week' && weekLayout==='timeline';
   const [compact, setCompact] = useState(true);
   const [cardOverrides, setCardOverrides] = useState({});
   const [recordFilter, setRecordFilter] = useState('');
@@ -100,20 +103,20 @@ export function App({ initialMode, demoOnly = false, requireAccount = false, onH
   const endDrag = () => { dragId.current = null; setDraggingId(''); setDropTarget(''); setMovePicker(null); setMoveHover(null); };
   const returnEvent = item => attempt(() => { endDrag(); commit(restoreMove(data, item), 'Перенос отменён — событие вернулось на исходное время', item.originalDate || item.anchorDate); });
   const importRef = useRef(null);
-  const range = useMemo(()=>calendarRange(week,rangeView),[week,rangeView]);
+  const range = useMemo(()=>calendarRange(week,rangeView,weekStart),[week,rangeView,weekStart]);
   const projection = useMemo(()=>projectWeek(data,range.start,range.count),[data,range.start,range.count]);
   const days = useMemo(()=>Array.from({length:range.count},(_,index)=>addDays(range.start,index)),[range.start,range.count]);
   const visibleGhosts=useMemo(()=>showGhosts?projection.ghosts.filter(event=>eventMatches(data,event,query,filterType)):[],[data,projection,query,filterType,showGhosts]);
   const visibleEvents = useMemo(()=>projection.events.filter(event=>eventMatches(data,event,query,filterType)),[data,projection,query,filterType]);
   const notify = (text, canUndo = false) => setNotice({ text, canUndo });
   useEffect(() => { if (!notice) return; const timer = setTimeout(() => setNotice(null), 7000); return () => clearTimeout(timer); }, [notice]);
-  useEffect(() => { setDialog(null); setDeletion(null); setUndo(null); setNotice(null); setQuery(''); setFilterType(''); setWeek(todayISO()); setSelectedDate(todayISO()); setRangeView('week'); setView('schedule'); setMovePicker(null); }, [account.user?.uid]);
+  useEffect(() => { setDialog(null); setDeletion(null); setUndo(null); setNotice(null); setQuery(''); setFilterType(''); setWeek(todayISO()); setSelectedDate(todayISO()); setRangeView('week'); setWeekStart(null); setView('schedule'); setMovePicker(null); }, [account.user?.uid]);
 
   const commit = (next, message, date) => {
     const finish = saved => {
       if (filterType && !next.types.some(type => type.id === filterType)) setFilterType('');
       setDeletion(null); setUndo({ data, revision: saved.revision, mode }); setDialog(null);
-      if (date) { if (date < range.start || date > range.end) setWeek(date); setSelectedDate(date); }
+      if (date) { if (date < range.start || date > range.end) { setWeek(date); setWeekStart(null); } setSelectedDate(date); }
       notify(message, true);
       return true;
     };
@@ -157,9 +160,25 @@ export function App({ initialMode, demoOnly = false, requireAccount = false, onH
     setDialog(null); setDeletion(null); setUndo(null); setQuery(''); setFilterType('');
     notify(nextMode === 'personal' ? 'Открыто твоё расписание. Демо хранится отдельно.' : 'Открыт отдельный пример расписания.');
   };
+  const selectRange = nextView => {
+    setRangeView(nextView); setWeek(selectedDate); setWeekStart(null);
+  };
+  const goToday = () => { setWeek(today); setSelectedDate(today); setWeekStart(null); };
   const navigateWeek = delta => {
-    if (rangeView === 'month') { const next = new Date(week.slice(0, 7) + '-01T00:00:00Z'); next.setUTCMonth(next.getUTCMonth() + delta); const date = next.toISOString().slice(0, 10); setWeek(date); setSelectedDate(date); }
-    else { const offset = Math.max(0, days.indexOf(selectedDate)); const next = addDays(range.start, delta * range.count); setWeek(next); setSelectedDate(addDays(next, offset)); }
+    if (rangeView === 'month') {
+      const date = monthStart(week, delta);
+      setWeek(date); setSelectedDate(date);
+    } else {
+      const offset = Math.max(0, days.indexOf(selectedDate));
+      const next = addDays(range.start, delta * range.count);
+      setWeek(next); setSelectedDate(addDays(next, offset));
+      if (rangeView === 'week') setWeekStart(next);
+    }
+  };
+  const shiftDay = delta => {
+    const date = addDays(selectedDate, delta);
+    setSelectedDate(date); setWeek(date);
+    if (rangeView === 'week') setWeekStart(addDays(range.start, delta));
   };
   const moveDialog = (event, date) => setDialog({ kind: 'move-editor', event, date });
   const openMovePicker = event => { setDialog(null); setMovePicker({ event, native: false }); };
@@ -181,6 +200,7 @@ export function App({ initialMode, demoOnly = false, requireAccount = false, onH
   });
   const cancelMovePicker = () => { touch.cancel(); endDrag(); };
   const picker = movePicker ? { drag: { item: movePicker.event }, hover: moveHover, cancel: cancelMovePicker } : touch.drag?.mode === 'board' ? {...touch,drag:null} : touch;
+  useCalendarSwipe(scheduleRef, shiftDay, view === 'schedule' && rangeView !== 'month' && !mapView && !dialog && !deletion && !picker.drag && !draggingId, rangeView);
   const statusEvent = (event, status) => attempt(() => {
     if (status === 'planned' && !event.date) { moveDialog(event); return; }
     if (status === 'cancelled' && !confirm('Отменить только это событие? История и остальные повторы сохранятся.')) return;
@@ -201,11 +221,11 @@ export function App({ initialMode, demoOnly = false, requireAccount = false, onH
   function Schedule() {
     const filtered = visibleEvents;
     const hours = filtered.reduce((total, event) => total + event.duration, 0) / 60;
-    return <><section class={`schedule-panel ${timeline?'is-timeline':''}`} aria-label="Расписание событий" data-ui>
-      <div class="calendar-toolbar"><div class="calendar-period"><h2>{dateLabel(week, { day: undefined, month: 'long', year: 'numeric' })}</h2>{rangeView !== 'month' && range.start.slice(0, 7) !== range.end.slice(0, 7) && <span>{dateLabel(range.start)} — {dateLabel(range.end)}</span>}</div><div class="week-navigation"><button class="icon-button" aria-label="Предыдущий период" onClick={() => navigateWeek(-1)}><Icon name="left"/></button><Button kind="small secondary" onClick={() => { setWeek(today); setSelectedDate(today); }}>Сегодня</Button><button class="icon-button" aria-label="Следующий период" onClick={() => navigateWeek(1)}><Icon name="right"/></button></div>
-        <div class="range-switch" aria-label="Период расписания">{[['week', 'Неделя'], ['fortnight', '2 недели'], ['month', 'Месяц']].map(([id, label]) => <button type="button" key={id} aria-pressed={rangeView === id} class={rangeView === id ? 'active' : ''} onClick={() => { setRangeView(id); setWeek(selectedDate); }}>{label}</button>)}</div></div>
+    return <><section class={`schedule-panel ${timeline?'is-timeline':''}`} aria-label="Расписание событий" data-ui ref={scheduleRef}>
+      <div class="calendar-toolbar"><div class="calendar-period"><h2>{dateLabel(week, { day: rangeView === 'day' ? 'numeric' : undefined, month: 'long', year: 'numeric' })}</h2>{rangeView !== 'month' && range.start.slice(0, 7) !== range.end.slice(0, 7) && <span>{dateLabel(range.start)} — {dateLabel(range.end)}</span>}</div><div class="week-navigation"><button class="icon-button" aria-label="Предыдущий период" onClick={() => navigateWeek(-1)}><Icon name="left"/></button><Button kind="small secondary" onClick={goToday}>Сегодня</Button><button class="icon-button" aria-label="Следующий период" onClick={() => navigateWeek(1)}><Icon name="right"/></button></div>
+      </div>
       <div class="calendar-options-bar">{rangeView==='week' && <div class="week-layout-switch" role="group" aria-label="Вид недели">{[['timeline','По времени'],['board','Доска']].map(([id,label])=><button type="button" key={id} aria-pressed={weekLayout===id} onClick={()=>{setWeekLayout(id);localStorage.setItem('potok:week-layout',id);}}>{label}</button>)}</div>}<span class="period-count">{eventCount(filtered.length)} · {hours.toLocaleString('ru-RU', { maximumFractionDigits: 1 })} ч</span>{(query || filterType) && <button type="button" class="text-button filter-reset" onClick={() => { setQuery(''); setFilterType(''); }}>Сбросить фильтры ×</button>}{projection.pending.length > 0 && <button type="button" class="pending-shortcut" onClick={() => setPendingOpen(!pendingOpen)} aria-expanded={pendingOpen} aria-controls="schedule-pending"><Icon name="clock"/>Ждут переноса <span>{projection.pending.length}</span></button>}<details class="calendar-options"><summary><Icon name="sliders"/>Вид и фильтры{(query || filterType) && <span class="filter-dot"/>}</summary><div class="schedule-controls"><div class="calendar-filters"><Search value={query} onChange={setQuery}/><select aria-label="Тип событий" class="type-filter" value={filterType} onChange={event => setFilterType(event.currentTarget.value)}><option value="">Все типы</option>{data.types.map(type => <option key={type.id} value={type.id}>{type.name}</option>)}</select></div><div class="schedule-view-controls"><Button icon={mapView ? 'calendar' : 'pin'} onClick={() => setMapView(!mapView)}>{mapView ? 'Расписание' : 'На карте'}</Button>{!mapView && !timeline && <Button onClick={() => { setCompact(!compact); setCardOverrides({}); }}>{compact ? 'Раскрыть карточки' : 'Свернуть карточки'}</Button>}{timeline && <div class="week-hours"><label>Часы<select aria-label="Начало видимых часов" value={visibleHours[0]} onChange={input=>setVisibleHours([Number(input.currentTarget.value),visibleHours[1]])}>{[0,5,6,7,8,9,10,12].filter(hour=>hour<visibleHours[1]).map(hour=><option key={hour} value={hour}>{minutesToTime(hour*60)}</option>)}</select><span>—</span><select aria-label="Конец видимых часов" value={visibleHours[1]} onChange={input=>setVisibleHours([visibleHours[0],Number(input.currentTarget.value)])}>{[16,18,20,22,23,24].filter(hour=>hour>visibleHours[0]).map(hour=><option key={hour} value={hour}>{hour===24?'24:00':minutesToTime(hour*60)}</option>)}</select></label><small>Диапазон расширяется, если событие выходит за его пределы.</small></div>}<Check checked={showGhosts} onChange={setShowGhosts}>Показывать старое время</Check></div></div></details></div>
-      {mapView ? <Suspense fallback={<p class="empty-copy">Загружаю карту…</p>}><MapView events={filtered} data={data} onOpen={openEvent}/></Suspense> : timeline ? <><div class="week-mobile-controls"><span>Дней на экране</span><div role="group" aria-label="Дней на экране">{[1,3].map(count=><button type="button" key={count} aria-pressed={mobileDays===count} onClick={()=>setMobileDays(count)}>{count}</button>)}</div></div><WeekCalendar days={days} events={filtered} ghosts={visibleGhosts} data={data} now={now} today={today} selectedDate={selectedDate} onSelectDate={setSelectedDate} onOpen={openEvent} onCreate={(date,start)=>newEvent(date,'',start)} onDragStart={(id,input)=>{rememberGrab(input.currentTarget,{y:input.clientY});dragId.current=id;setDraggingId(id);}} onDragEnd={endDrag} onDrop={drop} onHover={setDropTarget} draggingId={draggingId} draggedEvent={findEvent(draggingId)} dropTarget={dropTarget} grabOffset={grabOffset.current} fromHour={visibleHours[0]} toHour={visibleHours[1]} mobileDays={mobileDays}/></> : <>
+      {mapView ? <Suspense fallback={<p class="empty-copy">Загружаю карту…</p>}><MapView events={filtered} data={data} onOpen={openEvent}/></Suspense> : timeline ? <>{rangeView === 'week' && <div class="week-mobile-controls"><span>Дней на экране</span><div role="group" aria-label="Дней на экране">{[1,3].map(count=><button type="button" key={count} aria-pressed={mobileDays===count} onClick={()=>setMobileDays(count)}>{count}</button>)}</div></div>}<WeekCalendar days={days} events={filtered} ghosts={visibleGhosts} data={data} now={now} today={today} selectedDate={selectedDate} onSelectDate={setSelectedDate} onOpen={openEvent} onCreate={(date,start)=>newEvent(date,'',start)} onDragStart={(id,input)=>{rememberGrab(input.currentTarget,{y:input.clientY});dragId.current=id;setDraggingId(id);}} onDragEnd={endDrag} onDrop={drop} onHover={setDropTarget} draggingId={draggingId} draggedEvent={findEvent(draggingId)} dropTarget={dropTarget} grabOffset={grabOffset.current} fromHour={visibleHours[0]} toHour={visibleHours[1]} mobileDays={rangeView === 'day' ? 1 : mobileDays}/></> : <>
       <div class={`mobile-days ${rangeView === 'month' ? 'is-month-picker' : ''}`} aria-label="Дни периода">{days.map(date => <button key={date} data-board-drop={date} aria-pressed={date === selectedDate} class={`mobile-day ${date === selectedDate ? 'selected' : ''} ${dropTarget === date ? 'board-drop-target' : ''} ${date === today ? 'is-current-day' : date < today ? 'is-past-picker-day' : ''} ${rangeView === 'month' && date.slice(0,7) !== week.slice(0,7) ? 'outside-picker-month' : ''}`} onClick={() => setSelectedDate(date)} data-state-effect={DEFAULT_STATE_EFFECTS.pastDay}>{date < today && <MarkerPaint/>}<span>{dayNames[weekdayOf(date)]}</span><strong>{Number(date.slice(8))}</strong><i class={filtered.some(event=>event.date===date)?'has-events':''}/></button>)}</div>
       <div class={`calendar-scroll range-${rangeView}`}><div class={`calendar-grid calendar-${rangeView}`}>{days.map(date => {
         const events = filtered.filter(event => event.date === date);
@@ -246,7 +266,7 @@ export function App({ initialMode, demoOnly = false, requireAccount = false, onH
   if (requireAccount && (!account.user || !account.hasData)) return <WorkspaceEntry account={account} onSignIn={workspace.signIn} onRetry={workspace.reconnect} onSignOut={()=>attempt(workspace.signOut)} onHome={onHome} onDemo={onDemo}/>;
   const body = view === 'schedule' ? Schedule() : view === 'students' ? Students() : view === 'types' ? Types() : view === 'transfers' ? Transfers() : view === 'appearance' ? <AppearanceSettings/> : view === 'history' ? <HistoryView data={data} now={now} onOpen={event => setDialog({ kind: 'event-details', event })} onStatus={statusEvent}/> : Settings();
   return <><div ref={layoutRef} class={`layout ${draggingId ? 'is-dragging-event' : ''} ${sidebarCollapsed ? 'sidebar-collapsed' : ''} ${view==='schedule'?'is-calendar-workspace':''}`}><Sidebar cloudConfigured={cloudConfigured} collapsed={sidebarCollapsed} onToggle={toggleSidebar} view={view} onChange={switchView} pending={projection.pending.length} account={account} onSignIn={demoOnly && onPersonal ? onPersonal : signIn} onHome={onHome}/>
-    <main class="main"><div class="mobile-workspace-header"><Brand onClick={event=>{event.preventDefault();onHome?.();}}/><div class="mobile-header-actions"><SyncStatus account={account} mode={mode} onSync={workspace.sync}/><button class="mobile-profile" aria-label="Настройки аккаунта" onClick={()=>switchView('settings')}>{account.user?initials(account.user.displayName||account.user.email):'Я'}</button></div></div><header class="page-header"><div><h1>{TITLES[view]}</h1>{view !== 'schedule' && <p class="subtitle">{SUBTITLES[view]}</p>}</div><div class="header-actions"><SyncStatus account={account} mode={mode} onSync={workspace.sync}/>{!account.user && <Button disabled={account.loading} onClick={demoOnly && onPersonal ? onPersonal : signIn}>{cloudConfigured ? 'Войти через Google' : 'Подключить облако'}</Button>}<button class="icon-button" aria-label="Настройки" onClick={() => switchView('settings')}><Icon name="settings"/></button>{['schedule','students','types'].includes(view) && <Button kind="primary" icon="plus" onClick={() => view === 'students' ? setDialog({ kind: 'record-choice' }) : view === 'types' ? setDialog({ kind: 'type-editor' }) : newEvent()}>{view === 'students' ? 'Добавить запись' : view === 'types' ? 'Создать тип' : 'Добавить событие'}</Button>}</div></header>
+    <main class="main"><div class="mobile-workspace-header"><Brand onClick={event=>{event.preventDefault();onHome?.();}}/><div class="mobile-header-actions"><SyncStatus account={account} mode={mode} onSync={workspace.sync}/><button class="mobile-profile" aria-label="Настройки аккаунта" onClick={()=>switchView('settings')}>{account.user?initials(account.user.displayName||account.user.email):'Я'}</button></div></div><header class={`page-header ${view === 'schedule' ? 'calendar-topbar' : ''}`}><div class={view === 'schedule' ? 'sr-only' : ''}><h1>{TITLES[view]}</h1>{view !== 'schedule' && <p class="subtitle">{SUBTITLES[view]}</p>}</div>{view === 'schedule' && <div class="range-switch" role="group" aria-label="Период расписания">{[['day','День'],['week','Неделя'],['month','Месяц']].map(([id,label]) => <button type="button" key={id} aria-pressed={rangeView === id} class={rangeView === id ? 'active' : ''} onClick={() => selectRange(id)}>{label}</button>)}</div>}<div class="header-actions"><SyncStatus account={account} mode={mode} onSync={workspace.sync}/>{view !== 'schedule' && !account.user && <Button disabled={account.loading} onClick={demoOnly && onPersonal ? onPersonal : signIn}>{cloudConfigured ? 'Войти через Google' : 'Подключить облако'}</Button>}<button class="icon-button" aria-label="Настройки" onClick={() => switchView('settings')}><Icon name="settings"/></button>{['schedule','students','types'].includes(view) && <Button kind="primary" icon="plus" onClick={() => view === 'students' ? setDialog({ kind: 'record-choice' }) : view === 'types' ? setDialog({ kind: 'type-editor' }) : newEvent()}>{view === 'students' ? 'Добавить запись' : view === 'types' ? 'Создать тип' : 'Добавить событие'}</Button>}</div></header>
     {mode === 'demo' && <div class="demo-banner"><Icon name="info"/><span>Деморасписание с вымышленными данными. Пробуй карточки, поля и переносы.</span><button class="text-button" onClick={() => attempt(() => switchMode('personal'))}>Создать своё <Icon name="arrow"/></button></div>}
     {account.error && <div class="account-banner error" role="alert"><span>{account.error}</span><Button onClick={workspace.reconnect}>Подключиться заново</Button></div>}
     {mode === 'cloud' && (!account.ready || !account.online) && <div class="account-banner" role="status">{!account.online ? 'Нет интернета. Расписание доступно для просмотра; для сохранения нужно подключение.' : 'Показана сохранённая копия. Обновляем расписание… Сохранение станет доступно после подключения.'}</div>}

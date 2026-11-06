@@ -234,11 +234,12 @@ export function fieldDisplay(field, value) {
   return field.type === 'checkbox' ? value ? 'Да' : 'Нет' : Array.isArray(value) ? value.join(' · ') : String(value);
 }
 
-export function calendarRange(anchor, view) {
+export function calendarRange(anchor, view, weekStart) {
+  if (view === 'day') return { start: anchor, count: 1, end: anchor };
   const first = anchor.slice(0, 7) + '-01';
   const nextMonth = new Date(first + 'T00:00:00Z');
   nextMonth.setUTCMonth(nextMonth.getUTCMonth() + 1);
-  const start = view === 'month' ? mondayOf(first) : mondayOf(anchor);
+  const start = view === 'month' ? mondayOf(first) : view === 'week' && weekStart ? weekStart : mondayOf(anchor);
   const count = view === 'month' ? Math.ceil(daysBetween(start, nextMonth.toISOString().slice(0, 10)) / 7) * 7 : view === 'fortnight' ? 14 : 7;
   return { start, count, end: addDays(start, count - 1) };
 }

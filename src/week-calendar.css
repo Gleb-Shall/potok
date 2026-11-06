@@ -26,7 +26,8 @@
 .week-mobile-controls { display:none; }
 .week-timeline { --week-axis:52px; display:flex; flex-direction:column; flex:1; min-height:0; background:var(--surface); }
 .week-scroller { flex:1; min-height:0; overflow:auto; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:#cdd1c7 transparent; outline-offset:-2px; }
-.week-table { display:grid; grid-template-columns:var(--week-axis) repeat(7,minmax(110px,1fr)); min-width:860px; position:relative; }
+.week-table { display:grid; grid-template-columns:var(--week-axis) repeat(var(--week-day-count,7),minmax(110px,1fr)); min-width:860px; position:relative; }
+.is-day-view .week-table { min-width:0; width:100%; }
 .week-axis-heading,.week-day-heading { position:sticky; top:0; z-index:6; border-bottom:1px solid #e5e7e0; background:var(--surface); height:56px; }
 .week-axis-heading { left:0; z-index:8; display:flex; align-items:end; padding:0 8px 10px; font-size:10px; letter-spacing:.04em; color:#8c9187; }
 .week-day-heading { display:flex; align-items:center; justify-content:center; gap:5px; overflow:hidden; }
@@ -145,7 +146,7 @@
  .week-mobile-controls button { min-width:34px; min-height:30px; font:inherit; background:#f3f4ef; border:0; color:var(--muted); border-radius:5px; }
  .week-mobile-controls button[aria-pressed=true] { background:#e7eade; color:var(--ink); }
  .week-timeline { --week-axis:40px; --week-column:calc((100vw - var(--week-axis))/var(--mobile-day-count)); }
- .week-table { min-width:0; width:max-content; grid-template-columns:var(--week-axis) repeat(7,var(--week-column)); }
+ .week-table { min-width:0; width:max-content; grid-template-columns:var(--week-axis) repeat(var(--week-day-count,7),var(--week-column)); }
  .week-day-heading,.week-axis-heading { height:56px; }
  .week-day-heading { gap:0; }
  .week-day-heading > button:first-of-type { flex-direction:column; gap:3px; padding:5px; }
@@ -201,4 +202,43 @@
 .layout.sidebar-collapsed .sidebar :is(nav,.sidebar-bottom) { display:none; }
 @media(max-width:760px) {
  .layout .week-event .card-grip { display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:22px; cursor:grab; touch-action:none; user-select:none; }
+}
+
+/* The view selector belongs to the window toolbar, above the calendar sheet. */
+.layout.is-calendar-workspace .calendar-topbar {
+ display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:16px;
+ padding:16px 24px 12px; min-height:74px;
+}
+.layout .calendar-topbar > .range-switch {
+ grid-column:2; grid-row:1; display:flex; width:auto; margin:0; justify-self:center;
+}
+.layout .calendar-topbar > .range-switch button { min-width:76px; }
+.layout .calendar-topbar .header-actions { grid-column:3; grid-row:1; justify-self:end; flex-wrap:nowrap; }
+.layout.is-calendar-workspace .calendar-toolbar { justify-content:space-between; }
+.layout.is-calendar-workspace .calendar-period { margin-right:0; }
+.layout.is-calendar-workspace .week-navigation { margin-left:auto; }
+.week-scroller,.range-week.calendar-scroll { touch-action:pan-y pinch-zoom; }
+.touch-move-picker { max-height:calc(100dvh - 32px); overflow-y:auto; overscroll-behavior:contain; }
+.touch-move-days button { aspect-ratio:auto; min-height:44px; }
+.touch-move-days .is-outside-month:not(.is-target):not(.is-source) { color:#9ca193; font-weight:400; }
+@media(max-width:1050px) and (min-width:761px) {
+ .layout .calendar-topbar .header-actions > .button.primary { min-width:40px; width:40px; font-size:0; padding:9px; gap:0; }
+}
+@media(max-width:760px) {
+ .layout.is-calendar-workspace .calendar-topbar {
+  grid-template-columns:minmax(0,1fr) auto; padding:16px 12px 8px 68px; gap:8px;
+ }
+ .layout .calendar-topbar > .range-switch { grid-column:1; width:100%; max-width:300px; }
+ .layout .calendar-topbar > .range-switch button { min-width:0; min-height:40px; padding:7px 8px; font-size:13px; }
+ .layout .calendar-topbar .header-actions { grid-column:2; gap:6px; }
+ .layout .calendar-topbar .sync-copy { display:none; }
+ .layout.is-calendar-workspace .week-navigation { gap:2px; }
+ .layout.is-calendar-workspace .calendar-period h2 { font-size:21px; }
+ .layout .week-navigation > .button { padding:7px 10px; }
+}
+@media(max-width:380px) {
+ .layout .calendar-topbar > .range-switch button { padding:7px 4px; font-size:12px; }
+ .layout .calendar-topbar .header-actions { gap:2px; }
+ .layout .calendar-topbar .sync-control { padding:6px; min-width:30px; }
+ .layout.is-calendar-workspace .calendar-period h2 { font-size:18px; }
 }

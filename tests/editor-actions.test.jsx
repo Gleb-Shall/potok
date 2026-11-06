@@ -15,6 +15,22 @@ const click = node => act(() => node.click());
 const input = (node,value) => act(() => { node.value=value; node.dispatchEvent(new Event('input',{bubbles:true})); });
 beforeEach(() => { localStorage.clear(); root=document.createElement('div'); document.body.append(root); HTMLDialogElement.prototype.showModal=function(){this.open=true;};HTMLDialogElement.prototype.close=function(){this.open=false;}; });
 afterEach(async () => { await mount(null);root.remove();vi.restoreAllMocks(); });
+it.each(['header', 'directory'])('creates and persists a project from the %s add-record button', async source => {
+ localStorage.setItem('tutor-schedule:mode','personal');
+ await mount(<App/>);
+ await click(root.querySelector('.sidebar-toggle'));
+ await click([...root.querySelectorAll('.nav-item')].find(node=>node.textContent.includes('Записи')));
+ const add=source==='header' ? root.querySelector('.header-actions .primary') :
+   [...root.querySelectorAll('button')].find(node=>!node.closest('.page-header') && /Создать запись|Добавить запись/.test(node.textContent));
+ expect(add).toBeTruthy(); await click(add);
+ await click([...root.querySelectorAll('.record-choice button')].find(node=>node.textContent==='Проект'));
+ const field=[...root.querySelectorAll('.field')].find(node=>node.firstElementChild.textContent==='Название или имя').querySelector('input');
+ await input(field,'Поток');
+ await act(()=>root.querySelector('.record-edit-form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+ expect(root.querySelector('.record-edit-form')).toBeNull();
+ expect(JSON.parse(localStorage.getItem('tutor-schedule:personal:v2')).records).toEqual(expect.arrayContaining([expect.objectContaining({kind:'project',name:'Поток'})]));
+ expect(root.textContent).toContain('Поток');
+});
 it('keeps menu commands keyboard accessible and returns focus without closing the surrounding panel', async () => {
  const remove=vi.fn();
  await mount(<ActionMenu items={[{id:'move',label:'Перенести',onSelect:vi.fn()},{id:'delete',label:'Удалить',danger:true,onSelect:remove}]}/>);

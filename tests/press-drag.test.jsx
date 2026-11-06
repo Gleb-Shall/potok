@@ -3,6 +3,9 @@ import { render } from 'preact';
 import { act } from 'preact/test-utils';
 import { attachPressDrag } from '../src/hooks/usePressDrag.js';
 import { App } from '../src/App.jsx';
+import { calendarRange } from '../src/lib/events.js';
+import { todayISO } from '../src/lib/domain.js';
+import { TouchMovePicker } from '../src/components/TouchMovePicker.jsx';
 
 let root, dispose;
 const touch = (target, type, x = 20, y = 20, count = 1) => {
@@ -54,7 +57,7 @@ it('does not capture links and releases listeners on cleanup', () => {
   expect(options.onStart).not.toHaveBeenCalled();
 });
 
-it('opens fourteen target dates from a calendar hold and opens time editing only after a drop', async () => {
+it('opens a full month of target dates from a calendar hold and opens time editing only after a drop', async () => {
   localStorage.clear();localStorage.setItem('potok:week-layout','board');
   HTMLDialogElement.prototype.showModal = vi.fn();
   HTMLDialogElement.prototype.close = vi.fn();
@@ -63,7 +66,7 @@ it('opens fourteen target dates from a calendar hold and opens time editing only
   expect(card).not.toBeNull();
   await act(() => { touch(card.querySelector('.card-open'),'touchstart'); vi.advanceTimersByTime(360); });
   const targets = [...document.querySelectorAll('[data-press-drop]')];
-  expect(targets).toHaveLength(14);
+  expect(targets).toHaveLength(calendarRange(todayISO(), 'month').count);
   expect(document.querySelector('.touch-move-picker')).not.toBeNull();
   const target = targets.find(node => !node.classList.contains('is-source'));
   Object.defineProperty(document,'elementFromPoint',{configurable:true,value:vi.fn(() => target)});
@@ -72,15 +75,28 @@ it('opens fourteen target dates from a calendar hold and opens time editing only
   expect(document.body.textContent).toContain('Во сколько начать?');
 });
 
-it('offers fourteen dates from the move button and cancels a drop on the source day', async () => {
+it('offers a full month from the move button and cancels a drop on the source day', async () => {
   localStorage.clear();localStorage.setItem('potok:week-layout','board');
   await act(() => render(<App initialMode="demo" demoOnly/>,root));
   await act(() => root.querySelector('.card-move').click());
-  expect(document.querySelectorAll('[data-press-drop]')).toHaveLength(14);
+  expect(document.querySelectorAll('[data-press-drop]')).toHaveLength(calendarRange(todayISO(), 'month').count);
   expect(document.querySelector('.press-drag-ghost')).toBeNull();
   await act(() => document.querySelector('.touch-move-days .is-source').click());
   expect(document.querySelector('.touch-move-picker')).toBeNull();
   expect(document.querySelector('dialog')).toBeNull();
+});
+it('pages the move picker across a year boundary and chooses a date in the new month', async () => {
+  const item = {id:'year-end', date:'2026-12-31', start:600, duration:60};
+  const onChoose = vi.fn(), cancel = vi.fn();
+  await act(() => render(<TouchMovePicker controller={{drag:{item},cancel}} title="Встреча" dragging={false} onChoose={onChoose}/>, root));
+  await act(() => vi.advanceTimersByTime(20));
+  expect(document.activeElement.dataset.pressDrop).toBe('2026-12-31');
+  await act(() => document.querySelector('[aria-label="Следующий месяц"]').click());
+  expect(document.querySelector('.touch-move-month strong').textContent).toContain('январь 2027');
+  expect(document.querySelectorAll('[data-press-drop]')).toHaveLength(calendarRange('2027-01-01', 'month').count);
+  await act(() => document.querySelector('[data-press-drop="2027-01-01"]').click());
+  expect(cancel).toHaveBeenCalledOnce();
+  expect(onChoose).toHaveBeenCalledWith(item, '2027-01-01');
 });
 it('moves a native mouse drag within the board without opening the mini calendar', async () => {
   localStorage.clear();localStorage.setItem('potok:week-layout','board');
@@ -109,7 +125,7 @@ it('keeps deferring an event available inside the new date picker', async () => 
   expect(root.querySelectorAll('.pending-card')).toHaveLength(1);
   expect(root.querySelector('.pending-panel').classList.contains('has-pending')).toBe(true);
 });
-it('opens fourteen dates by holding the mouse, then follows and drops without opening details', async () => {
+it('opens a full month by holding the mouse, then follows and drops without opening details', async () => {
   localStorage.clear();localStorage.setItem('potok:week-layout','board');
   HTMLDialogElement.prototype.showModal = vi.fn();
   HTMLDialogElement.prototype.close = vi.fn();
@@ -117,7 +133,7 @@ it('opens fourteen dates by holding the mouse, then follows and drops without op
   const card = root.querySelector('[data-event-id]');
   const press = (target,type,x=20,y=20) => target.dispatchEvent(new MouseEvent(type,{bubbles:true,cancelable:true,button:0,buttons:type==='mouseup'?0:1,clientX:x,clientY:y}));
   await act(() => { press(card.querySelector('.card-open'),'mousedown'); vi.advanceTimersByTime(360); });
-  expect(document.querySelectorAll('[data-press-drop]')).toHaveLength(14);
+  expect(document.querySelectorAll('[data-press-drop]')).toHaveLength(calendarRange(todayISO(), 'month').count);
   expect(document.querySelector('.press-drag-ghost')).not.toBeNull();
   const nativeAttempt = new Event('dragstart',{bubbles:true,cancelable:true});
   await act(() => card.dispatchEvent(nativeAttempt));

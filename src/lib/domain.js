@@ -17,6 +17,13 @@ export function addDays(value, count) {
   return new Date(date.getTime() + count * DAY_MS).toISOString().slice(0, 10);
 }
 
+export function monthStart(value, offset = 0) {
+  const date = parseDate(value);
+  date.setUTCDate(1);
+  date.setUTCMonth(date.getUTCMonth() + offset);
+  return date.toISOString().slice(0, 10);
+}
+
 export function mondayOf(value) {
   const date = parseDate(value);
   return addDays(value, -((date.getUTCDay() + 6) % 7));

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { addDays, mondayOf, timeToMinutes, minutesToTime, validateStudent,
+import { addDays, monthStart, mondayOf, timeToMinutes, minutesToTime, validateStudent,
   validateLesson, projectWeek, moveLesson, findConflict, findRecurringConflict } from '../src/lib/domain.js';
 
 const student = { id: 'student-a', name: 'Тестовый ученик', subject: 'ЕГЭ', rate: 1500, contact: '', notes: '', color: 'violet' };
@@ -11,6 +11,8 @@ test('calendar arithmetic works across months, years and leap days', () => {
   assert.equal(addDays('2026-12-31', 1), '2027-01-01');
   assert.equal(addDays('2028-02-28', 1), '2028-02-29');
   assert.equal(mondayOf('2026-11-01'), '2026-10-26');
+  assert.equal(monthStart('2026-12-31', 1), '2027-01-01');
+  assert.equal(monthStart('2028-03-31', -1), '2028-02-01');
   assert.throws(() => addDays('2026-02-30', 1));
 });
 test('time fields reject invalid hours and preserve half hours', () => {

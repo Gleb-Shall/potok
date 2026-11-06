@@ -28,6 +28,27 @@ const dragTo=async(date,minute)=>{
 };
 beforeEach(()=>{localStorage.clear();maps.created=maps.destroyed=0;root=document.createElement('div');document.body.append(root);HTMLDialogElement.prototype.showModal=function(){this.open=true;};HTMLDialogElement.prototype.close=function(){this.open=false;};});
 afterEach(async()=>{await act(()=>render(null,root));root.remove();vi.restoreAllMocks();});
+it('places day/week/month in the top bar and shifts a rolling week or a day with horizontal scrolling',async()=>{
+ await mount();
+ const tabs=root.querySelector('.calendar-topbar [aria-label="Период расписания"]');
+ expect([...tabs.querySelectorAll('button')].map(node=>node.textContent)).toEqual(['День','Неделя','Месяц']);
+ expect(root.querySelector('.calendar-topbar h1').parentElement.className).toBe('sr-only');
+ const first=mondayOf(todayISO());
+ const dates=()=>[...root.querySelectorAll('[data-time-date]')].map(node=>node.dataset.timeDate);
+ const wheel=async(dx,dy)=>act(()=>root.querySelector('.week-scroller').dispatchEvent(new WheelEvent('wheel',{deltaX:dx,deltaY:dy,bubbles:true,cancelable:true})));
+ await wheel(90,1);
+ expect(dates()).toEqual(Array.from({length:7},(_,i)=>addDays(first,i+1)));
+ await wheel(100,1); // Inertia from the same gesture must not skip another day.
+ expect(dates()[0]).toBe(addDays(first,1));
+ await click([...root.querySelectorAll('.week-navigation button')].find(node=>node.textContent==='Сегодня'));
+ expect(dates()[0]).toBe(first);
+ await click(tabs.querySelector('button'));
+ expect(dates()).toEqual([todayISO()]);
+ await wheel(0,200);
+ expect(dates()).toEqual([todayISO()]);
+ await wheel(-90,1);
+ expect(dates()).toEqual([addDays(todayISO(),-1)]);
+});
 it('moves in time on the same day, then restores the original slot and keeps the audit trail',async()=>{
  await mount();expect(root.querySelectorAll('[data-time-date]')).toHaveLength(7);
  await dragTo(todayISO(),735);
