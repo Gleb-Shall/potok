@@ -7,7 +7,7 @@ export function useCalendarSwipe(root, onShift, enabled, view) {
   useEffect(() => {
     const node = root.current;
     if (!enabled || !node) return;
-    let wheelTotal = 0, wheelLocked = false, wheelTimer;
+    let wheelTotal = 0, wheelTimer;
     let touch = null, suppressClickUntil = 0;
     const calendarTarget = target => target instanceof Element &&
       target.closest('.week-scroller, .calendar-scroll, .mobile-days') &&
@@ -18,12 +18,13 @@ export function useCalendarSwipe(root, onShift, enabled, view) {
       if (!dx || (!event.shiftKey && Math.abs(dx) <= Math.abs(event.deltaY))) return;
       event.preventDefault();
       clearTimeout(wheelTimer);
-      wheelTimer = setTimeout(() => { wheelTotal = 0; wheelLocked = false; }, 180);
-      if (wheelLocked) return;
+      wheelTimer = setTimeout(() => { wheelTotal = 0; }, 160);
       wheelTotal += dx * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? node.clientWidth : 1);
-      if (Math.abs(wheelTotal) < 60) return;
-      wheelLocked = true;
-      latest.current(Math.sign(wheelTotal));
+      const step = Math.max(60, Math.min(240, node.clientWidth / 7));
+      const days = Math.trunc(wheelTotal / step);
+      if (!days) return;
+      wheelTotal -= days * step;
+      latest.current(days);
     };
     const start = event => {
       touch = null;

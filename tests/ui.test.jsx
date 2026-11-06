@@ -72,7 +72,7 @@ describe('critical user flows', () => {
     await click(byText('Подробнее'));
     expect(root.querySelector('.card-expanded-content').textContent).toContain('204');
     await click(byText('День'));
-    expect(root.querySelectorAll('[data-time-date]')).toHaveLength(1);
+    expect(root.querySelectorAll('[data-visible-date]')).toHaveLength(1);
     await click(byText('Неделя'));
     expect(root.querySelectorAll('.day-column')).toHaveLength(7);
     await click(byText('Месяц'));

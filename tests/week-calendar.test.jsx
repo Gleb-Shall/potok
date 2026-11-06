@@ -28,29 +28,44 @@ const dragTo=async(date,minute)=>{
 };
 beforeEach(()=>{localStorage.clear();maps.created=maps.destroyed=0;root=document.createElement('div');document.body.append(root);HTMLDialogElement.prototype.showModal=function(){this.open=true;};HTMLDialogElement.prototype.close=function(){this.open=false;};});
 afterEach(async()=>{await act(()=>render(null,root));root.remove();vi.restoreAllMocks();});
-it('places day/week/month in the top bar and shifts a rolling week or a day with horizontal scrolling',async()=>{
+it('keeps a rolling week and returns to today through the selected view tab',async()=>{
  await mount();
  const tabs=root.querySelector('.calendar-topbar [aria-label="Период расписания"]');
  expect([...tabs.querySelectorAll('button')].map(node=>node.textContent)).toEqual(['День','Неделя','Месяц']);
- expect(root.querySelector('.calendar-topbar h1').parentElement.className).toBe('sr-only');
+ expect(root.querySelector('.calendar-topbar h1').className).toBe('sr-only');
+ expect([...root.querySelectorAll('button')].some(node=>node.textContent==='Сегодня')).toBe(false);
+ const dates=()=>[...root.querySelectorAll('[data-visible-date]')].map(node=>node.dataset.visibleDate);
+ const scroller=root.querySelector('.week-scroller');
+ Object.defineProperty(scroller,'clientWidth',{configurable:true,value:752});
+ scroller.querySelector('.week-axis-heading').getBoundingClientRect=()=>({width:52});
+ await click(tabs.querySelector('[aria-pressed=true]'));
+ const pan=async delta=>{
+   await act(()=>{scroller.scrollLeft+=delta;scroller.dispatchEvent(new Event('scroll'));scroller.dispatchEvent(new Event('scrollend'));});
+ };
  const first=mondayOf(todayISO());
- const dates=()=>[...root.querySelectorAll('[data-time-date]')].map(node=>node.dataset.timeDate);
- const wheel=async(dx,dy)=>act(()=>root.querySelector('.week-scroller').dispatchEvent(new WheelEvent('wheel',{deltaX:dx,deltaY:dy,bubbles:true,cancelable:true})));
- await wheel(90,1);
+ await pan(100);
  expect(dates()).toEqual(Array.from({length:7},(_,i)=>addDays(first,i+1)));
- await wheel(100,1); // Inertia from the same gesture must not skip another day.
- expect(dates()[0]).toBe(addDays(first,1));
- await click([...root.querySelectorAll('.week-navigation button')].find(node=>node.textContent==='Сегодня'));
+ await pan(200); // A continued pan can move beyond the first day without a lock.
+ expect(dates()[0]).toBe(addDays(first,3));
+ await click(tabs.querySelector('[aria-pressed=true]'));
  expect(dates()[0]).toBe(first);
  await click(tabs.querySelector('button'));
  expect(dates()).toEqual([todayISO()]);
- await wheel(0,200);
- expect(dates()).toEqual([todayISO()]);
- await wheel(-90,1);
+ await pan(-700);
  expect(dates()).toEqual([addDays(todayISO(),-1)]);
+ await click(tabs.querySelector('[aria-pressed=true]'));
+ expect(dates()).toEqual([todayISO()]);
+});
+it('shows the current time on the left axis only when today is in view',async()=>{
+ vi.spyOn(Date,'now').mockReturnValue(new Date('2026-11-06T12:24:00Z').getTime());
+ await mount();
+ expect(root.querySelector('.week-now-time').textContent).toBe('15:24');
+ expect(root.querySelector('.week-now-time').dateTime).toBe('2026-11-06T15:24:00+03:00');
+ await click(root.querySelector('[aria-label="Предыдущий период"]'));
+ expect(root.querySelector('.week-now-time')).toBeNull();
 });
 it('moves in time on the same day, then restores the original slot and keeps the audit trail',async()=>{
- await mount();expect(root.querySelectorAll('[data-time-date]')).toHaveLength(7);
+ await mount();expect(root.querySelectorAll('[data-visible-date]')).toHaveLength(7);
  await dragTo(todayISO(),735);
  let saved=JSON.parse(localStorage.getItem(key)).events[0];expect(saved.start).toBe(735);expect(saved.originalStart).toBe(600);expect(saved.history).toHaveLength(1);
  expect(root.querySelectorAll('.week-ghost')).toHaveLength(1);
@@ -100,7 +115,7 @@ it('shows the full day including midnight and late events by default',async()=>{
  const lane=root.querySelector(`[data-time-date="${todayISO()}"]`);
  expect(lane.dataset.timeStart).toBe('0');expect(lane.dataset.timeEnd).toBe('1440');
  expect(root.querySelector('.week-time-axis').firstElementChild.textContent).toBe('00:00');
- expect(root.querySelector('.week-time-axis').lastElementChild.textContent).toBe('23:00');
+ expect([...root.querySelectorAll('.week-time-axis > span')].at(-1).textContent).toBe('23:00');
  expect(root.querySelector('[data-event-id="early"]')).toBeTruthy();
  expect(root.querySelector('[data-event-id="late"]')).toBeTruthy();
 });
