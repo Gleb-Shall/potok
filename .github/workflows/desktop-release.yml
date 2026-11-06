@@ -108,3 +108,28 @@ jobs:
           grep -q 'x64.*\.dmg$' assets.txt
           grep -q '\.exe$' assets.txt
           gh release edit "$RELEASE_TAG" --draft=false --prerelease --latest=false
+  notify_cloud_desktop:
+    name: Request matching private installers
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+      - name: Dispatch exact released core to private build
+        env:
+          DISPATCH_TOKEN: ${{ secrets.POTOK_CLOUD_DISPATCH_TOKEN }}
+        run: |
+          export CORE_SHA="$(git rev-parse HEAD)"
+          node --input-type=module <<'JS'
+          if(!/^[a-f0-9]{40}$/.test(process.env.CORE_SHA || '')) throw new Error('Missing release SHA');
+          if(!process.env.DISPATCH_TOKEN) throw new Error('Missing private dispatch token');
+          const response=await fetch('https://api.github.com/repos/Gleb-Shall/potok-cloud/actions/workflows/desktop-release.yml/dispatches',{
+            method:'POST',
+            headers:{Authorization:`Bearer ${process.env.DISPATCH_TOKEN}`,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2026-03-10','Content-Type':'application/json'},
+            body:JSON.stringify({ref:'main',inputs:{release_tag:process.env.RELEASE_TAG,core_ref:process.env.CORE_SHA}})
+          });
+          if(!response.ok) throw new Error(`Private release request failed: HTTP ${response.status}`);
+          console.log('Private installers requested for the released core.');
+          JS

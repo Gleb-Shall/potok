@@ -7,7 +7,7 @@ const databases=import.meta.hot?.data.databases || new WeakMap();
 if (import.meta.hot) import.meta.hot.dispose(data=>{data.databases=databases;});
 
 // Optional SDK adapter. The local application never imports this module.
-export function createFirebaseProvider({ config = getFirebaseConfig, appName = '[DEFAULT]' } = {}) {
+export function createFirebaseProvider({ config = getFirebaseConfig, appName = '[DEFAULT]', signIn } = {}) {
   let runtime;
   const notifications=createFirebaseNotifications(()=>runtime,()=>provider.connect());
   const provider=createWorkspaceProvider({
@@ -32,7 +32,7 @@ export function createFirebaseProvider({ config = getFirebaseConfig, appName = '
       return {
         auth:{
           subscribe:(callback,onError)=>authSDK.onAuthStateChanged(auth,user=>callback(user ? {id:user.uid,displayName:user.displayName || '',email:user.email || '',photoURL:user.photoURL || ''} : null),onError),
-          signIn:()=>authSDK.signInWithPopup(auth,google),
+          signIn:()=>signIn ? signIn({auth,google,authSDK}) : authSDK.signInWithPopup(auth,google),
           signOut:async()=>{await notifications.disable(auth.currentUser ? {id:auth.currentUser.uid} : null);await authSDK.signOut(auth);},
         },
         storage:{

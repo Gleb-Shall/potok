@@ -19,3 +19,11 @@ test('recreating an adapter reuses the existing Firestore instance and auth cach
    provider.dispose();
  }
 });
+test('a distribution can override the Google popup with its own native browser flow',async()=>{
+ let called=0;
+ const provider=createFirebaseProvider({config:{apiKey:'test-key',authDomain:'demo-potok.firebaseapp.com',projectId:'demo-potok',appId:'test-app'},signIn:async({auth,google,authSDK})=>{
+  called++;assert.equal(auth.app.name,'[DEFAULT]');assert.equal(google.providerId,'google.com');assert.equal(typeof authSDK.signInWithCredential,'function');return 'native';
+ }});
+ const connection=await provider.connect();
+ assert.equal(await connection.signIn(),'native');assert.equal(called,1);provider.dispose();
+});
