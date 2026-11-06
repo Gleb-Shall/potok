@@ -29,3 +29,28 @@ jobs:
       - run: npm run test:ui
       - run: npm run test:rules
       - run: npm run build
+  notify_cloud:
+    name: Request hosted update
+    needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Dispatch the verified public commit
+        env:
+          DISPATCH_TOKEN: ${{ secrets.POTOK_CLOUD_DISPATCH_TOKEN }}
+        run: |
+          node --input-type=module <<'JS'
+          const sha=process.env.GITHUB_SHA;
+          if(!/^[a-f0-9]{40}$/.test(sha || '')) throw new Error('Missing verified source SHA');
+          if(!process.env.DISPATCH_TOKEN) throw new Error('Add POTOK_CLOUD_DISPATCH_TOKEN to this repository Actions secrets');
+          const response=await fetch('https://api.github.com/repos/Gleb-Shall/potok-cloud/actions/workflows/deploy.yml/dispatches',{
+            method:'POST',
+            headers:{Authorization:`Bearer ${process.env.DISPATCH_TOKEN}`,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2026-03-10','Content-Type':'application/json'},
+            body:JSON.stringify({ref:'main',inputs:{core_ref:sha}})
+          });
+          if(!response.ok) throw new Error(`Hosted update request failed: HTTP ${response.status}`);
+          console.log('Hosted update requested for the verified public commit.');
+          JS
