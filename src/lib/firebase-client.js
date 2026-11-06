@@ -1,24 +1,17 @@
 import { prepareWorkspace, readWorkspace } from './cloud-workspace.js';
 import { createAccountSession } from './account-session.js';
-
-export const firebaseConfig = {
-  apiKey: 'AIzaSyDZ8PfDofgUf8qth2LWZ3KlMiFTI1Sv_-U',
-  authDomain: 'potok-planner.web.app',
-  projectId: 'tutor-s-lesson-schedule-b392f',
-  storageBucket: 'tutor-s-lesson-schedule-b392f.firebasestorage.app',
-  messagingSenderId: '461554263763',
-  appId: '1:461554263763:web:bc858cc6bbdcfad84c1626'
-};
+import { getFirebaseConfig } from './cloud-config.js';
 
 let connection;
 let sessionClient;
 export const getFirebaseSession = () => sessionClient?.getSession();
-export function connectFirebase() {
-  if (!connection) connection = loadFirebase().catch(error => { connection = undefined; throw error; });
+export function connectFirebase(config = getFirebaseConfig()) {
+  if (!config) return Promise.reject(new Error('Сначала подключи своё облако в настройках.'));
+  if (!connection) connection = loadFirebase(config).catch(error => { connection = undefined; throw error; });
   return connection;
 }
 
-async function loadFirebase() {
+async function loadFirebase(firebaseConfig) {
   const [appSDK, authSDK, dbSDK] = await Promise.all([
     import('firebase/app'), import('firebase/auth'), import('firebase/firestore')
   ]);

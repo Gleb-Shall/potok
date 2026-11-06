@@ -11,3 +11,5 @@ dist/
 *serviceAccount*.json
 
 gha-creds-*.json
+src-tauri/target/
+src-tauri/gen/

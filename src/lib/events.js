@@ -1,6 +1,6 @@
 import { linkHref } from './links.js';
 import { saveCardBackground } from './card-backgrounds.js';
-import { activeReminders } from '../../functions/reminder-model.js';
+import { activeReminders } from './reminder-model.js';
 import { addDays, mondayOf, weekdayOf, validateStudent } from './domain.js';
 
 export const FIELD_TYPES = { text: 'Текст', url: 'Ссылка', textarea: 'Длинный текст', number: 'Число', date: 'Дата', select: 'Один вариант', multiselect: 'Несколько вариантов', checkbox: 'Флажок' };

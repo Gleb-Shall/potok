@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { connectFirebase, getFirebaseSession, explainFirebaseError } from '../lib/firebase-client.js';
 import { loadData, persistData, emptyData } from '../lib/storage.js';
+import { getFirebaseConfig } from '../lib/cloud-config.js';
 
 export function useWorkspace(editing, { initialMode, demoOnly = false } = {}) {
-  const cached = demoOnly ? null : getFirebaseSession();
+  const cloudEnabled = Boolean(getFirebaseConfig());
+  const cached = demoOnly || !cloudEnabled ? null : getFirebaseSession();
   const [session, updateSession] = useState(() => {
     const mode = initialMode || (localStorage.getItem('tutor-schedule:mode') === 'personal' ? 'personal' : 'demo');
     if (cached?.user && cached.data && mode !== 'demo') return { mode: 'cloud', data: cached.data };
@@ -22,7 +24,7 @@ export function useWorkspace(editing, { initialMode, demoOnly = false } = {}) {
   const [retry, setRetry] = useState(0);
 
   useEffect(() => {
-    if (demoOnly) { setAccount(state => ({ ...state, loading: false })); return; }
+    if (demoOnly || !cloudEnabled) { setAccount(state => ({ ...state, loading: false, authResolved:true })); return; }
     let active = true, unsubscribeAuth, unsubscribeData;
     const fail = error => { if (active) setAccount(state => ({ ...state, loading: false, ready: false, hasData: error.code === 'permission-denied' ? false : state.hasData, error: explainFirebaseError(error) })); };
     connectFirebase().then(connection => {
@@ -57,7 +59,7 @@ export function useWorkspace(editing, { initialMode, demoOnly = false } = {}) {
       });
     }).catch(fail);
     return () => { active = false; unsubscribeAuth?.(); unsubscribeData?.(); currentUid.current = null; syncing.current=null; };
-  }, [retry, demoOnly]);
+  }, [retry, demoOnly, cloudEnabled]);
 
   useEffect(() => {
     const changed = event => { if (event.key === `tutor-schedule:${latest.current.session.mode}:v2`) setStale(true); };

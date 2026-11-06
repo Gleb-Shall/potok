@@ -2,7 +2,6 @@ import { beforeEach, afterEach, expect, it, vi } from 'vitest';
 import { render } from 'preact';
 import { act } from 'preact/test-utils';
 import { attachPressDrag } from '../src/hooks/usePressDrag.js';
-import { ProductDemo } from '../src/components/landing/ProductDemo.jsx';
 import { App } from '../src/App.jsx';
 
 let root, dispose;
@@ -54,22 +53,7 @@ it('does not capture links and releases listeners on cleanup', () => {
   touch(button,'touchstart'); dispose(); vi.advanceTimersByTime(400);
   expect(options.onStart).not.toHaveBeenCalled();
 });
-it('moves a real landing card by touch and restores its original day', async () => {
-  await act(() => render(<ProductDemo/>,root));
-  const days = [...root.querySelectorAll('[data-demo-day]')];
-  Object.defineProperty(document,'elementFromPoint',{configurable:true,value:vi.fn(() => days[2])});
-  let card = root.querySelector('[data-card-id="lesson"]');
-  await act(() => { touch(card,'touchstart'); vi.advanceTimersByTime(360); });
-  expect(document.querySelector('.press-drag-ghost')).not.toBeNull();
-  await act(() => { touch(card,'touchmove',90,180); touch(card,'touchend',90,180); });
-  expect(days[2].querySelector('[data-card-id="lesson"]')).not.toBeNull();
-  expect(document.querySelector('.press-drag-ghost')).toBeNull();
-  document.elementFromPoint.mockReturnValue(days[1]); card = root.querySelector('[data-card-id="lesson"]');
-  await act(() => { touch(card,'touchstart'); vi.advanceTimersByTime(360); });
-  await act(() => { touch(card,'touchmove',80,140); touch(card,'touchend',80,140); });
-  expect(days[1].querySelector('[data-card-id="lesson"]')).not.toBeNull();
-  expect(days[1].querySelector('.ghost-card')).toBeNull();
-});
+
 it('opens fourteen target dates from a calendar hold and opens time editing only after a drop', async () => {
   localStorage.clear();localStorage.setItem('potok:week-layout','board');
   HTMLDialogElement.prototype.showModal = vi.fn();

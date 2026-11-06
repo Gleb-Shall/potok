@@ -1,4 +1,4 @@
-import { activeReminders, nextReminderAt, reminderMessage } from '../../functions/reminder-model.js';
+import { activeReminders, nextReminderAt, reminderMessage } from './reminder-model.js';
 export { activeReminders, nextReminderAt, reminderMessage };
 export const REMINDER_ZONE = 'Europe/Moscow';
 export function reminderDateTime(value) {

@@ -1,5 +1,5 @@
 {
-  "name": "potok",
+  "name": "@potok/core",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,14 +9,16 @@
     "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort",
     "test": "node --test --experimental-test-coverage tests/*.test.js",
     "test:ui": "vitest run --environment jsdom tests/*.test.jsx",
-    "test:rules": "firebase emulators:exec --only firestore --project demo-potok \"node --test tests/rules/*.test.js\""
+    "test:rules": "firebase emulators:exec --config examples/firebase/firebase.json --only firestore --project demo-potok \"node --test tests/rules/*.test.js\"",
+    "tauri": "tauri",
+    "desktop:dev": "tauri dev",
+    "desktop:build": "tauri build"
   },
   "dependencies": {
     "@apple/mapkit-loader": "^1.0.0",
     "firebase": "^12.19.0",
     "maplibre-gl": "^6.16.0",
-    "preact": "^11.1.0",
-    "three": "0.187.0"
+    "preact": "^11.1.0"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.2",
@@ -24,7 +26,8 @@
     "firebase-tools": "^15.34.2",
     "jsdom": "^29.1.1",
     "vite": "^8.3.5",
-    "vitest": "^5.0.5"
+    "vitest": "^5.0.5",
+    "@tauri-apps/cli": "^2.0.0"
   },
   "version": "0.3.0-alpha.1",
   "engines": {
@@ -33,5 +36,14 @@
   "overrides": {
     "@firebase/app": "0.16.4",
     "@firebase/app-compat": "0.5.20"
+  },
+  "description": "Potok calendar, event templates and portable application",
+  "exports": {
+    ".": "./src/App.jsx",
+    "./styles.css": "./src/app.css",
+    "./lib/*": "./src/lib/*",
+    "./components/*": "./src/components/*",
+    "./hooks/*": "./src/hooks/*",
+    "./theme/*": "./src/theme/*"
   }
 }

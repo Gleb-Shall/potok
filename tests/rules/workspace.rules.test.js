@@ -5,7 +5,7 @@ import { doc, getDoc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firest
 let env;
 const ref = (db, uid = 'alice') => doc(db, 'users', uid, 'workspaces', 'main');
 const value = revision => ({ version: 2, revision, payload: '{}', updatedAt: serverTimestamp() });
-before(async () => { env = await initializeTestEnvironment({ projectId: 'demo-potok', firestore: { rules: await readFile('firestore.rules', 'utf8') } }); });
+before(async () => { env = await initializeTestEnvironment({ projectId: 'demo-potok', firestore: { rules: await readFile('examples/firebase/firestore.rules', 'utf8') } }); });
 beforeEach(() => env.clearFirestore());
 after(() => env?.cleanup());
 test('anonymous and another account cannot read or write private schedules', async () => {

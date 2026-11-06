@@ -2,7 +2,7 @@
 
 `AppearanceSettings.jsx` — раздел личного кабинета. `src/lib/appearance.js` хранит качество под ключом `potok:animation-quality` и сообщает об изменениях через `potok:appearance-change`; между вкладками используется storage event. Настройка индивидуальна для устройства.
 
-`render-quality.js` в `src/components/landing/world/` ограничивает разрешение сцены: economy — 1 млн пикселей и 1×, balanced — 3 млн и 2×, high — 6 млн и 3×. Плотность текстур ограничена 1.25×/2×/2.5×. `world-engine.js` применяет выбор при изменении и перерисовывает сцену по запросу.
+Landing render quality and world-engine now belong to the private website. The shared appearance preference remains in core.
 
 `src/theme/ThemeProvider.jsx` назначает светлое оформление. Переключателей тёмной темы нет, но в старых CSS остались неактивные правила `.dark`. Текущая итерация редакторов не исследует оставшееся поведение тёмной темы на устройстве пользователя.
 

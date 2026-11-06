@@ -1,32 +1,6 @@
-import { Component, render } from 'preact';
+import { render } from 'preact';
 import { Site } from './Site.jsx';
-import './styles.css';
-import './editor.css';
-import './workspace.css';
-import './planner.css';
-import './landing.css';
-import './experience.css';
-import './sidebar.css';
-import './state-appearance.css';
-import './effects.css';
-import './drag.css';
-import './fonts.css';
-import './design-system.css';
-import './landing-experiment.css';
-import './landing-journey.css';
-import './landing-spatial.css';
-import './calendar-workspace.css';
-import './editor-ui.css';
-
-import './week-calendar.css';
-
-class AppBoundary extends Component {
-  state = { error: null };
-  static getDerivedStateFromError(error) { return { error }; }
-  render(props, state) {
-    if (state.error) return <main class="startup-error"><h1>Не удалось открыть расписание</h1><p>{state.error.message}</p><p>Исходные данные сохранены. Не очищай хранилище браузера.</p><button class="button secondary" onClick={() => location.reload()}>Попробовать снова</button></main>;
-    return props.children;
-  }
-}
+import { AppBoundary } from './components/AppBoundary.jsx';
+import './app.css';
 
 render(<AppBoundary><Site/></AppBoundary>, document.getElementById('app'));

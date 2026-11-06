@@ -1,6 +1,6 @@
 import { normalizeData } from './events.js';
 import { emptyData } from './storage.js';
-import { nextReminderAt } from '../../functions/reminder-model.js';
+import { nextReminderAt } from './reminder-model.js';
 
 export function readWorkspace(document) {
   if (!document) return { ...emptyData(), records: [], revision: 0 };

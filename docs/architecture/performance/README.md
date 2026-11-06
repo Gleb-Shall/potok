@@ -6,7 +6,7 @@
 `events.getRecord` ищет нужную запись напрямую. Ради одной карточки больше не создаётся массив копий всех учеников. Исторические snapshot имеют прежний приоритет. Стабильный массив видимых событий позволяет MapView сохранять группы точек и не пересоздавать маркеры без изменения данных.
 
 ## Лендинг и GPU
-`Site.jsx` загружает код Landing только при открытии главной страницы. Прогрев авторизации и календаря сохранён.
+Landing, canvas surfaces and three.js now belong to the private site; the portable core no longer loads these resources.
 
 `world/canvas-surface.js` отвечает за создание, замену по размеру и идемпотентное освобождение CanvasTexture. `dom-surface.js` очищает существующий буфер; canvas.width/height меняются только при изменении размера. Перед повторной отрисовкой сбрасывается transform.
 
