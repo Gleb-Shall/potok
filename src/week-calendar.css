@@ -11,7 +11,6 @@
 .layout.is-calendar-workspace .page-footer { display:none; }
 .layout.is-calendar-workspace .schedule-panel { padding-bottom:env(safe-area-inset-bottom); }
 .layout.is-calendar-workspace :is(.demo-banner,.account-banner,.reminder-inbox) { flex:none; margin:0; padding:8px 24px; max-height:20dvh; overflow:auto; }
-.layout.is-calendar-workspace .pending-panel { flex:none; min-height:0; max-height:28dvh; overflow:auto; margin:0; border:0; border-top:1px solid var(--line); border-radius:0; padding:12px 24px; }
 .layout.is-calendar-workspace .events-map-view:not(.is-fullscreen) { flex:1; min-height:0; height:auto; border-radius:0; }
 .layout .schedule-panel.is-timeline { overflow:visible; }
 .layout .is-timeline .calendar-toolbar { gap:16px; }
@@ -73,12 +72,6 @@
 .week-drop-slot > span { position:absolute; top:-23px; left:0; border-radius:4px; padding:3px 6px; white-space:nowrap; background:var(--drop-label); color:#fff; font-size:11px; line-height:16px; font-variant-numeric:tabular-nums; box-shadow:0 2px 5px #0001; }
 .week-now-line { position:absolute; left:0; right:0; height:1px; background:var(--now-accent); z-index:3; pointer-events:none; }
 .week-now-line > span { position:absolute; left:-3px; top:-2px; width:5px; height:5px; border-radius:50%; background:var(--now-accent); }
-.layout .pending-panel[hidden] { display:none; }
-.layout .pending-panel { margin-top:14px; padding:16px; }
-.pending-close { margin-left:auto; order:3; }
-.pending-card[draggable] { cursor:grab; }
-.layout .pending-card .pending-open { padding:0; }
-.layout .pending-heading h2 { font-size:16px; }
 
 /* Navigation folds into one circle instead of reserving a permanent rail. */
 @media(min-width:761px) {
@@ -168,7 +161,6 @@
  .layout .sidebar { animation:nav-unfold 160ms cubic-bezier(.23,1,.32,1); transform-origin:22px 22px; }
  @keyframes nav-unfold { from {opacity:.6;transform:scale(.97)} to {opacity:1;transform:scale(1)} }
 }
-.layout.is-dragging-event .pending-panel.is-empty { display:block; }
 .week-timeline,.layout .is-timeline .calendar-toolbar,.layout .is-timeline .calendar-options-bar { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
 @media(max-width:760px) {
  .layout .sidebar,.layout.sidebar-collapsed .sidebar { position:fixed; display:flex; flex-direction:column; top:18px; left:12px; width:216px; height:auto; bottom:auto; max-height:calc(100svh - 36px); padding:12px; border:1px solid var(--line); border-radius:18px; background:var(--navigation-surface); box-shadow:0 6px 30px #20261d16; align-items:stretch; overflow:auto; z-index:45; }

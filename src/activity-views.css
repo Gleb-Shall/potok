@@ -1,0 +1,94 @@
+/* Transfers and history share one list language, owned here rather than by legacy themes. */
+.layout :is(.transfers-view,.history-view) { width:100%; min-width:0; color:var(--ink); background:transparent; border:0; border-radius:0; box-shadow:none; }
+.activity-section + .activity-section { margin-top:32px; }
+.activity-section-heading { display:flex; align-items:center; gap:10px; margin:0 0 12px; }
+.activity-section-heading h2 { margin:0; font-size:17px; line-height:1.4; font-weight:600; color:var(--ink); letter-spacing:-.25px; }
+.section-count { display:inline-grid; place-items:center; min-width:22px; padding:3px 6px; border-radius:5px; font-size:12px; line-height:1.2; font-weight:500; color:var(--muted); background:var(--surface-soft); font-variant-numeric:tabular-nums; }
+.activity-empty { padding:20px 0; color:var(--muted); font-size:14px; line-height:1.6; }
+.activity-empty h2 { color:var(--ink); font-size:18px; font-weight:550; }
+.activity-empty p { margin:8px 0; color:var(--muted); }
+.activity-list { min-width:0; }
+.activity-row { min-width:0; padding:4px 0; border-bottom:1px solid var(--line); }
+.activity-row:last-child { border-bottom:0; }
+.activity-open { display:grid; grid-template-columns:76px 8px minmax(0,1fr) auto; align-items:center; gap:14px; width:100%; min-width:0; min-height:66px; padding:10px 8px; border:0; border-radius:7px; color:var(--ink); background:transparent; text-align:left; }
+.activity-open:hover { background:var(--surface-soft); }
+.activity-time { display:grid; gap:4px; font-size:13px; font-weight:500; line-height:1.3; font-variant-numeric:tabular-nums; white-space:nowrap; color:var(--ink); }
+.activity-time small { font-size:12px; color:var(--muted); font-weight:400; }
+.activity-dot { width:7px; height:7px; background:currentColor; border-radius:50%; }
+.activity-identity { display:grid; gap:5px; min-width:0; }
+.activity-identity strong { color:var(--ink); font-size:15px; line-height:1.35; font-weight:550; overflow-wrap:anywhere; }
+.activity-identity small { color:var(--muted); font-size:12px; line-height:1.4; overflow-wrap:anywhere; }
+.activity-trailing { display:flex; justify-content:flex-end; color:var(--muted); font-size:13px; white-space:nowrap; }
+.activity-destination { display:flex; align-items:center; gap:10px; font-variant-numeric:tabular-nums; color:var(--ink); }
+.activity-destination .icon { width:15px; height:15px; color:var(--muted); }
+.activity-status { display:inline-flex; align-items:center; padding:4px 7px; border-radius:5px; font-size:12px; line-height:1.3; color:var(--muted); background:var(--surface-soft); }
+.activity-status.is-pending { color:var(--pending-ink); background:var(--pending-surface); }
+.activity-status.is-done { color:var(--done-ink); background:var(--done-surface); }
+.activity-support { display:flex; align-items:center; flex-wrap:wrap; gap:8px; min-width:0; padding:0 8px 8px 112px; }
+.activity-links { display:flex; flex-wrap:wrap; gap:6px; min-width:0; }
+.activity-link { display:inline-flex; align-items:center; gap:4px; min-height:32px; padding:5px 8px; background:var(--surface-soft); color:var(--ink); border-radius:5px; font-size:12px; text-decoration:none; overflow-wrap:anywhere; }
+.activity-link:hover { color:var(--link-ink); }
+.activity-link .icon { width:13px; height:13px; }
+.activity-actions { margin-left:auto; }
+.layout .activity-actions .button { min-height:32px; padding:5px 9px; font-size:12px; color:var(--muted); background:transparent; border-color:transparent; }
+.layout .activity-actions .button:hover { color:var(--ink); background:var(--surface-soft); }
+.activity-toolbar { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin:0 0 16px; }
+.month-selector { display:flex; align-items:center; gap:2px; min-width:0; }
+.layout .month-selector .icon-button { min-height:40px; width:32px; min-width:32px; padding:7px; border:0; background:transparent; color:var(--muted); }
+.month-selector select { width:auto; min-width:0; min-height:40px; max-width:140px; padding:6px; font:inherit; font-size:15px; color:var(--ink); background:transparent; border:0; border-radius:6px; text-transform:capitalize; }
+.month-selector select:hover { background:var(--surface-soft); }
+.activity-filter { max-width:220px; min-height:40px; padding:8px 12px; border:0; border-radius:7px; font:inherit; font-size:14px; background:var(--surface-soft); color:var(--ink); }
+.activity-toolbar .search-field { margin-left:auto; width:min(100%,280px); min-height:40px; background:var(--surface-soft); border:0; border-radius:7px; }
+.activity-summary { display:flex; gap:18px; align-items:center; flex-wrap:wrap; padding:0 8px 12px; font-size:12px; color:var(--muted); }
+.activity-summary strong { margin-left:4px; color:var(--ink); font-weight:550; font-variant-numeric:tabular-nums; }
+.activity-day { margin-top:20px; }
+.activity-day h2 { padding:0 8px; margin:0 0 6px; color:var(--muted); font-size:13px; font-weight:550; }
+.activity-day h2::first-letter { text-transform:uppercase; }
+.activity-help { margin-top:24px; color:var(--muted); font-size:12px; }
+.activity-help summary { cursor:pointer; min-height:36px; padding:8px 0; }
+.activity-help p { max-width:640px; margin:4px 0; color:var(--muted); line-height:1.6; }
+
+/* The same pending row is used in the drawer and on the transfers screen. */
+.pending-card { display:flex; align-items:center; gap:16px; padding:12px; min-width:0; border:0; border-radius:7px; background:var(--surface-soft); color:var(--ink); box-shadow:none; }
+.pending-card[draggable=true] { cursor:grab; }
+.layout .pending-open { display:grid; gap:6px; min-width:0; flex:1; padding:4px 0; border:0; background:transparent; color:var(--ink); text-align:left; }
+.pending-open strong { font-size:15px; line-height:1.35; color:var(--ink); font-weight:550; overflow-wrap:anywhere; }
+.pending-open small { font-size:12px; line-height:1.4; color:var(--muted); }
+.pending-card-actions { display:flex; align-items:center; gap:6px; flex:none; }
+.layout .pending-card-actions .button { min-height:36px; padding:7px 10px; font-size:12px; background:transparent; border-color:var(--line); color:var(--ink); }
+.layout .pending-card-actions .action-menu-trigger { width:32px; min-width:32px; min-height:36px; padding:6px; }
+.pending-list { display:grid; gap:0; }
+.transfers-view .pending-card { background:transparent; border-radius:0; border-bottom:1px solid var(--line); padding:12px 8px; }
+.transfers-view .pending-card:last-child { border-bottom:0; }
+.layout.is-calendar-workspace .pending-panel { flex:none; min-height:0; max-height:min(32dvh,320px); overflow:auto; margin:0; border:0; border-top:1px solid var(--line); border-radius:0; padding:12px 16px; background:var(--surface); color:var(--ink); }
+.layout .pending-panel[hidden] { display:none; }
+.pending-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px; }
+.pending-heading h2 { margin:0; color:var(--ink); font-size:14px; font-weight:550; }
+.pending-heading .section-count { margin-left:5px; }
+.pending-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,400px),1fr)); gap:8px; }
+.layout .pending-close { min-height:32px; width:32px; min-width:32px; padding:6px; border:0; background:transparent; }
+@media(max-width:760px) {
+ .activity-toolbar { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px; }
+ .month-selector { grid-column:1/-1; justify-content:center; }
+ .month-selector select { font-size:16px; }
+ .activity-filter,.activity-toolbar .search-field { width:100%; max-width:none; min-height:44px; }
+ .activity-toolbar .search-field input { font-size:16px; }
+ .activity-open { grid-template-columns:58px 7px minmax(0,1fr); gap:10px; padding:10px 4px; }
+ .activity-trailing { grid-column:3; justify-content:flex-start; }
+ .activity-identity strong { font-size:16px; }
+ .activity-time { align-self:start; padding-top:2px; }
+ .activity-support { padding:0 4px 10px 89px; gap:6px; }
+ .activity-links { flex:1; }
+ .activity-actions { margin-left:auto; }
+ .layout .activity-actions .button,.activity-link { min-height:40px; }
+ .activity-summary { gap:14px; padding-inline:4px; }
+ .activity-day h2 { padding-inline:4px; }
+ .activity-section + .activity-section { margin-top:28px; }
+ .pending-card { flex-wrap:wrap; gap:8px; }
+ .pending-open { flex-basis:100%; }
+ .pending-card-actions { width:100%; }
+ .layout .pending-card-actions .button { min-height:44px; flex:1; font-size:13px; }
+ .layout .pending-card-actions .action-menu-trigger { min-height:44px; }
+ .layout.is-calendar-workspace .pending-panel { padding:10px 12px; }
+ .transfers-view .pending-card { padding-inline:4px; }
+}

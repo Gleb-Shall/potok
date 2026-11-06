@@ -6,6 +6,7 @@ Preact + Vite: portable application and shared calendar core. src/main.jsx start
 
 - [Календарь и переносы](calendar/README.md)
 - [События и история](events/README.md)
+- [Списки истории и переносов](activity/README.md)
 - [Шаблоны событий](templates/README.md)
 - [Записи и постоянные сведения](records/README.md)
 - [Авторизация, хранение и синхронизация](sync/README.md)

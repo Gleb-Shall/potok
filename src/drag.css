@@ -4,16 +4,13 @@
 .event-card.is-being-dragged { opacity:.28; transform:scale(.97); box-shadow:inset 0 0 0 1px #9477bd66; } /* taste-skill-ignore: inset stroke belongs to the existing working calendar UI. */
 .event-drag-preview { position:fixed!important; left:-10000px!important; top:0!important; opacity:.96!important; transform:rotate(3deg)!important; box-shadow:0 16px 36px #24143744!important; pointer-events:none; } /* taste-skill-ignore: floating drag preview or modal overlay, not a resting panel. */
 .is-dragging-event .day-column { transition:background-color .18s ease-out; }
-.day-column.drop-target { background:#f0e8fa!important; outline:2px solid #ad8bd6; outline-offset:-2px; border-radius:10px; }
-.drop-preview { display:flex; align-items:center; justify-content:center; gap:7px; padding:15px 8px; min-height:66px; border:2px dashed #ad8bd6; border-radius:12px; background:#ffffff80; color:#8060a0; animation:drop-slot-in .2s cubic-bezier(.23,1,.32,1) both; }
+.day-column.drop-target { background:var(--drop-surface)!important; outline:2px solid var(--accent); outline-offset:-2px; border-radius:10px; }
+.drop-preview { display:flex; align-items:center; justify-content:center; gap:7px; padding:15px 8px; min-height:66px; border:2px dashed var(--accent); border-radius:12px; background:var(--surface); color:var(--ink); animation:drop-slot-in .2s cubic-bezier(.23,1,.32,1) both; }
 .drop-preview strong { font-size:11px; font-weight:550; line-height:1.5; }
 .drop-preview .icon { width:18px; height:18px; flex:none; }
-.ghost-card.is-return-target { outline:2px dashed #a27acc; outline-offset:3px; background:#e6d7f64d; }
-.return-hint { font-size:11px; font-weight:650; color:#8a60af; text-decoration:none; }
-.pending-panel.drop-target { background:#f0e8fa!important; outline:2px dashed #ad8bd6; border-radius:15px; }
-.dark .day-column.drop-target,.dark .pending-panel.drop-target { background:#3b294c!important; }
-.dark .drop-preview { background:#281c3580; color:#d2b3eb; border-color:#9770b9; }
-.dark .return-hint { color:#d2b3eb; }
+.ghost-card.is-return-target { outline:2px dashed var(--accent); outline-offset:3px; background:var(--drop-surface); }
+.return-hint { font-size:11px; font-weight:650; color:var(--link-ink); text-decoration:none; }
+.pending-panel.drop-target { background:var(--drop-surface)!important; outline:2px dashed var(--accent); outline-offset:-2px; border-radius:0; }
 @keyframes drop-slot-in { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
 @media (prefers-reduced-motion:reduce) { .event-card.is-being-dragged { transform:none; }.event-drag-preview { transform:none!important; }.drop-preview { animation:none; }.is-dragging-event .day-column { transition:none; } }
 
@@ -23,24 +20,21 @@
 .press-drag-ghost time { display:block; font-size:12px; font-weight:650; margin-bottom:7px; }
 .press-drag-ghost strong { display:block; font-size:17px; line-height:1.15; }
 .touch-move-overlay { position:fixed; inset:0; z-index:1200; background:#15131c70; display:flex; align-items:flex-end; padding:16px 12px max(16px,env(safe-area-inset-bottom)); }
-.touch-move-picker { background:#fff; color:#262332; width:min(100%,480px); margin:0 auto; border-radius:24px; padding:22px 18px 14px; box-shadow:0 24px 80px #0003; } /* taste-skill-ignore: floating drag preview or modal overlay, not a resting panel. */
+.touch-move-picker { background:var(--surface); color:var(--ink); width:min(100%,480px); margin:0 auto; border-radius:24px; padding:22px 18px 14px; box-shadow:0 24px 80px #0003; } /* taste-skill-ignore: floating drag preview or modal overlay, not a resting panel. */
 .touch-move-picker header { display:flex; align-items:center; justify-content:space-between; }
 .touch-move-picker h2 { font-size:25px; margin:5px 0 0; }
-.touch-move-picker header small { font-size:10px; letter-spacing:.12em; color:#777181; }
+.touch-move-picker header small { font-size:10px; letter-spacing:.12em; color:var(--muted); }
 .touch-move-picker button { color:inherit; background:transparent; border:0; min-width:40px; min-height:44px; border-radius:12px; font:inherit; cursor:pointer; }
 .touch-move-picker header button { font-size:30px; }
-.touch-move-picker > p { font-size:14px; color:#777181; margin:14px 0; }
+.touch-move-picker > p { font-size:14px; color:var(--muted); margin:14px 0; }
 .touch-move-month { display:flex; align-items:center; justify-content:space-between; margin:4px 0 10px; text-transform:capitalize; }
 .touch-move-days { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:4px; }
-.touch-move-days > small { text-align:center; color:#777181; padding:7px 0; }
+.touch-move-days > small { text-align:center; color:var(--muted); padding:7px 0; }
 .touch-move-days button { position:relative; font-weight:650; aspect-ratio:1; min-width:0; }
-.touch-move-days button[aria-current=date] { outline:1px solid #a29aaf; outline-offset:-1px; }
-.touch-move-days button.is-source { background:#f0edf7; }
+.touch-move-days button[aria-current=date] { outline:1px solid var(--muted); outline-offset:-1px; }
+.touch-move-days button.is-source { background:var(--surface-selected); }
 .touch-move-days button.is-source span { position:absolute; bottom:5px; left:calc(50% - 2px); width:4px; height:4px; border-radius:50%; background:currentColor; }
-.touch-move-days button.is-target { background:#ff6b35; color:#181c19; scale:1.12; outline:2px solid #ff6b35; }
-.touch-move-picker footer { min-height:44px; display:grid; place-items:center; text-align:center; font-size:13px; color:#777181; margin-top:12px; }
-.dark .touch-move-picker { background:#25222d; color:#f0edf7; }
-.dark .touch-move-picker :is(p,small,footer) { color:#b6afc5; }
-.dark .touch-move-days button.is-source { background:#40384f; }
+.touch-move-days button.is-target { background:var(--accent); color:var(--accent-ink); scale:1.12; outline:2px solid var(--accent); }
+.touch-move-picker footer { min-height:44px; display:grid; place-items:center; text-align:center; font-size:13px; color:var(--muted); margin-top:12px; }
 @media (max-height:650px) { .touch-move-picker { padding:14px; } .touch-move-picker > p { margin:8px 0; } .touch-move-days button { aspect-ratio:auto; min-height:40px; } .touch-move-picker footer { margin-top:4px; } }
 .mobile-day.board-drop-target { outline:2px solid var(--accent); outline-offset:-2px; background:var(--surface-soft); }

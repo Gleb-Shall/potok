@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'preact/hooks';
 import { eventType, isEventMoved, getRecord, eventTitle, eventColor, fieldDisplay } from '../lib/events.js';
 import { minutesToTime } from '../lib/domain.js';
 import { LinkedValue, ExternalLink, LinkedText } from './LinkedValue.jsx';
-import { linkHref, recordLinks } from '../lib/links.js';
+import { linkHref, eventLinks } from '../lib/links.js';
 import { eventAppearance } from '../lib/state-appearance.js';
 import { dateLabel } from './UI.jsx';
 import { MarkerPaint } from './MarkerPaint.jsx';
@@ -28,9 +28,7 @@ export function EventCard({ event, data, onOpen, onDragStart, onDragEnd, preview
   const compact = available.filter(field => field.showCompact ?? (field.type === 'url' && field.showOnCard !== false));
   const linkFields = (expanded ? meta : compact).filter(field => field.type === 'url' && linkHref(event.fields?.[field.id]));
   const isPlainField = field => !linkFields.includes(field);
-  const eventLinkHrefs = new Set((expanded ? meta : compact).flatMap(field => field.type === 'url' && linkHref(event.fields?.[field.id]) ? [linkHref(event.fields[field.id])] : []));
-  const eventLinkLabels = new Set((expanded ? meta : compact).filter(field => field.type === 'url' && linkHref(event.fields?.[field.id])).map(field => field.label.trim().toLocaleLowerCase('ru')));
-  const inheritedLinks = recordLinks(record).filter(link => !eventLinkHrefs.has(link.href) && !eventLinkLabels.has(link.label.trim().toLocaleLowerCase('ru')));
+  const links = eventLinks(expanded ? meta : compact,event.fields,record);
   const summary = <><span class="card-time">{minutesToTime(event.start)}–{minutesToTime(event.start + event.duration)}<span class="card-time-icons">{appearance.icon && <span class="event-state-mark" role="img" aria-label={appearance.label} title={appearance.label}><Icon name={appearance.icon}/></span>}<span class="card-grip" aria-hidden="true">⠿</span></span></span><strong class="card-name">{eventTitle(data, event)}</strong><span class="event-type-label">{timeline && record?.name && record.name!==eventTitle(data,event)?record.name:type.name}{isEventMoved(event) ? ' · ↔' : event.seriesId ? ' · ↻' : ''}{timeline && event.location && <Icon name="pin"/>}</span></>;
   return <article class={`lesson-card event-card ${timeline?'timeline-card':''} color-${eventColor(data, event)} ${expanded ? 'is-expanded' : 'is-compact'} ${isDragging ? 'is-being-dragged' : ''} ${appearance.state === 'confirmed' ? 'is-done' : appearance.state === 'elapsed' ? 'is-past' : ''}`} data-event-id={!preview ? event.id : undefined} data-event-state={appearance.state} data-state-effect={appearance.effect} draggable={!preview && event.status !== 'done' && Boolean(onDragStart)} onDragStart={eventObject => {
     if (eventObject.target.closest?.('a')) { eventObject.preventDefault(); return; }
@@ -49,7 +47,8 @@ export function EventCard({ event, data, onOpen, onDragStart, onDragEnd, preview
     {appearance.effect === 'marker' && ['elapsed', 'confirmed'].includes(appearance.state) && <MarkerPaint key={appearance.state}/>}
     {preview ? <div class="card-open">{summary}</div> : <button type="button" class="card-open" onClick={() => onOpen(event.id)} aria-label={`${eventTitle(data, event)}, ${dateLabel(event.date)}, ${minutesToTime(event.start)}${appearance.icon ? `, ${appearance.label}` : ''}`}>{summary}</button>}
     {!expanded && compact.some(isPlainField) && <dl class="card-fields compact-fields">{compact.filter(isPlainField).map(field => <div key={field.id}><dt>{field.label}</dt><dd><LinkedValue field={field} value={event.fields[field.id]}/></dd></div>)}</dl>}
-    {(linkFields.length > 0 || inheritedLinks.length > 0) && <div class="card-record-links" aria-label="Ссылки события">{linkFields.map(field => <ExternalLink key={field.id} href={linkHref(event.fields[field.id])} className="card-link-chip">{field.linkLabel?.trim() || field.label}</ExternalLink>)}{inheritedLinks.map(link => <ExternalLink key={link.href} href={link.href} className="card-link-chip">{link.label}</ExternalLink>)}</div>}
+    {links.length > 0 && <div class="card-record-links" aria-label="Ссылки события">{links.map(link=><ExternalLink key={link.id} href={link.href} className="card-link-chip">{link.label}</ExternalLink>)}</div>}
+
     {expanded && <div class="card-expanded-content">
       {record && record.name !== eventTitle(data, event) && <span class="card-subject">{record.name}{(record.subject || record.subtitle) && ` · ${record.subject || record.subtitle}`}</span>}
       {meta.some(isPlainField) && <dl class="card-fields">{meta.filter(isPlainField).map(field => <div key={field.id}><dt>{field.label}</dt><dd><LinkedValue field={field} value={event.fields[field.id]}/></dd></div>)}</dl>}

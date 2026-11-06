@@ -74,7 +74,6 @@ body { color: var(--ink); }
 .map-view-expand { position: absolute; top: 66px; left: 15px; z-index: 3; }
 .map-view-expand .button { background: #fffffff0; box-shadow: 0 3px 10px #29314a15; }
 .events-map-view.is-fullscreen { position: fixed; inset: 0; width: 100vw; height: 100dvh; max-height: none; margin: 0; border-radius: 0; z-index: 50; }
-.pending-panel { background: #fff; border-radius: 16px; border: 1px dashed #dedfea; padding: 22px; }
 @media (max-width: 1050px) and (min-width: 761px) { .layout { grid-template-columns: 75px minmax(0, 1fr); } .brand { padding: 0; } .sidebar-note { display: none; } }
 @media (max-width: 760px) {
   .layout { display: block; }
@@ -130,18 +129,7 @@ body { color: var(--ink); }
 .day-column.is-past-day > .day-header { background: #f5f5f9; color: #666475; }
 .past-day-tag { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 500; }
 .past-day-tag .icon { width: 12px; height: 12px; }
-.event-history-panel { background: white; border: 1px solid #e5e4ef; border-radius: 20px; padding: 24px; }
-.history-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; }
-.history-toolbar .field { margin: 0; }
-.history-toolbar .field > span { font-size: 12px; }
-.history-summary { display: flex; flex-wrap: wrap; gap: 24px; padding: 16px 0; color: #666172; border-block: 1px solid #eceaf3; }
-.history-summary strong { color: #37324c; }
-.history-day { margin-top: 25px; }
-.history-day h2 { margin-bottom: 12px; font-size: 16px; }
-.history-event-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
-.history-event-grid .event-card { margin: 0; }
-.history-complete { margin-top: 8px; }
-@media (max-width: 700px) { .event-history-panel { padding: 16px; } .history-event-grid { grid-template-columns: 1fr; } .card-link-chip { min-height: 36px; } }
+@media (max-width: 700px) { .card-link-chip { min-height: 36px; } }
 .event-card.is-done { opacity: 1; }
 .event-card.is-done .card-name { text-decoration: none; }
 .event-time-state.cancelled { color: #a23e46; }

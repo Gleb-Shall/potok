@@ -68,8 +68,8 @@ it('student records can retain a reusable board link as a custom detail',async()
 it('history filters confirmed meetings and opens the actual historical occurrence',async()=>{
  const data=base();data.events=[event(),{...event(),id:'done',date:'2026-10-29',status:'done',title:'Проведённое'}];const open=vi.fn();
  await mount(<HistoryView data={data} now={now} onOpen={open} onStatus={()=>{}}/>);
- await input(root.querySelector('select'),'done','change');expect(root.textContent).toContain('Проведённое');expect(root.querySelectorAll('.event-card')).toHaveLength(1);
- await act(()=>root.querySelector('.card-open').click());expect(open.mock.calls[0][0].id).toBe('done');
+ await input(root.querySelector('[aria-label="Статус в истории"]'),'done','change');expect(root.textContent).toContain('Проведённое');expect(root.querySelectorAll('.activity-row')).toHaveLength(1);
+ await act(()=>root.querySelector('.activity-open').click());expect(open.mock.calls[0][0].id).toBe('done');
 });
 it('app ends repeats without losing earlier meetings after reopening storage',async()=>{
  const data=base(),today=todayISO();data.series=[{id:'weekly',typeId:'class',recordId:'course',title:'Повтор',from:addDays(today,-14),until:'',weekday:weekdayOf(today),start:0,duration:5,intervalWeeks:1,fields:{}}];

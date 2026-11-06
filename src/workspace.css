@@ -60,9 +60,6 @@
 .ghost-card small, .ghost-time { font-size: 11px; }
 .calendar-month .card-name { font-size: 15px; }
 .calendar-month .card-time { font-size: 12px; }
-.pending-heading h2 { font-size: 19px; }
-.pending-heading p, .pending-card small, .pending-choose { font-size: 13px; }
-.pending-card strong { font-size: 16px; }
 .wide-modal { width: min(700px, calc(100vw - 32px)); }
 dialog { padding: 28px; }
 dialog h2 { font-size: 27px; }

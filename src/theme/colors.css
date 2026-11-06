@@ -9,6 +9,9 @@
   --scrollbar-thumb:#cdd1c7; --today-accent:#e7693b; --today-ink:#fff;
   --now-accent:#bf4b25; --now-ink:#fff; --drop-surface:#fce7dc99; --drop-label:#c24d25;
   --pending-surface:#f8ecd9; --pending-ink:#805a25;
+  --done-surface:#e8f0e3; --done-ink:#3f6240; --link-ink:#964526;
+  --elapsed-title:var(--ink); --elapsed-meta:var(--card-secondary); --elapsed-marker-opacity:.22;
+  --confirmed-title:#3f6248; --confirmed-marker-opacity:.25;
   --card-violet:#ece9ef; --card-violet-ink:#6c5d79;
   --card-blue:#e5edf2; --card-blue-ink:#4c6b7c;
   --card-green:#e5ece0; --card-green-ink:#537042;
@@ -28,6 +31,9 @@
   --scrollbar-thumb:#58634f; --today-accent:#f48e5e; --today-ink:#21190f;
   --now-accent:#ff9768; --now-ink:#21190f; --drop-surface:#dc71332b; --drop-label:#a34725;
   --pending-surface:#3c3220; --pending-ink:#efc680;
+  --done-surface:#2a3b2b; --done-ink:#c2debd; --link-ink:#ffad82;
+  --elapsed-title:var(--ink); --elapsed-meta:var(--card-secondary); --elapsed-marker-opacity:.14;
+  --confirmed-title:#d1e7c9; --confirmed-marker-opacity:.16;
   --card-violet:#393347; --card-violet-ink:#e0d4f0;
   --card-blue:#2b3c4b; --card-blue-ink:#c6e0f2;
   --card-green:#323e2d; --card-green-ink:#d0e6bd;
@@ -71,7 +77,6 @@
 :root[data-theme=dark] .touch-move-picker :is(p,small,footer) { color:var(--muted); }
 :root[data-theme=dark] .touch-move-days button.is-target { color:var(--accent-ink); }
 :root[data-theme=dark] :is(.card-fields,.detail-fields,.profile-facts,.record-edit-preview) :is(dt,small) { color:var(--muted); }
-:root[data-theme=dark] .layout :is(.pending-card,.history-event) { background:var(--surface-soft); border-color:var(--line); color:var(--ink); }
 :root[data-theme=dark] .text-button { color:var(--muted); }
 :root[data-theme=dark] .danger-text { color:var(--danger); }
 :root[data-theme=dark] :is(.map-actions,.map-view-expand) .button,

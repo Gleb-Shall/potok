@@ -24,7 +24,7 @@ export function RecordEditor({ data, original, category, onSave, onClose, onDele
 }
 
 export function RecordDetails({ record, onEdit, onEvent, onClose, onDelete }) {
-  return <Modal title={record.name} eyebrow={RECORD_KINDS[record.kind] || record.kind} subtitle={record.subtitle} onClose={onClose}>
+  return <Modal title={record.name} subtitle={record.subtitle} onClose={onClose} className="product-dialog compact-dialog">
     {record.contact && <p class="notes-text"><LinkedText value={record.contact}/></p>}
     <dl class="detail-fields">{(record.details || []).map(item => <div key={item.id}><dt>{item.label}</dt><dd><LinkedText value={item.value}/></dd></div>)}</dl>
     {record.notes && <p class="notes-text"><LinkedText value={record.notes}/></p>}

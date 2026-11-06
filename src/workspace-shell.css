@@ -13,14 +13,14 @@
   min-height:60px; padding:8px 0 8px 56px; margin:0 0 16px; align-items:center;
 }
 .layout[data-workspace-view]:not(.is-calendar-workspace) .header-actions { margin-left:auto; gap:10px; }
-.layout[data-workspace-view]:not(.is-calendar-workspace) :is(.record-directory,.template-browser,.event-history-panel,.appearance-panel,.settings-card,.pending-panel) {
+.layout[data-workspace-view]:not(.is-calendar-workspace) :is(.record-directory,.template-browser,.appearance-panel,.settings-card) {
   background:transparent; border:0; border-radius:0; box-shadow:none;
 }
-.layout[data-workspace-view] :is(.record-directory,.template-browser,.event-history-panel) { padding:0; }
+.layout[data-workspace-view] :is(.record-directory,.template-browser) { padding:0; }
 .layout .directory-toolbar { min-height:42px; margin-bottom:16px; gap:16px; }
 .layout .directory-toolbar .search-field { width:min(100%,360px); margin:0; background:var(--surface-soft); border-color:transparent; }
 .layout .directory-filters { margin-bottom:20px; }
-.layout .directory-filters button { border-color:transparent; }
+.layout .directory-filters button { border-color:transparent; color:var(--muted); }
 .layout .directory-filters button[aria-pressed=true] { background:var(--surface-soft); color:var(--ink); border-color:transparent; }
 .layout .records-list-head { padding:10px 0; }
 .layout .record-list-row.student-tile { border-radius:0; padding:18px 0; background:transparent; }
@@ -35,7 +35,18 @@
 .layout .settings-panel { width:min(100%,860px); margin:0 auto; gap:0; }
 .layout .settings-card { padding:24px 0; }
 .layout .settings-card + .settings-card { border-top:1px solid var(--line); }
-.layout .history-toolbar { margin-bottom:16px; }
+.layout .empty-state { color:var(--muted); }
+.layout .empty-state h3 { color:var(--ink); }
+.layout .empty-state p { color:var(--muted); font-size:14px; }
+
+/* Shared portable dialogs use the same controls as the workbench panels. */
+:root[data-theme-scope=workspace] dialog > .modal-close { border:0; background:var(--control-surface); color:var(--muted); border-radius:8px; }
+:root[data-theme-scope=workspace] dialog .external-link { color:var(--link-ink); }
+:root[data-theme-scope=workspace] dialog :is(.notes-text,.profile-slot) { color:var(--muted); font-size:14px; }
+:root[data-theme-scope=workspace] dialog .profile-slot strong { color:var(--ink); }
+dialog.compact-dialog { width:min(560px,calc(100vw - 32px)); padding:28px; }
+.compact-dialog > h2 { padding-right:48px; }
+.compact-dialog.product-dialog > form { padding:0; overflow:visible; }
 
 /* Appearance is a centred preference sheet, without a duplicate page heading. */
 .layout[data-workspace-view=appearance] .appearance-panel { max-width:760px; margin:24px auto 0; padding:0 12px 32px; }
@@ -58,6 +69,7 @@
 .product-dialog .detail-fields:empty { display:none; }
 .product-dialog .inspector-footer .button { min-width:0; }
 @media(max-width:760px) {
+  dialog.compact-dialog { width:100%; padding:28px 20px calc(24px + env(safe-area-inset-bottom)); }
   .layout[data-workspace-view]:not(.is-calendar-workspace) .main { padding:0 16px 24px; }
   .layout[data-workspace-view]:not(.is-calendar-workspace) .page-header { padding:8px 0 8px 52px; margin-bottom:12px; }
   .layout[data-workspace-view] .header-actions > .sync-status { display:block; }

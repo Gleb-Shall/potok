@@ -128,15 +128,6 @@ dialog.product-dialog::backdrop { background:#1c241f55; }
 .pending-shortcut { display:flex; align-items:center; gap:8px; min-height:40px; padding:6px 12px; border:0; border-radius:8px; background:var(--pending-surface); color:var(--pending-ink); font:inherit; font-size:13px; }
 .pending-shortcut .icon { width:16px; height:16px; }
 .pending-shortcut > span { font-variant-numeric:tabular-nums; font-weight:600; }
-.layout .pending-panel { padding:20px 24px; border-style:solid; }
-.layout .pending-heading { margin-bottom:16px; }
-.layout .pending-heading h2 { font-size:20px; margin:0; font-weight:500; }
-.layout .pending-symbol { display:none; }
-.layout .pending-card { box-shadow:none; border-radius:8px; background:var(--surface-soft); border:0; flex-wrap:wrap; }
-.pending-open { flex:1; min-width:160px; min-height:44px; border:0; background:transparent; color:inherit; text-align:left; padding:0; }
-.pending-card-actions { display:flex; gap:8px; flex-wrap:wrap; }
-.layout .pending-card-actions .button { min-height:44px; font-size:14px; }
-.layout .pending-choose { color:var(--ink); }
 @media (max-width:760px) {
  dialog.product-dialog.panel-dialog { width:100%; max-width:100%; height:100dvh; max-height:100dvh; padding:0; }
  .panel-heading { padding:24px 68px 20px 20px; }
@@ -167,7 +158,6 @@ dialog.product-dialog::backdrop { background:#1c241f55; }
  .layout .card-controls > .action-menu-trigger { width:44px; min-height:44px; }
  .calendar-options-bar { flex-wrap:wrap; }
  .pending-shortcut { order:3; width:100%; justify-content:center; }
- .layout .pending-panel { padding:20px 16px; }
  .product-dialog .lesson-detail-time > span { font-size:30px; }
  .ui-action-menu > button { min-height:48px; padding-block:14px; }
 }

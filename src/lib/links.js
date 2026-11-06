@@ -41,3 +41,17 @@ export function recordLinks(record) {
   });
   return links.filter((link, index) => links.findIndex(item => item.href === link.href) === index);
 }
+
+// Event-specific labels/URLs override the reusable record's links in every view.
+export function eventLinks(fields, values = {}, record) {
+  const own = fields.flatMap(field => {
+    const href = field.type === 'url' ? linkHref(values[field.id]) : '';
+    return href ? [{ id:field.id, label:field.linkLabel?.trim() || field.label, fieldLabel:field.label, href }] : [];
+  });
+  const hrefs = new Set(own.map(link => link.href));
+  const labels = new Set(own.map(link => link.fieldLabel.trim().toLocaleLowerCase('ru')));
+  const inherited = recordLinks(record)
+    .filter(link => !hrefs.has(link.href) && !labels.has(link.label.trim().toLocaleLowerCase('ru')))
+    .map(link => ({ ...link, id:`record:${link.href}` }));
+  return [...own, ...inherited];
+}

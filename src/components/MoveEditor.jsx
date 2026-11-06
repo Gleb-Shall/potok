@@ -10,7 +10,7 @@ export function MoveEditor({ data, event, date, onSave, onAdvanced, onRestore, o
   const [time, setTime] = useState(minutesToTime(event.start));
   const [changeDay, setChangeDay] = useState(!date);
   const [error, setError] = useState('');
-  return <Modal title="Перенести событие" subtitle={eventTitle(data, event)} onClose={onClose}>
+  return <Modal title="Перенести событие" subtitle={eventTitle(data, event)} onClose={onClose} className="product-dialog compact-dialog">
     <form onSubmit={input => { input.preventDefault(); try { onSave(saveMove(data, event, target, timeToMinutes(time)), isEventMoved(event) && target === (event.originalDate || event.anchorDate) && timeToMinutes(time) === (event.originalStart ?? event.start) ? 'Перенос отменён — событие на исходном месте' : 'Событие перенесено', target); } catch (error) { setError(error.message); } }}>
       <div class="move-destination"><span>Новый день</span><strong>{dateLabel(target, { weekday: 'long' })}</strong><button class="text-button" type="button" onClick={() => setChangeDay(!changeDay)}>{changeDay ? 'Скрыть календарь' : 'Выбрать другой день'}</button></div>
       {changeDay && <Field label="Дата" type="date" value={target} onChange={setTarget} required/>}
