@@ -1,4 +1,5 @@
-import { useEffect, useRef, useId } from 'preact/hooks';
+import { createContext } from 'preact';
+import { useEffect, useRef, useId, useContext } from 'preact/hooks';
 import { Icon } from './Icon.jsx';
 import { COLOR_NAMES } from '../lib/events.js';
 
@@ -7,6 +8,7 @@ export const money = value => new Intl.NumberFormat('ru-RU').format(value || 0) 
 export const initials = name => (name || '?').split(/\s+/).slice(0, 2).map(item => item[0]).join('');
 export const dayNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
 export const longDays = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
+export const SaveErrorContext = createContext('');
 export function Button({ children, icon, kind = 'secondary', ...props }) { return <button type="button" class={`button ${kind}`} {...props}>{icon && <Icon name={icon}/>}{children}</button>; }
 export function Field({ label, value, onChange, type = 'text', children, ...props }) {
   return <label class="field"><span>{label}</span>{children || (type === 'textarea'
@@ -19,12 +21,13 @@ export function Colors({ value, onChange }) { return <fieldset class="color-fiel
 export function Modal({ title, subtitle, eyebrow, onClose, children, wide = false, className = '', fullscreen = false, onEscape, panel = false, onOpen }) {
   const ref = useRef(null);
   const titleId = useId();
+  const saveError = useContext(SaveErrorContext);
   useEffect(() => { const dialog = ref.current; dialog.showModal(); onOpen?.(dialog); return () => dialog.close(); }, []);
   return <dialog ref={ref} class={`${wide ? 'wide-modal' : ''} ${className} ${fullscreen ? 'is-fullscreen' : ''} ${panel ? 'panel-dialog' : ''}`} aria-labelledby={titleId} onCancel={event => { if (onEscape) { event.preventDefault(); onEscape(); } else onClose(); }} onClick={event => {
     if (event.target !== event.currentTarget) return;
     const rect = event.currentTarget.getBoundingClientRect();
     if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) onClose();
-  }}><button type="button" class="modal-close icon-button" aria-label="Закрыть окно" onClick={onClose}><Icon name="close"/></button>{panel ? <header class="panel-heading">{eyebrow && <p class="eyebrow">{eyebrow}</p>}<h2 id={titleId}>{title}</h2>{subtitle && <p class="modal-subtitle">{subtitle}</p>}</header> : <>{eyebrow && <p class="eyebrow">{eyebrow}</p>}<h2 id={titleId}>{title}</h2>{subtitle && <p class="modal-subtitle">{subtitle}</p>}</>}{children}</dialog>;
+  }}><button type="button" class="modal-close icon-button" aria-label="Закрыть окно" onClick={onClose}><Icon name="close"/></button>{panel ? <header class="panel-heading">{eyebrow && <p class="eyebrow">{eyebrow}</p>}<h2 id={titleId}>{title}</h2>{subtitle && <p class="modal-subtitle">{subtitle}</p>}</header> : <>{eyebrow && <p class="eyebrow">{eyebrow}</p>}<h2 id={titleId}>{title}</h2>{subtitle && <p class="modal-subtitle">{subtitle}</p>}</>}{saveError && <p class="dialog-save-error" role="alert">{saveError}</p>}{children}</dialog>;
 }
 export function FormFooter({ onClose, label = 'Сохранить', children }) { return <div class="modal-footer">{children}<Button onClick={onClose}>Отмена</Button><button type="submit" class="button primary">{label}</button></div>; }
 export function ErrorMessage({ error }) { return error ? <p class="form-error" role="alert">{error}</p> : null; }

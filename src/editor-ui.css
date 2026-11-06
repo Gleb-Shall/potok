@@ -23,6 +23,8 @@ dialog.product-dialog::backdrop { background:#1c241f55; }
 .product-dialog .modal-footer button[type=submit] { margin-left:0; }
 .product-dialog .modal-footer > .action-menu-trigger { margin-right:auto; }
 .product-dialog .form-error { position:sticky; bottom:72px; z-index:5; padding:12px; margin:12px 0 0; background:var(--danger-surface); border-radius:8px; color:var(--danger); }
+.dialog-save-error { flex:none; padding:12px; margin:0 0 20px; border-radius:8px; color:var(--danger); background:var(--danger-surface); font-size:14px; line-height:1.5; }
+.panel-dialog > .dialog-save-error { margin-inline:28px; }
 .product-dialog .quiet-note { color:var(--text-secondary); font-size:13px; line-height:1.5; }
 .product-dialog .editor-section { padding:0 0 20px; margin:0 0 20px; border:0; }
 .product-dialog .editor-section + .editor-section { padding-top:0; border-top:0; }

@@ -18,7 +18,7 @@ function setup(extra={}) {
 test('warms the workspace before mounting and reuses it across page subscriptions', () => {
   const { client, streams, login } = setup();
   assert.equal(client.getSession().resolved, false);
-  login({ uid: 'alice' });
+  login({ id: 'alice' });
   streams[0].callback({ revision: 3 }, true);
   const received = [];
   const off = client.subscribe('alice', (data, server) => received.push([data.revision, server]));
@@ -29,8 +29,8 @@ test('warms the workspace before mounting and reuses it across page subscription
 });
 test('clears the previous account and ignores its late stream responses', () => {
   const { client, streams, login } = setup();
-  login({ uid: 'alice' }); streams[0].callback({ revision: 3 }, true);
-  login({ uid: 'bob' });
+  login({ id: 'alice' }); streams[0].callback({ revision: 3 }, true);
+  login({ id: 'bob' });
   assert.equal(streams[0].stopped, true);
   streams[0].callback({ revision: 99 }, true);
   assert.equal(client.getSession().data, null);
@@ -44,7 +44,7 @@ test('clears the previous account and ignores its late stream responses', () => 
 });
 test('revoked access discards the retained snapshot and reconnects a failed stream', () => {
   const { client, streams, login } = setup();
-  login({ uid: 'alice' }); streams[0].callback({ revision: 3 }, true);
+  login({ id: 'alice' }); streams[0].callback({ revision: 3 }, true);
   streams[0].onError({ code: 'permission-denied' });
   assert.equal(client.getSession().data, null);
   client.subscribe('alice', () => {});
@@ -52,7 +52,7 @@ test('revoked access discards the retained snapshot and reconnects a failed stre
 });
 test('auth failures discard the verified account and its data', () => {
   const { client, streams, login, failAuth } = setup();
-  login({ uid: 'alice' }); streams[0].callback({ revision: 3 }, true);
+  login({ id: 'alice' }); streams[0].callback({ revision: 3 }, true);
   failAuth(new Error('Auth failed'));
   assert.equal(client.getSession().user, null);
   assert.equal(client.getSession().data, null);
@@ -62,7 +62,7 @@ test('only server confirmations advance sync time, including manual refresh and 
  let now=1000;t.mock.method(Date,'now',()=>now);
  const remembered=[];
  const {client,streams,login}=setup({fetch:async()=>({revision:4}),save:async()=>({revision:5}),rememberSync:(uid,at)=>remembered.push([uid,at])});
- login({uid:'alice'});streams[0].callback({revision:2},false);assert.equal(client.getSession().lastSyncedAt,null);
+ login({id:'alice'});streams[0].callback({revision:2},false);assert.equal(client.getSession().lastSyncedAt,null);
  streams[0].callback({revision:3},true);assert.equal(client.getSession().lastSyncedAt,1000);
  now=2000;streams[0].callback({revision:3},false);assert.equal(client.getSession().lastSyncedAt,1000);
  let replay;client.subscribe('alice',(_data,_server,at)=>{replay=at;});assert.equal(replay,1000);
@@ -72,9 +72,9 @@ test('only server confirmations advance sync time, including manual refresh and 
 test('an unsuccessful fetch retains the last success and a late fetch cannot cross an account change',async()=>{
  let finish;
  const {client,streams,login}=setup({fetch:()=>new Promise(resolve=>{finish=resolve;})});
- login({uid:'alice'});streams[0].callback({revision:3},true);const stamp=client.getSession().lastSyncedAt;
- const waiting=client.fetch('alice');login({uid:'bob'});login({uid:'alice'});finish({revision:99});
+ login({id:'alice'});streams[0].callback({revision:3},true);const stamp=client.getSession().lastSyncedAt;
+ const waiting=client.fetch('alice');login({id:'bob'});login({id:'alice'});finish({revision:99});
  await assert.rejects(waiting,/Аккаунт изменился/);assert.equal(client.getSession().data,null);assert.equal(client.getSession().lastSyncedAt,null);
- const failing=setup({fetch:async()=>{throw new Error('No connection');}});failing.login({uid:'alice'});failing.streams[0].callback({revision:3},true);const before=failing.client.getSession().lastSyncedAt;
+ const failing=setup({fetch:async()=>{throw new Error('No connection');}});failing.login({id:'alice'});failing.streams[0].callback({revision:3},true);const before=failing.client.getSession().lastSyncedAt;
  await assert.rejects(failing.client.fetch('alice'),/No connection/);assert.equal(failing.client.getSession().lastSyncedAt,before);assert.ok(stamp);
 });

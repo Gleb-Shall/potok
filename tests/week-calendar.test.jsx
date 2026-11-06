@@ -5,7 +5,6 @@ import {App} from '../src/App.jsx';
 import {defaultTypes,moveEvent} from '../src/lib/events.js';
 import {todayISO,addDays,mondayOf} from '../src/lib/domain.js';
 
-vi.mock('../src/lib/firebase-client.js',()=>({connectFirebase:vi.fn(async()=>({onAuth:callback=>{callback(null);return()=>{};}})),getFirebaseSession:()=>undefined,explainFirebaseError:error=>error.message}));
 const maps=vi.hoisted(()=>({created:0,destroyed:0}));
 vi.mock('../src/components/MapCanvas.jsx',async()=>{
  const {useEffect}=await import('preact/hooks');

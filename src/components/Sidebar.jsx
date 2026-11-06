@@ -12,7 +12,7 @@ const SECTIONS = [
   ['appearance', 'sun', 'Внешний вид'],
 ];
 
-export function Sidebar({ cloudConfigured = true, collapsed, onToggle, view, onChange, pending, account, onSignIn, onHome }) {
+export function Sidebar({ cloudConfigured = false, provider, collapsed, onToggle, view, onChange, pending, account, onSignIn, onHome }) {
   const panel=useRef(null);
   useEffect(()=>{
     if(collapsed)return;
@@ -21,7 +21,7 @@ export function Sidebar({ cloudConfigured = true, collapsed, onToggle, view, onC
     document.addEventListener('pointerdown',outside);document.addEventListener('keydown',escape);
     return()=>{document.removeEventListener('pointerdown',outside);document.removeEventListener('keydown',escape);};
   },[collapsed,onToggle]);
-  const signInLabel = cloudConfigured ? 'Войти через Google' : 'Подключить облако';
+  const signInLabel = provider?.signInLabel || 'Войти';
   const toggleLabel = collapsed ? 'Открыть разделы' : 'Свернуть разделы';
   const name = account.user?.displayName || account.user?.email || 'Моё расписание';
   return <aside ref={panel} class="sidebar" aria-label="Боковая панель">
@@ -34,8 +34,8 @@ export function Sidebar({ cloudConfigured = true, collapsed, onToggle, view, onC
     </button>)}</nav>
     <div class="sidebar-bottom">
       <button type="button" class={`nav-item ${view === 'settings' ? 'active' : ''}`} aria-label="Настройки" aria-current={view === 'settings' ? 'page' : undefined} data-tooltip="Настройки" onClick={() => onChange('settings')}><Icon name="settings"/><span class="sidebar-label">Настройки</span></button>
-      <button type="button" class="sidebar-profile" aria-label={`Аккаунт: ${name}`} data-tooltip={name} onClick={() => onChange('settings')}><span class="account-avatar">{account.user ? initials(name) : 'Я'}</span><span class="sidebar-profile-copy"><strong>{name}</strong><small><span class="status-dot"/>{account.user ? 'Google-аккаунт' : 'На этом устройстве'}</small></span></button>
-      {!account.user && <button type="button" class="sidebar-signin" aria-label={signInLabel} data-tooltip={signInLabel} disabled={account.loading} onClick={onSignIn}><Icon name="login"/><span class="sidebar-label">{account.loading ? 'Подключение…' : signInLabel}</span></button>}
+      <button type="button" class="sidebar-profile" aria-label={`Аккаунт: ${name}`} data-tooltip={name} onClick={() => onChange('settings')}><span class="account-avatar">{account.user ? initials(name) : 'Я'}</span><span class="sidebar-profile-copy"><strong>{name}</strong><small><span class="status-dot"/>{account.user ? provider?.accountLabel || provider?.name || 'Аккаунт' : 'На этом устройстве'}</small></span></button>
+      {!account.user && cloudConfigured && <button type="button" class="sidebar-signin" aria-label={signInLabel} data-tooltip={signInLabel} disabled={account.loading} onClick={onSignIn}><Icon name="login"/><span class="sidebar-label">{account.loading ? 'Подключение…' : signInLabel}</span></button>}
     </div>
   </aside>;
 }

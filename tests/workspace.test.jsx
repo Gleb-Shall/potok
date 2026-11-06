@@ -5,12 +5,13 @@ import { act } from 'preact/test-utils';
 import { useWorkspace } from '../src/hooks/useWorkspace.js';
 import { emptyData } from '../src/lib/storage.js';
 const connection = vi.hoisted(() => ({ onAuth: vi.fn(), subscribe: vi.fn(), save: vi.fn(), fetch:vi.fn() }));
-vi.mock('../src/lib/firebase-client.js', () => ({ connectFirebase: vi.fn(async () => connection), getFirebaseSession: () => undefined, explainFirebaseError: e => e.message }));
-let root, auth, snapshot;
+const provider={id:'own-server',name:'Own server',connect:async()=>connection,getSession:()=>undefined};
+let root, auth, snapshot, renderedWorkspace;
 const data = revision => ({ ...emptyData(), records: [], revision });
 function Harness() {
  const [editing, setEditing] = useState(false), [error, setError] = useState('');
- const workspace = useWorkspace(editing);
+ const workspace = useWorkspace(editing,{provider});
+ renderedWorkspace=workspace;
  return <><output>{`${workspace.session.mode}:${workspace.session.data.revision || 0}:${workspace.account.saving}:${workspace.stale}`}</output><time data-sync-time>{workspace.account.lastSyncedAt || 'none'}</time><span data-sync-state>{String(workspace.account.syncing)}</span><span role="alert">{error || workspace.account.syncError}</span><button onClick={async()=>{try{await workspace.sync();}catch(e){setError(e.message);}}}>sync</button><button onClick={() => setEditing(true)}>edit</button><button onClick={() => { setEditing(false); workspace.refresh(); }}>refresh</button><button onClick={async () => { try { await workspace.save(data(0)); } catch(e) {setError(e.message);} }}>save</button></>;
 }
 const settle = () => new Promise(resolve => setTimeout(resolve, 0));
@@ -18,19 +19,20 @@ const click = async text => act(async () => { [...root.querySelectorAll('button'
 const status = () => root.querySelector('output').textContent;
 beforeEach(async () => {
  vi.clearAllMocks(); localStorage.clear();
+ connection.fetch.mockReset().mockResolvedValue(data(3)); connection.save.mockReset();
  connection.onAuth.mockImplementation(callback => {auth=callback;callback(null);return vi.fn();});
  connection.subscribe.mockImplementation((_uid, callback) => {snapshot=callback;return vi.fn();});
  root=document.createElement('div'); document.body.append(root);
  await act(() => render(<Harness/>,root));
- await act(() => auth({uid:'alice'})); await act(() => snapshot(data(3),true));
+ await act(() => auth({id:'alice'})); await act(() => snapshot(data(3),true));
 });
 afterEach(async () => {await act(()=>render(null,root));root.remove();vi.unstubAllGlobals();vi.restoreAllMocks();});
 it('freezes remote changes while editing and uses old revision for conflict detection',async () => {
  await click('edit');await act(()=>snapshot(data(4),true));
  expect(status()).toBe('cloud:3:false:true');
- connection.save.mockRejectedValue(new Error('Конфликт'));
- await click('save');expect(connection.save).toHaveBeenCalledWith('alice',expect.anything(),3);
- expect(status()).toBe('cloud:3:false:true');expect(root.textContent).toContain('Конфликт');
+ connection.fetch.mockResolvedValue(data(4));
+ await click('save');expect(connection.fetch).toHaveBeenCalledWith('alice');expect(connection.save).not.toHaveBeenCalled();
+ expect(status()).toBe('cloud:3:false:true');expect(root.textContent).toContain('изменилось на другом устройстве');
  await click('refresh');expect(status()).toBe('cloud:4:false:false');
 });
 it('only reports saved after acknowledgement and ignores repeated clicks in flight',async () => {
@@ -41,7 +43,7 @@ it('only reports saved after acknowledgement and ignores repeated clicks in flig
 });
 it('never applies an in-flight save to a different account',async () => {
  let finish;connection.save.mockImplementation(()=>new Promise(resolve=>{finish=resolve;}));
- await click('save');await act(()=>auth({uid:'bob'}));await act(()=>snapshot(data(8),true));
+ await click('save');await act(()=>auth({id:'bob'}));await act(()=>snapshot(data(8),true));
  expect(status()).toBe('cloud:8:false:false');
  await act(async ()=>{ finish(data(4)); await settle(); });expect(status()).toBe('cloud:8:false:false');
 });
@@ -52,7 +54,7 @@ it('blocks cloud writes offline and keeps visible data',async () => {
  expect(root.textContent).toContain('Нет интернета');
 });
 it('opens cached data before the server responds but blocks writes until confirmed', async () => {
- await act(()=>auth({uid:'bob'}));
+ await act(()=>auth({id:'bob'}));
  await act(()=>snapshot(data(2),false));
  expect(status()).toBe('cloud:2:false:false');
  await click('save');expect(connection.save).not.toHaveBeenCalled();
@@ -82,4 +84,36 @@ it('refresh on returning to a stale tab keeps an open draft and marks a remote c
  await act(async()=>{window.dispatchEvent(new Event('focus'));window.dispatchEvent(new Event('focus'));await settle();});
  expect(connection.fetch).toHaveBeenCalledOnce();expect(status()).toBe('cloud:3:false:true');
  expect(root.querySelector('[data-sync-time]').textContent).toBe('2000');
+});
+
+it('retains the revision used to compute an action even if a newer render arrives',async()=>{
+ const oldSave=renderedWorkspace.save;
+ await act(()=>snapshot(data(4),true));
+ connection.fetch.mockResolvedValue(data(4));
+ await act(async()=>{await expect(oldSave(data(3))).rejects.toThrow('изменилось на другом устройстве');});
+ expect(connection.save).not.toHaveBeenCalled();
+ expect(status()).toBe('cloud:4:false:true');
+});
+
+it('does not write after an A to B to A account change during preflight',async()=>{
+ let finish;connection.fetch.mockImplementation(()=>new Promise(resolve=>{finish=resolve;}));
+ await click('save');
+ await act(()=>auth({id:'bob'}));await act(()=>auth({id:'alice'}));await act(()=>snapshot(data(8),true));
+ await act(async()=>{finish(data(3));await settle();});
+ expect(connection.save).not.toHaveBeenCalled();expect(status()).toBe('cloud:8:false:false');
+});
+
+it('keeps the open draft and skips CAS when the preflight server read fails',async()=>{
+ await click('edit');connection.fetch.mockRejectedValue(new Error('Server read failed'));
+ await click('save');
+ expect(connection.save).not.toHaveBeenCalled();expect(status()).toBe('cloud:3:false:false');
+ expect(root.textContent).toContain('Server read failed');
+});
+
+it('reconnecting the same identity preserves the draft base instead of replacing it with empty data',async()=>{
+ await click('edit');
+ connection.onAuth.mockImplementation(callback=>{auth=callback;callback({id:'alice'});return vi.fn();});
+ await act(()=>renderedWorkspace.reconnect());
+ await act(()=>snapshot(data(4),true));
+ expect(status()).toBe('cloud:3:false:true');
 });

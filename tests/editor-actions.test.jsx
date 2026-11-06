@@ -8,7 +8,6 @@ import { RecordFields } from '../src/components/RecordFields.jsx';
 import { App } from '../src/App.jsx';
 import { defaultTypes, moveEvent } from '../src/lib/events.js';
 import { todayISO } from '../src/lib/domain.js';
-vi.mock('../src/lib/firebase-client.js', () => ({ connectFirebase:vi.fn(async () => ({onAuth:callback => {callback(null);return ()=>{};}})), getFirebaseSession:()=>undefined, explainFirebaseError:error=>error.message }));
 let root;
 const mount = component => act(() => render(component,root));
 const click = node => act(() => node.click());
