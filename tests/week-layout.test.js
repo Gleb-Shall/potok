@@ -9,7 +9,7 @@ test('overlap groups use distinct tracks, adjacent events reuse full width and s
  assert.deepEqual(layout.map(({event,column,columns})=>[event.id,column,columns]),[['a',0,2],['b',1,2],['c',0,2],['d',0,1]]);
 });
 test('visible hours include early and late events without hiding them',()=>{
- assert.deepEqual(weekBounds([]),{start:420,end:1380});
+ assert.deepEqual(weekBounds([]),{start:0,end:1440});
  assert.deepEqual(weekBounds([{start:30,duration:15},{start:1380,duration:60}],8,20),{start:0,end:1440});
 });
 test('drops snap to quarter hours, fit the full duration and allow same-day time targets',()=>{

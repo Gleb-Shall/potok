@@ -2,7 +2,7 @@
 export const HOUR_HEIGHT = 76;
 export const TIME_STEP = 15;
 
-export function weekBounds(events, from = 7, to = 23) {
+export function weekBounds(events, from = 0, to = 24) {
   const dated = events.filter(event => Number.isFinite(event.start) && Number.isFinite(event.duration));
   return {
     start: Math.max(0, Math.min(from * 60, ...dated.map(event => Math.floor(event.start / 60) * 60))),

@@ -1,11 +1,21 @@
 /* Time is the structure. Extra information lives in the inspector. */
-.layout.is-calendar-workspace .main { padding:20px 24px 14px; }
-.layout.is-calendar-workspace .page-header { margin:0 0 20px; padding-left:60px; min-height:42px; }
+.layout.is-calendar-workspace { height:100dvh; min-height:0; grid-template-rows:minmax(0,1fr); background:var(--surface); }
+.layout.is-calendar-workspace .main { display:flex; flex-direction:column; height:100%; min-height:0; max-width:none; margin:0; padding:0; overflow:hidden; background:var(--surface); }
+.layout.is-calendar-workspace .page-header { flex:none; margin:0; padding:16px 24px 12px 84px; min-height:74px; }
 .layout.is-calendar-workspace .page-header h1 { font-size:23px; letter-spacing:-.5px; }
-.layout .schedule-panel.is-timeline { border-radius:12px; overflow:hidden; }
-.layout .is-timeline .calendar-toolbar { padding:18px 20px 10px; gap:16px; }
+.layout.is-calendar-workspace .schedule-panel { display:flex; flex-direction:column; flex:1; min-height:0; border:0; border-radius:0; box-shadow:none; background:var(--surface); }
+.layout.is-calendar-workspace :is(.calendar-toolbar,.calendar-options-bar,.week-mobile-controls) { flex:none; }
+.layout.is-calendar-workspace .calendar-toolbar { padding:8px 24px; }
+.layout.is-calendar-workspace .calendar-options-bar { padding:0 24px 8px; }
+.layout.is-calendar-workspace .calendar-scroll { flex:1; min-height:0; border-radius:0; overflow:auto; }
+.layout.is-calendar-workspace .page-footer { display:none; }
+.layout.is-calendar-workspace .schedule-panel { padding-bottom:env(safe-area-inset-bottom); }
+.layout.is-calendar-workspace :is(.demo-banner,.account-banner,.reminder-inbox) { flex:none; margin:0; padding:8px 24px; max-height:20dvh; overflow:auto; }
+.layout.is-calendar-workspace .pending-panel { flex:none; min-height:0; max-height:28dvh; overflow:auto; margin:0; border:0; border-top:1px solid var(--line); border-radius:0; padding:12px 24px; }
+.layout.is-calendar-workspace .events-map-view:not(.is-fullscreen) { flex:1; min-height:0; height:auto; border-radius:0; }
+.layout .schedule-panel.is-timeline { overflow:visible; }
+.layout .is-timeline .calendar-toolbar { gap:16px; }
 .layout .is-timeline .calendar-period h2 { font-size:25px; font-weight:550; }
-.layout .is-timeline .calendar-options-bar { padding:0 20px 12px; }
 .week-layout-switch { display:flex; align-items:center; padding:3px; background:#f2f3ef; border-radius:7px; gap:2px; }
 .week-layout-switch button { border:0; border-radius:5px; min-height:30px; padding:5px 12px; font:inherit; font-size:13px; background:transparent; color:var(--muted); white-space:nowrap; cursor:pointer; }
 .week-layout-switch button[aria-pressed=true] { color:var(--ink); background:white; box-shadow:0 1px 3px #20251e0d; }
@@ -14,12 +24,12 @@
 .week-hours select { min-width:0; width:86px; min-height:36px; background:#f7f8f4; color:var(--ink); border:1px solid var(--line); border-radius:6px; padding:5px; font:inherit; }
 .week-hours small { display:block; font-size:12px; color:var(--muted); line-height:1.4; margin:8px 0; }
 .week-mobile-controls { display:none; }
-.week-timeline { --week-axis:52px; background:#fff; }
-.week-scroller { height:calc(100svh - 225px); min-height:360px; max-height:1000px; overflow:auto; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:#cdd1c7 transparent; outline-offset:-2px; }
+.week-timeline { --week-axis:52px; display:flex; flex-direction:column; flex:1; min-height:0; background:var(--surface); }
+.week-scroller { flex:1; min-height:0; overflow:auto; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:#cdd1c7 transparent; outline-offset:-2px; }
 .week-table { display:grid; grid-template-columns:var(--week-axis) repeat(7,minmax(110px,1fr)); min-width:860px; position:relative; }
-.week-axis-heading,.week-day-heading { position:sticky; top:0; z-index:6; border-top:1px solid #e5e7e0; border-bottom:1px solid #e5e7e0; background:#fff; height:70px; }
+.week-axis-heading,.week-day-heading { position:sticky; top:0; z-index:6; border-bottom:1px solid #e5e7e0; background:var(--surface); height:56px; }
 .week-axis-heading { left:0; z-index:8; display:flex; align-items:end; padding:0 8px 10px; font-size:10px; letter-spacing:.04em; color:#8c9187; }
-.week-day-heading { display:flex; align-items:center; justify-content:center; gap:5px; border-left:1px solid #e9ebe5; overflow:hidden; }
+.week-day-heading { display:flex; align-items:center; justify-content:center; gap:5px; overflow:hidden; }
 .week-day-heading > button:first-of-type { display:flex; align-items:center; gap:9px; border:0; background:transparent; color:var(--ink); padding:10px 5px; cursor:pointer; position:relative; z-index:1; }
 .week-day-heading > button > span { font-size:12px; color:#777e70; }
 .week-day-heading strong { width:34px; height:34px; display:grid; place-items:center; font-size:23px; font-weight:450; font-variant-numeric:tabular-nums; line-height:1; border-radius:50%; }
@@ -114,14 +124,18 @@
 .event-place-footer { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; padding:12px 16px; font-size:13px; color:var(--muted); }
 .event-place-footer a { color:var(--accent); }
 @media(max-width:760px) {
- .layout.is-calendar-workspace .main { padding:0 12px calc(96px + env(safe-area-inset-bottom)); }
- .layout.is-calendar-workspace .page-header { padding-left:0; margin-bottom:12px; min-height:40px; }
- .layout.is-calendar-workspace .page-header h1 { font-size:24px; }
- .layout .schedule-panel.is-timeline { background:#fff; border:1px solid var(--line); }
- .layout .is-timeline .calendar-toolbar { padding:14px 10px 8px; gap:12px 4px; }
+ .layout.is-calendar-workspace .mobile-workspace-header { display:none; }
+ .layout.is-calendar-workspace .page-header { padding:16px 12px 8px 68px; min-height:74px; gap:8px; }
+ .layout.is-calendar-workspace .page-header h1 { font-size:20px; }
+ .layout.is-calendar-workspace .header-actions > .sync-status { display:block; }
+ .layout.is-calendar-workspace .sync-copy > span { display:none; }
+ .layout.is-calendar-workspace .header-actions > .button.primary { width:40px; min-width:40px; padding:9px; font-size:0; gap:0; }
+ .layout.is-calendar-workspace .header-actions > .button.primary .icon { width:20px; height:20px; }
+ .layout.is-calendar-workspace .calendar-toolbar { padding:4px 12px 8px; gap:8px 4px; }
  .layout .is-timeline .calendar-period h2 { font-size:21px; }
  .layout .is-timeline .range-switch { margin:0; }
- .layout .is-timeline .calendar-options-bar { padding:2px 10px 6px; gap:8px; flex-wrap:wrap; }
+ .layout.is-calendar-workspace .calendar-options-bar { padding:2px 12px 6px; gap:8px; flex-wrap:wrap; }
+ .layout.is-calendar-workspace .calendar-options > summary { width:36px; justify-content:center; font-size:0; gap:0; }
  .is-timeline .period-count { display:none; }
  .week-layout-switch button { padding:5px 8px; font-size:12px; }
  .is-timeline .calendar-options { margin-left:auto; }
@@ -130,9 +144,8 @@
  .week-mobile-controls > div { display:flex; gap:2px; }
  .week-mobile-controls button { min-width:34px; min-height:30px; font:inherit; background:#f3f4ef; border:0; color:var(--muted); border-radius:5px; }
  .week-mobile-controls button[aria-pressed=true] { background:#e7eade; color:var(--ink); }
- .week-timeline { --week-axis:40px; --week-column:calc((100vw - 66px)/var(--mobile-day-count)); }
+ .week-timeline { --week-axis:40px; --week-column:calc((100vw - var(--week-axis))/var(--mobile-day-count)); }
  .week-table { min-width:0; width:max-content; grid-template-columns:var(--week-axis) repeat(7,var(--week-column)); }
- .week-scroller { height:calc(100svh - 338px); min-height:320px; max-height:none; }
  .week-day-heading,.week-axis-heading { height:56px; }
  .week-day-heading { gap:0; }
  .week-day-heading > button:first-of-type { flex-direction:column; gap:3px; padding:5px; }
@@ -181,8 +194,7 @@
  .layout .mobile-workspace-header { padding-left:54px; min-height:78px; }
  .layout .mobile-workspace-header .brand-mark { display:none; }
  .mobile-bottom-nav { display:none; }
- .layout .main,.layout.is-calendar-workspace .main { padding-bottom:calc(24px + env(safe-area-inset-bottom)); }
- .week-scroller { height:calc(100svh - 290px); }
+ .layout:not(.is-calendar-workspace) .main { padding-bottom:calc(24px + env(safe-area-inset-bottom)); }
 }
 .layout .sidebar nav { display:grid; grid-template-columns:1fr; width:100%; }
 .layout .sidebar .sidebar-bottom { display:block; }

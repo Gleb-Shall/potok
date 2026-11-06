@@ -22,8 +22,8 @@ const dragTo=async(date,minute)=>{
  const start=new Event('dragstart',{bubbles:true,cancelable:true});Object.defineProperty(start,'dataTransfer',{value:transfer});
  await act(()=>card.dispatchEvent(start));
  const lane=root.querySelector(`[data-time-date="${date}"]`);
- lane.getBoundingClientRect=()=>({top:0,height:1216});
- const drop=new MouseEvent('drop',{bubbles:true,cancelable:true,clientY:(minute-420)/60*76});Object.defineProperty(drop,'dataTransfer',{value:transfer});
+ lane.getBoundingClientRect=()=>({top:0,height:1824});
+ const drop=new MouseEvent('drop',{bubbles:true,cancelable:true,clientY:minute/60*76});Object.defineProperty(drop,'dataTransfer',{value:transfer});
  await act(()=>lane.dispatchEvent(drop));
 };
 beforeEach(()=>{localStorage.clear();maps.created=maps.destroyed=0;root=document.createElement('div');document.body.append(root);HTMLDialogElement.prototype.showModal=function(){this.open=true;};HTMLDialogElement.prototype.close=function(){this.open=false;};});
@@ -40,8 +40,8 @@ it('supports an unchanged drop and opens the editor with the clicked time',async
  await mount();const revision=JSON.parse(localStorage.getItem(key)).revision;
  await dragTo(todayISO(),600);expect(JSON.parse(localStorage.getItem(key)).revision).toBe(revision);
  const next=addDays(mondayOf(todayISO()),1);const lane=root.querySelector(`[data-time-date="${next}"]`);
- lane.getBoundingClientRect=()=>({top:0,height:1216});
- await act(()=>lane.dispatchEvent(new MouseEvent('dblclick',{bubbles:true,clientY:570})));
+ lane.getBoundingClientRect=()=>({top:0,height:1824});
+ await act(()=>lane.dispatchEvent(new MouseEvent('dblclick',{bubbles:true,clientY:1102})));
  expect(root.querySelector('dialog input[type=time]').value).toBe('14:30');
 });
 it('expands and contracts the event map without remounting it, and navigation closes on selection',async()=>{
@@ -71,4 +71,15 @@ it('rejects a conflicting time without losing the original event, then schedules
  await dragTo(todayISO(),540);
  const saved=JSON.parse(localStorage.getItem(key)).events[0];expect(saved.status).toBe('planned');expect(saved.start).toBe(540);
  expect(root.querySelectorAll('.pending-card')).toHaveLength(0);
+});
+
+it('shows the full day including midnight and late events by default',async()=>{
+ const data=sample();data.events=[{...data.events[0],id:'early',start:0,duration:30},{...data.events[0],id:'late',start:1410,duration:30}];
+ await mount(data);
+ const lane=root.querySelector(`[data-time-date="${todayISO()}"]`);
+ expect(lane.dataset.timeStart).toBe('0');expect(lane.dataset.timeEnd).toBe('1440');
+ expect(root.querySelector('.week-time-axis').firstElementChild.textContent).toBe('00:00');
+ expect(root.querySelector('.week-time-axis').lastElementChild.textContent).toBe('23:00');
+ expect(root.querySelector('[data-event-id="early"]')).toBeTruthy();
+ expect(root.querySelector('[data-event-id="late"]')).toBeTruthy();
 });

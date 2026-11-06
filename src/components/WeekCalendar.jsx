@@ -8,7 +8,7 @@ import { weekdayOf, minutesToTime } from '../lib/domain.js';
 import { DEFAULT_STATE_EFFECTS } from '../lib/state-appearance.js';
 import { HOUR_HEIGHT, layoutDay, minuteAt, readTimeTarget, timeTarget, weekBounds } from '../lib/week-layout.js';
 
-export function WeekCalendar({days,events,ghosts,data,now,today,selectedDate,onSelectDate,onOpen,onCreate,onDragStart,onDragEnd,onDrop,onHover,draggingId,draggedEvent,dropTarget,grabOffset=0,fromHour=7,toHour=23,mobileDays=3}) {
+export function WeekCalendar({days,events,ghosts,data,now,today,selectedDate,onSelectDate,onOpen,onCreate,onDragStart,onDragEnd,onDrop,onHover,draggingId,draggedEvent,dropTarget,grabOffset=0,fromHour=0,toHour=24,mobileDays=3}) {
   const scroller = useRef(null);
   useTimelineScroll(scroller,draggingId,draggedEvent?.duration,onHover,grabOffset);
   const bounds = useMemo(()=>weekBounds([...events,...ghosts],fromHour,toHour),[events,ghosts,fromHour,toHour]);

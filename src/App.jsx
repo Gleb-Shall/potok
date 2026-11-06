@@ -74,7 +74,7 @@ export function App({ initialMode, demoOnly = false, requireAccount = false, onH
   const [rangeView, setRangeView] = useState('week');
   const [mapView, setMapView] = useState(false);
   const [weekLayout,setWeekLayout]=useState(()=>localStorage.getItem('potok:week-layout')==='board'?'board':'timeline');
-  const [visibleHours,setVisibleHours]=useState([7,23]);
+  const [visibleHours,setVisibleHours]=useState([0,24]);
   const [mobileDays,setMobileDays]=useState(3);
   const [pendingOpen,setPendingOpen]=useState(false);
   const timeline=rangeView==='week' && weekLayout==='timeline';
