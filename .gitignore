@@ -13,3 +13,10 @@ dist/
 gha-creds-*.json
 src-tauri/target/
 src-tauri/gen/
+
+# Isolated benchmark build output
+benchmark-dist/
+benchmarks/results/*.json
+builds/
+
+/node_modules

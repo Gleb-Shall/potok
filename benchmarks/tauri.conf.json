@@ -1,0 +1,6 @@
+{
+  "productName":"Potok Web Baseline",
+  "identifier":"app.potok.webbaseline",
+  "build":{"beforeBuildCommand":"npx vite build --config benchmarks/vite.config.js","frontendDist":"../benchmark-dist"},
+  "app":{"windows":[{"label":"main","title":"Potok Web Baseline","width":1280,"height":800,"minWidth":900,"minHeight":620,"url":"benchmark.html"}]}
+}

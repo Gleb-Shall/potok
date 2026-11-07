@@ -1,0 +1,64 @@
+name: Flutter calendar experiment
+on:
+  push:
+    branches: [experiment/flutter-calendar]
+permissions:
+  contents: read
+concurrency:
+  group: flutter-experiment-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  flutter:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    env:
+      CI: 'true'
+      FLUTTER_SUPPRESS_ANALYTICS: 'true'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - name: Install exact Flutter SDK
+        run: |
+          git clone --depth 1 --branch 3.47.9 https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          test "$(git -C "$RUNNER_TEMP/flutter" rev-parse HEAD)" = c197ca5199e9ee5661e865596c9c07294dfab51c
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+      - name: Check and build release
+        working-directory: apps/flutter_calendar
+        run: |
+          flutter pub get
+          flutter analyze --no-pub
+          flutter test --no-pub
+          flutter build macos --release
+          ditto -c -k --sequesterRsrc --keepParent "build/macos/Build/Products/Release/Potok Flutter Prototype.app" "$RUNNER_TEMP/Potok-Flutter-Prototype-macOS.zip"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: Potok-Flutter-Prototype-macOS
+          path: ${{ runner.temp }}/Potok-Flutter-Prototype-macOS.zip
+          retention-days: 14
+  baseline:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    env:
+      CARGO_INCREMENTAL: '0'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
+        continue-on-error: true
+        with:
+          workspaces: src-tauri -> target
+          shared-key: aarch64-apple-darwin
+          cache-bin: false
+      - run: npm ci
+      - name: Build isolated current calendar
+        run: |
+          npm run tauri -- build --config benchmarks/tauri.conf.json --bundles app -- --locked
+          ditto -c -k --sequesterRsrc --keepParent "src-tauri/target/release/bundle/macos/Potok Web Baseline.app" "$RUNNER_TEMP/Potok-Web-Baseline-macOS.zip"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: Potok-Web-Baseline-macOS
+          path: ${{ runner.temp }}/Potok-Web-Baseline-macOS.zip
+          retention-days: 14
