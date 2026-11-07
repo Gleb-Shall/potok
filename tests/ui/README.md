@@ -8,3 +8,7 @@ uses the normal device preference. Save callbacks are intentionally inert.
 
 This is a development entry, not an application route or a production bundle
 entry. Production builds start at the root `index.html` only.
+
+Use `/tests/ui/?dialog=card-style` to open the card appearance editor directly.
+Enable “Показать выделение” and move the pointer over the preview to inspect the
+smoke and letter displacement without touching saved templates.

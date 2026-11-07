@@ -9,13 +9,13 @@ import { recordLinks } from '../lib/links.js';
 import { eventHasEnded } from '../lib/event-history.js';
 import { Icon } from './Icon.jsx';
 
-export function EventDetails({ data, event, onEdit, onMove, onRestore, onRemind, onStatus, onStudent, onRecord, onClose, onDelete, onStop, now = Date.now() }) {
-  const [mapExpanded,setMapExpanded]=useState(false);
+export function EventDetails({ data, event, onEdit, onMove, onRestore, onRemind, onStatus, onStudent, onRecord, onClose, onDelete, onStop, anchor, initialMapExpanded = false, now = Date.now() }) {
+  const [mapExpanded,setMapExpanded]=useState(Boolean(initialMapExpanded && event.location));
   const type = eventType(data, event);
   const student = getStudent(data, event.studentId);
   const record = getRecord(data, event);
   const labels = { planned: 'Запланировано', done: 'Проведено', pending: 'Ждёт переноса', cancelled: 'Отменено' };
-  return <Modal title={eventTitle(data, event)} eyebrow={type.name.toLocaleUpperCase('ru')} subtitle={record?.kind === 'student' && record.name !== eventTitle(data, event) ? `Ученик: ${record.name}` : undefined} onClose={onClose} className={`product-dialog event-inspector ${mapExpanded?'has-expanded-map':''}`} fullscreen={mapExpanded} onEscape={()=>mapExpanded?setMapExpanded(false):onClose()} panel>
+  return <Modal title={eventTitle(data, event)} eyebrow={type.name.toLocaleUpperCase('ru')} subtitle={record?.kind === 'student' && record.name !== eventTitle(data, event) ? `Ученик: ${record.name}` : undefined} onClose={onClose} className={`product-dialog event-inspector ${mapExpanded?'has-expanded-map':''}`} fullscreen={mapExpanded} anchor={mapExpanded ? null : anchor} onEscape={()=>mapExpanded?setMapExpanded(false):onClose()} panel>
     <div class="inspector-content"><div class="inspector-toolbar"><label class="event-status-control"><span class={`event-status-dot status-${event.status}`}/><select aria-label="Статус события" value={event.status} onChange={input => onStatus(input.currentTarget.value)}>{Object.entries(labels).map(([id,label]) => <option key={id} value={id}>{label}</option>)}</select></label><ActionMenu label="Действия с событием" compact items={[
       event.status === 'pending' && {id:'edit',icon:'settings',label:'Редактировать',onSelect:onEdit},
       event.status === 'pending' && onRemind && {id:'remind',icon:'clock',label:'Напомнить',onSelect:onRemind},

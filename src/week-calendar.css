@@ -262,3 +262,5 @@
 .week-resize-handle::after { content:""; display:block; width:26px; height:3px; margin:auto; border-radius:3px; background:currentColor; opacity:0; }
 .week-event:hover .week-resize-handle::after,.week-resize-handle:focus-visible::after,.week-event.is-resizing .week-resize-handle::after { opacity:.6; }
 .week-event.is-resizing { z-index:7; outline:1px solid var(--accent); border-radius:5px; }
+.layout .schedule-panel { position:relative; }
+.calendar-click-wave { position:absolute; z-index:8; pointer-events:none; }

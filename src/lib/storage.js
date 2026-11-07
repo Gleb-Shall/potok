@@ -6,7 +6,7 @@ export function demoData() {
   const data = normalizeData(createDemo(todayISO()));
   const monday = mondayOf(todayISO());
   data.series.push({ id: 'demo-class', typeId: 'class', title: 'Математический анализ', studentId: '', color: 'blue', busy: true, from: monday, until: '', weekday: 1, start: 540, duration: 90, intervalWeeks: 1, fields: { teacher: 'Преподаватель', room: 'Ауд. 204', format: 'Лекция' }, notes: '' });
-  data.events.push({ id: 'demo-personal', typeId: 'personal', title: 'Время для себя', studentId: '', color: 'green', busy: false, date: addDays(monday, 4), anchorDate: addDays(monday, 4), start: 1200, duration: 60, seriesId: '', status: 'planned', history: [], fields: { location: 'Прогулка' }, notes: '' });
+  data.events.push({ id: 'demo-personal', typeId: 'personal', title: 'Время для себя', studentId: '', color: 'green', busy: false, date: addDays(monday, 4), anchorDate: addDays(monday, 4), start: 1200, duration: 60, seriesId: '', status: 'planned', history: [], fields: {}, location: { lat: 59.94, lng: 30.3, label: 'Прогулка у воды', address: 'Санкт-Петербург' }, notes: '' });
   return data;
 }
 export const emptyData = () => ({ version: 2, students: [], types: defaultTypes(), series: [], events: [] });

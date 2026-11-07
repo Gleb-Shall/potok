@@ -1,4 +1,5 @@
 import { linkHref } from './links.js';
+import { readCardStyle } from './card-style.js';
 import { saveCardBackground } from './card-backgrounds.js';
 import { activeReminders } from './reminder-model.js';
 import { addDays, mondayOf, weekdayOf, validateStudent } from './domain.js';
@@ -19,7 +20,7 @@ export function defaultTypes() {
   return [
     { id: 'lesson', name: 'Урок', titleLabel: 'Название занятия', icon: '✎', color: 'violet', linkStudent: true, requireStudent: true, archived: false, fields: [field('topic', 'Тема'), field('rate', 'Стоимость, ₽', 'number')] },
     { id: 'class', name: 'Пара', titleLabel: 'Предмет', icon: '▤', color: 'blue', linkStudent: false, requireStudent: false, archived: false, fields: [field('teacher', 'Преподаватель'), field('room', 'Аудитория'), field('format', 'Формат', 'select', { options: ['Лекция', 'Семинар', 'Практика', 'Лабораторная'] })] },
-    { id: 'personal', name: 'Личное', titleLabel: 'Название события', icon: '◇', color: 'green', linkStudent: false, requireStudent: false, archived: false, fields: [field('location', 'Место'), field('description', 'Описание', 'textarea', { showOnCard: false })] }
+    { id: 'personal', name: 'Личное', titleLabel: 'Название события', icon: '◇', color: 'green', linkStudent: false, requireStudent: false, archived: false, fields: [field('description', 'Описание', 'textarea', { showOnCard: false })] }
   ];
 }
 export function getType(data, id) { return data.types.find(type => type.id === id) || { id, name: 'Архивный тип', titleLabel: 'Название', icon: '◇', color: 'violet', fields: [] }; }
@@ -226,8 +227,11 @@ export function saveType(data, input) {
     if (!field.label.trim()) throw new Error('У каждого поля должно быть название.');
     if (['select', 'multiselect'].includes(field.type) && !field.archived && !field.options.length) throw new Error(`Добавь варианты для поля «${field.label}».`);
   }
-  const saved = saveCardBackground(data, { ...input, name: input.name.trim(), version: (input.version || 0) + 1 });
-  return { ...data, cardBackgrounds: saved.cardBackgrounds, types: upsert(data.types, saved.type) };
+  const saved = saveCardBackground(data, { ...input, ...(input.cardStyle ? {cardStyle:readCardStyle(input)} : {}), name: input.name.trim(), version: (input.version || 0) + 1 });
+  const types = data.types.some(type => type.id === saved.type.id)
+    ? data.types.map(type => type.id === saved.type.id ? saved.type : type)
+    : [...data.types, saved.type];
+  return { ...data, cardBackgrounds: saved.cardBackgrounds, types };
 }
 export function fieldDisplay(field, value) {
   if (value === undefined || value === null || value === '') return '';

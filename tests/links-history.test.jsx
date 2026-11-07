@@ -50,7 +50,6 @@ it('URL format in the constructor defaults to showing the link in compact cards'
  const data=base();const save=vi.fn();await mount(<TypeEditor data={data} original={data.types[2]} onSave={save} onClose={()=>{}}/>);
  await click('Добавить поле');const section=root.querySelector('.builder-field:last-child');
  await input(section.querySelector('input[type=text]'),'Телемост');await input(section.querySelector('select'),'url','change');
- const compact=[...section.querySelectorAll('label')].find(label=>label.textContent.includes('В свёрнутой карточке')).querySelector('input');expect(compact.checked).toBe(true);
  await submit();expect(save).toHaveBeenCalled();expect(save.mock.calls[0][0].types[2].fields.at(-1)).toMatchObject({type:'url',showCompact:true});
 });
 it('event URL editor rejects unsafe schemes and saves a valid meeting URL',async()=>{

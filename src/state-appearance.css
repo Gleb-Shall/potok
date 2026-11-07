@@ -1,6 +1,8 @@
 /* Semantic state and replaceable effect remain independent. */
 .event-card .card-time { gap:5px; }
 .card-time-icons { display:inline-flex; align-items:center; gap:5px; flex-shrink:0; }
+.event-place-mark { display:inline-flex; align-items:center; flex-shrink:0; color:inherit; }
+.event-place-mark .icon { width:14px; height:14px; }
 .event-state-mark { display:inline-grid; place-items:center; width:17px; height:17px; border-radius:50%; color:#817d88; flex-shrink:0; }
 .event-state-mark .icon { width:13px; height:13px; }
 .event-card[data-event-state="confirmed"] .event-state-mark { color:#39734e; background:#dcebdd; }
@@ -75,3 +77,10 @@
   .day-header[data-state-effect],.day-header[data-state-effect] *,
   .mobile-day.is-past-picker-day,.marker-paint path { animation:none!important; transition:none!important; }
 }
+/* The place action is separate from card-open, so links and drag stay independent. */
+.event-card.has-place .card-time { padding-right:28px; }
+.event-card > button.event-place-mark { position:absolute; top:8px; right:8px; z-index:2; display:grid; place-items:center; width:28px; height:28px; padding:4px; border:0; border-radius:6px; background:transparent; color:inherit; cursor:pointer; }
+.event-card > button.event-place-mark:hover { background:color-mix(in srgb,currentColor 10%,transparent); }
+.layout .week-event .event-card > button.event-place-mark { top:3px; right:3px; width:22px; height:22px; padding:3px; }
+.layout .week-event.is-short .event-card > button.event-place-mark { top:1px; width:18px; height:18px; padding:2px; }
+.layout .week-event.is-short .event-card.has-place .card-name { padding-right:22px; }

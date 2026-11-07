@@ -7,6 +7,17 @@ const base = () => ({ version: 2, revision: 0, students: [], records: [], types:
 const event = (extra = {}) => ({ id: 'once', typeId: 'class', title: 'Тестовая пара', date: '2026-10-30', anchorDate: '2026-10-30', start: 600, duration: 90, fields: {}, status: 'planned', busy: true, history: [], ...extra });
 const recurring = () => ({ ...base(), series: [{ ...event(), id: 'weekly', date: undefined, from: '2026-10-26', until: '', weekday: 5, intervalWeeks: 1 }] });
 
+test('new personal templates use dedicated map locations without stripping older custom fields', () => {
+  const data = base(), personal = data.types.find(type => type.id === 'personal');
+  assert.equal(personal.fields.some(field => field.id === 'location'), false);
+  personal.fields.push({ id:'location', label:'Мой адрес', type:'text', options:[] });
+  data.events.push(event({typeId:'personal',fields:{location:'Сохранённый пользовательский адрес'},location:{lat:59.94,lng:30.3,label:'Точка на карте'}}));
+  const loaded = normalizeData(data);
+  assert.equal(loaded.events[0].fields.location,'Сохранённый пользовательский адрес');
+  assert.equal(loaded.events[0].location.label,'Точка на карте');
+  assert.equal(loaded.types.find(type=>type.id==='personal').fields.at(-1).label,'Мой адрес');
+});
+
 test('calendar ranges include full weeks across years and leap months', () => {
   assert.deepEqual(calendarRange('2026-10-30', 'day'), { start: '2026-10-30', count: 1, end: '2026-10-30' });
   assert.deepEqual(calendarRange('2026-10-30', 'week', '2026-10-27'), { start: '2026-10-27', count: 7, end: '2026-11-02' });

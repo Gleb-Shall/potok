@@ -18,12 +18,45 @@ export function Field({ label, value, onChange, type = 'text', children, ...prop
 export function Select({ label, value, onChange, children, ...props }) { return <Field label={label}><select value={value} onChange={event => onChange(event.currentTarget.value)} {...props}>{children}</select></Field>; }
 export function Check({ children, checked, onChange, ...props }) { return <label class="check-label editor-check"><input type="checkbox" checked={checked} onChange={event => onChange(event.currentTarget.checked)} {...props}/><span>{children}</span></label>; }
 export function Colors({ value, onChange }) { return <fieldset class="color-field"><legend>Цвет карточки</legend>{Object.entries(COLOR_NAMES).map(([color, name]) => <label key={color} class={`color-option color-${color}`}><input name="color" type="radio" value={color} checked={value === color} onChange={() => onChange(color)}/><span class="sr-only">{name}</span></label>)}</fieldset>; }
-export function Modal({ title, subtitle, eyebrow, onClose, children, wide = false, className = '', fullscreen = false, onEscape, panel = false, onOpen }) {
+export function Modal({ title, subtitle, eyebrow, onClose, children, wide = false, className = '', fullscreen = false, onEscape, panel = false, onOpen, anchor }) {
   const ref = useRef(null);
   const titleId = useId();
   const saveError = useContext(SaveErrorContext);
   useEffect(() => { const dialog = ref.current; dialog.showModal(); onOpen?.(dialog); return () => dialog.close(); }, []);
-  return <dialog ref={ref} class={`${wide ? 'wide-modal' : ''} ${className} ${fullscreen ? 'is-fullscreen' : ''} ${panel ? 'panel-dialog' : ''}`} aria-labelledby={titleId} onCancel={event => { if (onEscape) { event.preventDefault(); onEscape(); } else onClose(); }} onClick={event => {
+  useEffect(() => {
+    if (!anchor) return;
+    const dialog = ref.current;
+    const place = () => {
+      const gap = 12;
+      const {left, right, top, bottom} = anchor.getBoundingClientRect();
+      const width = dialog.offsetWidth, height = dialog.offsetHeight;
+      const maxX = Math.max(gap, window.innerWidth-width-gap);
+      const maxY = Math.max(gap, window.innerHeight-height-gap);
+      let x = right + gap, y = top;
+      if (x > maxX) {
+        x = left - width - gap;
+        if (x < gap) {
+          x = left;
+          const below = window.innerHeight-bottom, above = top;
+          y = below >= height+gap || below >= above ? bottom+gap : top-height-gap;
+        }
+      }
+      dialog.style.setProperty('--dialog-x', `${Math.max(gap,Math.min(x,maxX))}px`);
+      dialog.style.setProperty('--dialog-y', `${Math.max(gap,Math.min(y,maxY))}px`);
+    };
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(place) : null;
+    observer?.observe(dialog);
+    observer?.observe(anchor);
+    window.addEventListener('resize',place);
+    place();
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize',place);
+      dialog.style.removeProperty('--dialog-x');
+      dialog.style.removeProperty('--dialog-y');
+    };
+  },[anchor]);
+  return <dialog ref={ref} class={`${wide ? 'wide-modal' : ''} ${className} ${fullscreen ? 'is-fullscreen' : ''} ${panel ? 'panel-dialog' : ''} ${anchor ? 'is-anchored' : ''}`} aria-labelledby={titleId} onCancel={event => { if (onEscape) { event.preventDefault(); onEscape(); } else onClose(); }} onClick={event => {
     if (event.target !== event.currentTarget) return;
     const rect = event.currentTarget.getBoundingClientRect();
     if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) onClose();

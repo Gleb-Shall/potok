@@ -229,3 +229,26 @@ dialog.reminder-dialog { width:min(440px,calc(100vw - 32px)); height:auto; paddi
 @keyframes sync-turn { to { transform:rotate(360deg); } }
 @media(prefers-reduced-motion:reduce) { .sync-control.is-syncing > .icon { animation:none; } }
 @media(max-width:760px) { dialog.reminder-dialog { position:fixed; inset:auto 0 0; margin:0; width:100%; max-width:100%; max-height:calc(100dvh - 24px); border-radius:20px 20px 0 0; padding-bottom:calc(24px + env(safe-area-inset-bottom)); }.header-actions > .sync-status { display:none; }.mobile-header-actions { display:flex; align-items:center; gap:8px; }.sync-control { padding-inline:4px; } }
+
+/* The calendar's quick inspector is positioned against the selected card. */
+dialog.product-dialog.event-inspector.is-anchored {
+  inset:var(--dialog-y,12px) auto auto var(--dialog-x,12px);
+  width:min(360px,calc(100vw - 24px)); height:auto; max-height:calc(100dvh - 24px);
+  border:1px solid var(--line); border-radius:12px; animation:none;
+}
+:root dialog.product-dialog.event-inspector.is-anchored::backdrop { background:transparent; }
+.event-inspector.is-anchored .panel-heading { padding:16px 56px 10px 16px; }
+.event-inspector.is-anchored .panel-heading > h2 { font-size:20px; overflow-wrap:anywhere; }
+.event-inspector.is-anchored > .modal-close { top:8px; right:8px; background:transparent; }
+.event-inspector.is-anchored .inspector-content { padding:0 16px 12px; }
+.event-inspector.is-anchored .inspector-toolbar { margin-bottom:12px; }
+.event-inspector.is-anchored .lesson-detail-time { gap:4px 8px; }
+.event-inspector.is-anchored .lesson-detail-time strong { font-size:14px; }
+.event-inspector.is-anchored .lesson-detail-time > .icon { margin-top:1px; }
+.event-inspector.is-anchored .lesson-detail-time > span { font-size:20px; }
+.event-inspector.is-anchored .inspector-recurrence { margin:8px 0 12px 28px; }
+.event-inspector.is-anchored .detail-fields { margin-top:12px; }
+.event-inspector.is-anchored .detail-fields > div { gap:12px; padding:5px 0; }
+.event-inspector.is-anchored .detail-fields dd { min-width:0; font-size:14px; overflow-wrap:anywhere; }
+.event-inspector.is-anchored .inspector-record { margin-top:12px; }
+.event-inspector.is-anchored .inspector-footer { padding:8px 16px 12px; gap:8px; border-top:1px solid var(--line); }

@@ -115,13 +115,12 @@ dialog h2 { font-size: 27px; }
 .student-tile-footer { font-size: 13px; }
 .record-choice { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 /* Place picker and place-based browsing are loaded on demand. */
-.location-field { margin: 15px 0; }
-.location-trigger { display: flex; gap: 13px; align-items: center; border: 1px solid #e3e8ef; padding: 14px; border-radius: 13px; background: #f6f8fb; color: #4d5b70; width: 100%; text-align: left; text-decoration: none; cursor: pointer; }
-.location-trigger > span:nth-child(2) { flex: 1; min-width: 0; }
-.location-trigger strong, .location-trigger small { display: block; overflow-wrap: anywhere; }
-.location-trigger strong { font-size: 15px; }
-.location-trigger small { font-size: 13px; color: #8b97a8; margin-top: 5px; line-height: 1.4; }
-.location-field > .text-button { margin: 10px 0 0 5px; }
+.location-field { display: flex; align-items: center; gap: 8px; margin: 12px 0; min-width: 0; }
+.location-trigger { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; max-width: 100%; min-width: 0; border: 1px solid var(--line); padding: 8px 12px; border-radius: 7px; background: var(--surface-soft); color: var(--ink); font: inherit; font-size: 14px; font-weight: 500; text-align: left; cursor: pointer; }
+.location-trigger > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.location-trigger > .icon { flex-shrink: 0; width: 16px; height: 16px; }
+.location-remove { flex-shrink: 0; }
+@media (pointer: coarse), (max-width: 760px) { .location-trigger, .location-remove { min-height: 44px; } }
 .place-result-pin { display: grid; place-items: center; width: 42px; height: 42px; color: #fff; background: #8076cc; border-radius: 50%; flex-shrink: 0; }
 .place-result-pin .icon { width: 23px; height: 23px; }
 .place-tabs { margin-bottom: 14px; }

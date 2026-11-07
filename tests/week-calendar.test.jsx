@@ -111,8 +111,14 @@ it('supports an unchanged drop and opens the editor with the clicked time',async
  await act(()=>lane.dispatchEvent(new MouseEvent('dblclick',{bubbles:true,clientY:1102})));
  expect(root.querySelector('dialog input[type=time]').value).toBe('14:30');
 });
-it('resizes both edges, previews before saving and cancels on Escape',async()=>{
- await mount();
+it('selects on click, resizes only the selected card and opens on double click',async()=>{
+ const data=sample();data.types.find(type=>type.id==='personal').cardStyle={smoke:false,liveText:false};
+ await mount(data);
+ const card=()=>root.querySelector('[data-event-id="one"]');
+ expect(root.querySelector('.week-resize-handle')).toBeNull();
+ await act(()=>card().querySelector('.card-open').dispatchEvent(new MouseEvent('click',{bubbles:true,detail:1})));
+ expect(card().classList.contains('is-card-selected')).toBe(true);
+ expect(root.querySelector('dialog')).toBeNull();
  const pointer=(node,type,y)=>{const input=new MouseEvent(type,{bubbles:true,cancelable:true,button:0,clientY:y});Object.defineProperty(input,'pointerId',{value:1});node.dispatchEvent(input);};
  const handle=edge=>root.querySelector(`[data-event-id="one"]`).parentElement.querySelector(`.week-resize-handle.is-${edge}`);
  await act(()=>pointer(handle('end'),'pointerdown',100));
@@ -127,6 +133,14 @@ it('resizes both edges, previews before saving and cancels on Escape',async()=>{
  const revision=JSON.parse(localStorage.getItem(key)).revision;
  await act(()=>{pointer(handle('end'),'pointerdown',100);pointer(document,'pointermove',200);document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));});
  expect(JSON.parse(localStorage.getItem(key)).revision).toBe(revision);expect(root.querySelector('.week-event.is-resizing')).toBeNull();
+ card().getBoundingClientRect=()=>({left:window.innerWidth-160,right:window.innerWidth-20,top:80,bottom:150});
+ await act(()=>card().querySelector('.card-open').dispatchEvent(new MouseEvent('dblclick',{bubbles:true,detail:2})));
+ const inspector=root.querySelector('.event-inspector.is-anchored');
+ expect(inspector.querySelector('h2').textContent).toBe('Встреча');
+ Object.defineProperties(inspector,{offsetWidth:{value:360},offsetHeight:{value:290}});
+ window.dispatchEvent(new Event('resize'));
+ expect(inspector.style.getPropertyValue('--dialog-x')).toBe(`${window.innerWidth-532}px`);
+ expect(inspector.style.getPropertyValue('--dialog-y')).toBe('80px');
 });
 it('expands and contracts the event map without remounting it, and navigation closes on selection',async()=>{
  await mount();await click(root.querySelector('[data-event-id="one"] .card-open'));
@@ -166,4 +180,19 @@ it('shows the full day including midnight and late events by default',async()=>{
  expect([...root.querySelectorAll('.week-time-axis > span')].at(-1).textContent).toBe('23:00');
  expect(root.querySelector('[data-event-id="early"]')).toBeTruthy();
  expect(root.querySelector('[data-event-id="late"]')).toBeTruthy();
+});
+
+it('opens the clicked event directly with its own expanded map from the place marker',async()=>{
+ await mount();
+ expect(maps.created).toBe(0);
+ const card=root.querySelector('[data-event-id="one"]');
+ const marker=card.querySelector('button.event-place-mark');
+ expect(marker.closest('.card-open')).toBeNull();
+ await click(marker);
+ const inspector=document.body.querySelector('.event-inspector');
+ expect(inspector.classList.contains('has-expanded-map')).toBe(true);
+ expect(inspector.querySelector('h2').textContent).toBe('Встреча');
+ expect(inspector.querySelector('[data-test-map]').textContent).toBe('Исаакиевская площадь');
+ expect(document.body.querySelector('.map-events')).toBeNull();
+ expect(maps.created).toBe(1);
 });
