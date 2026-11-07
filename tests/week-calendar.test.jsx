@@ -71,6 +71,38 @@ it('moves in time on the same day, then restores the original slot and keeps the
  await dragTo(todayISO(),600);
  saved=JSON.parse(localStorage.getItem(key)).events[0];expect(saved.start).toBe(600);expect(root.querySelectorAll('.week-ghost')).toHaveLength(0);expect(saved.history.length).toBeGreaterThan(1);
 });
+it('keeps board selection available in both day and week views',async()=>{
+ await mount();
+ const tabs=root.querySelector('.calendar-topbar [aria-label="Период расписания"]');
+ await click(tabs.querySelector('button'));
+ const board=()=>[...root.querySelectorAll('.week-layout-switch button')].find(button=>button.textContent==='Доска');
+ await click(board());expect(root.querySelector('.calendar-day')).toBeTruthy();expect(root.querySelector('.week-timeline')).toBeNull();
+ await click([...root.querySelectorAll('.week-layout-switch button')].find(button=>button.textContent==='По времени'));
+ expect(root.querySelector('.week-timeline.is-day-view')).toBeTruthy();
+});
+it('uses a time-slot preview for mouse movement and never falls back to a board header',async()=>{
+ await mount();
+ const mouse=(node,type,y)=>node.dispatchEvent(new MouseEvent(type,{bubbles:true,cancelable:true,button:0,buttons:type==='mouseup'?0:1,clientX:100,clientY:y}));
+ let card=root.querySelector('[data-event-id="one"]');
+ expect(card.draggable).toBe(false);
+ card.getBoundingClientRect=()=>({top:100});
+ const lane=root.querySelector(`[data-time-date="${todayISO()}"]`);lane.getBoundingClientRect=()=>({top:0,height:1824});
+ Object.defineProperty(document,'elementFromPoint',{configurable:true,value:vi.fn(()=>lane)});
+ const targetY=735/60*76+20;
+ await act(()=>mouse(card.querySelector('.card-open'),'mousedown',120));
+ await act(()=>mouse(document,'mousemove',targetY));
+ expect(root.querySelector('.week-drop-slot').textContent).toContain('12:15');
+ expect(document.querySelector('.press-drag-ghost')).toBeNull();
+ await act(()=>mouse(document,'mouseup',targetY));
+ expect(JSON.parse(localStorage.getItem(key)).events[0].start).toBe(735);
+ const revision=JSON.parse(localStorage.getItem(key)).revision;
+ card=root.querySelector('[data-event-id="one"]');card.getBoundingClientRect=()=>({top:100});
+ document.elementFromPoint.mockReturnValue(root.querySelector('.week-day-heading'));
+ await act(()=>{mouse(card.querySelector('.card-open'),'mousedown',120);mouse(document,'mousemove',200);});
+ expect(root.querySelector('.week-drop-slot')).toBeNull();
+ await act(()=>mouse(document,'mouseup',200));
+ expect(JSON.parse(localStorage.getItem(key)).revision).toBe(revision);
+});
 it('supports an unchanged drop and opens the editor with the clicked time',async()=>{
  await mount();const revision=JSON.parse(localStorage.getItem(key)).revision;
  await dragTo(todayISO(),600);expect(JSON.parse(localStorage.getItem(key)).revision).toBe(revision);
@@ -78,6 +110,23 @@ it('supports an unchanged drop and opens the editor with the clicked time',async
  lane.getBoundingClientRect=()=>({top:0,height:1824});
  await act(()=>lane.dispatchEvent(new MouseEvent('dblclick',{bubbles:true,clientY:1102})));
  expect(root.querySelector('dialog input[type=time]').value).toBe('14:30');
+});
+it('resizes both edges, previews before saving and cancels on Escape',async()=>{
+ await mount();
+ const pointer=(node,type,y)=>{const input=new MouseEvent(type,{bubbles:true,cancelable:true,button:0,clientY:y});Object.defineProperty(input,'pointerId',{value:1});node.dispatchEvent(input);};
+ const handle=edge=>root.querySelector(`[data-event-id="one"]`).parentElement.querySelector(`.week-resize-handle.is-${edge}`);
+ await act(()=>pointer(handle('end'),'pointerdown',100));
+ await act(()=>pointer(document,'pointermove',157)); // 45 minutes at 76px/hour.
+ await act(()=>new Promise(resolve=>setTimeout(resolve,25)));
+ expect(root.querySelector('[data-event-id="one"] .card-time').textContent).toContain('10:00–11:45');
+ expect(JSON.parse(localStorage.getItem(key)).events[0].duration).toBe(60);
+ await act(()=>pointer(document,'pointerup',157));
+ let saved=JSON.parse(localStorage.getItem(key)).events[0];expect(saved.start).toBe(600);expect(saved.duration).toBe(105);
+ await act(()=>{pointer(handle('start'),'pointerdown',100);pointer(document,'pointerup',62);});
+ saved=JSON.parse(localStorage.getItem(key)).events[0];expect(saved.start).toBe(570);expect(saved.duration).toBe(135);expect(saved.originalDuration).toBe(60);
+ const revision=JSON.parse(localStorage.getItem(key)).revision;
+ await act(()=>{pointer(handle('end'),'pointerdown',100);pointer(document,'pointermove',200);document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));});
+ expect(JSON.parse(localStorage.getItem(key)).revision).toBe(revision);expect(root.querySelector('.week-event.is-resizing')).toBeNull();
 });
 it('expands and contracts the event map without remounting it, and navigation closes on selection',async()=>{
  await mount();await click(root.querySelector('[data-event-id="one"] .card-open'));

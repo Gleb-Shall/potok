@@ -244,10 +244,10 @@ export function calendarRange(anchor, view, weekStart) {
   return { start, count, end: addDays(start, count - 1) };
 }
 
-export function saveMove(data, event, date, start) {
+export function saveMove(data, event, date, start, duration = event.duration) {
   addDays(date, 0);
-  if (!Number.isInteger(start) || start < 0 || start + event.duration > 1440) throw new Error('Событие должно закончиться в тот же день.');
-  const moved = moveEvent(event, date, start, event.duration);
+  if (!Number.isInteger(start) || !Number.isInteger(duration) || duration<1 || start < 0 || start + duration > 1440) throw new Error('Событие должно закончиться в тот же день.');
+  const moved = moveEvent(event, date, start, duration);
   assertNoConflict(data, moved);
   return { ...data, events: upsert(data.events, moved) };
 }

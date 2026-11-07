@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { loadAppleMaps } from '../lib/apple-maps.js';
 import { validLocation } from '../lib/places.js';
+import { useMapTheme } from '../hooks/useMapTheme.js';
 
 const emptyPoints = [];
 export default function AppleMapCanvas({ location, points = emptyPoints, onPick, onSelect, focusRequest = 0 }) {
+  const theme=useMapTheme();
+  const themeRef=useRef(theme);themeRef.current=theme;
   const element = useRef(null);
   const instance = useRef(null);
   const callbacks = useRef({ location, onPick, onSelect }); callbacks.current = { location, onPick, onSelect };
@@ -19,7 +22,7 @@ export default function AppleMapCanvas({ location, points = emptyPoints, onPick,
     loadAppleMaps().then(loaded => {
       if (!active) return;
       kit = loaded; kit.addEventListener('error', fail);
-      map = new kit.Map(host, { center: new kit.Coordinate(59.9343, 30.3351), cameraDistance: 18000, isScrollEnabled: true, isZoomEnabled: true, isRotationEnabled: false, showsZoomControl: false, showsMapTypeControl: false, showsUserLocationControl: false, tintColor: '#8076cc' });
+      map = new kit.Map(host, { center: new kit.Coordinate(59.9343, 30.3351), colorScheme:themeRef.current, cameraDistance: 18000, isScrollEnabled: true, isZoomEnabled: true, isRotationEnabled: false, showsZoomControl: false, showsMapTypeControl: false, showsUserLocationControl: false, tintColor: '#8076cc' });
       instance.current = { map, kit };
       // Handle wheel zoom directly so it works without Ctrl on a mouse or trackpad.
       wheel = event => {
@@ -45,6 +48,7 @@ export default function AppleMapCanvas({ location, points = emptyPoints, onPick,
     }).catch(error => { if (active) setError(error.message); });
     return () => { active = false; observer?.disconnect(); if (wheel) host.removeEventListener('wheel', wheel, true); map?.destroy(); kit?.removeEventListener('error', fail); instance.current = null; };
   }, []);
+  useEffect(()=>{if(instance.current)instance.current.map.colorScheme=theme;},[theme,ready]);
   useEffect(() => {
     if (!ready || !instance.current) return;
     const { map, kit } = instance.current;

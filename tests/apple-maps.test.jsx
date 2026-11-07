@@ -34,7 +34,7 @@ beforeEach(() => {
   HTMLDialogElement.prototype.showModal = function () { this.open = true; };
   HTMLDialogElement.prototype.close = function () { this.open = false; };
 });
-afterEach(async () => { await act(() => render(null, root)); root.remove(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
+afterEach(async () => { await act(() => render(null, root)); root.remove(); delete document.documentElement.dataset.theme; vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 const mount = async component => { await act(async () => render(component, root)); };
 
 it('requires a Maps Token and does not attempt an unauthenticated SDK request', async () => {
@@ -53,6 +53,14 @@ it('enables gestures, zooms by wheel without Ctrl and returns map coordinates', 
   expect(wheel.defaultPrevented).toBe(true); expect(map.cameraDistance).toBeLessThan(18000);
   await act(() => map.fire('single-tap', { pointOnPage: { x: 100, y: 100 } }));
   expect(onPick).toHaveBeenCalledWith({ lat: 59.94, lng: 30.3, label: 'Выбранное место' });
+});
+it('applies the workspace theme and updates the existing Apple map without recreating it',async()=>{
+ document.documentElement.dataset.theme='dark';
+ await mount(<AppleMapCanvas/>);await vi.waitFor(()=>expect(sdk.maps).toHaveLength(1));
+ expect(sdk.maps[0].options.colorScheme).toBe('dark');
+ await act(async()=>{document.documentElement.dataset.theme='light';await Promise.resolve();});
+ await vi.waitFor(()=>expect(sdk.maps[0].colorScheme).toBe('light'));
+ expect(sdk.maps).toHaveLength(1);
 });
 it('resolves Apple suggestions to ordinary coordinates and honors request cancellation', async () => {
   const controller = new AbortController();

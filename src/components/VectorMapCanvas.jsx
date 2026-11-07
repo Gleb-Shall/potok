@@ -3,13 +3,16 @@ import { Map as VectorMap, Marker, LngLatBounds, setWorkerUrl } from 'maplibre-g
 import workerURL from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { validLocation } from '../lib/places.js';
+import { useMapTheme } from '../hooks/useMapTheme.js';
 
 export { validLocation } from '../lib/places.js';
 setWorkerUrl(workerURL);
-const styleURL = import.meta.env.VITE_MAP_STYLE_URL || 'https://tiles.openfreemap.org/styles/liberty';
+const mapStyle = theme => theme==='dark' ? import.meta.env.VITE_MAP_DARK_STYLE_URL || 'https://tiles.openfreemap.org/styles/dark' : import.meta.env.VITE_MAP_STYLE_URL || 'https://tiles.openfreemap.org/styles/liberty';
 const emptyPoints = [];
 
 export default function VectorMapCanvas({ location, points = emptyPoints, onPick, onSelect, focusRequest = 0 }) {
+  const theme=useMapTheme();
+  const styleRef=useRef(mapStyle(theme));
   const element = useRef(null);
   const mapRef = useRef(null);
   const lastPicked = useRef(null);
@@ -23,7 +26,7 @@ export default function VectorMapCanvas({ location, points = emptyPoints, onPick
     let map;
     try {
       map = new VectorMap({
-        container: element.current, style: styleURL, center: [30.3351, 59.9343], zoom: 12,
+        container: element.current, style: styleRef.current, center: [30.3351, 59.9343], zoom: 12,
         maxZoom: 20, scrollZoom: true, cooperativeGestures: false, dragRotate: false,
         touchPitch: false, attributionControl: { compact: true },
       });
@@ -44,6 +47,10 @@ export default function VectorMapCanvas({ location, points = emptyPoints, onPick
     const observer = new ResizeObserver(() => map.resize()); observer.observe(element.current);
     return () => { observer.disconnect(); map.remove(); mapRef.current = null; };
   }, []);
+  useEffect(()=>{
+    const style=mapStyle(theme);
+    if(mapRef.current && styleRef.current!==style) {styleRef.current=style;mapRef.current.setStyle(style);}
+  },[theme]);
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;

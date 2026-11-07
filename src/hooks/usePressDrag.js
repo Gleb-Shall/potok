@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 
-// Optional board drags start on movement; a stationary hold opens the date picker.
+// Movement uses the starting layout; a stationary hold opens the date picker.
 export function attachPressDrag(root, options) {
   let gesture, timer, suppressUntil = 0, lastTouchAt = -Infinity;
   const read = () => options.current || options;
@@ -32,7 +32,7 @@ export function attachPressDrag(root, options) {
     if (!gesture.active) {
       if (distance(next, gesture.origin) <= 9) return;
       const horizontal = Math.abs(next.x-gesture.origin.x) > Math.abs(next.y-gesture.origin.y);
-      if (read().quickDrag && (gesture.kind === 'mouse' || horizontal || gesture.quickHandle)) activate('board');
+      if (read().quickDrag && (gesture.kind === 'mouse' || horizontal || gesture.quickHandle)) activate(gesture.quickMode);
       else { stop(); return; }
     }
     if (event.cancelable) event.preventDefault();
@@ -45,7 +45,7 @@ export function attachPressDrag(root, options) {
     if (current.active && event.cancelable) event.preventDefault();
     const drop = current.active && current.moved ? read().hitTest?.(next,current.mode) : null;
     stop();
-    if (drop) { if(current.mode==='board') read().onDrop?.(current.item,drop,'board');else read().onDrop?.(current.item,drop); }
+    if (drop) { if(current.mode!=='calendar') read().onDrop?.(current.item,drop,current.mode);else read().onDrop?.(current.item,drop); }
   };
   const move = event => {
     if (gesture?.kind !== 'touch') return;
@@ -76,7 +76,7 @@ export function attachPressDrag(root, options) {
     if (target.closest('a,input,select,textarea,[contenteditable=true],.card-controls') || target.closest('button:not(.card-open)')) return;
     const item = config.getItem(node,point(input));
     if (!item) return;
-    gesture = { node, item, kind, id:input.identifier, origin:point(input), last:point(input), active:false, moved:false, quickHandle:Boolean(target.closest('.card-grip')) };
+    gesture = { node, item, kind, id:input.identifier, origin:point(input), last:point(input), active:false, moved:false, quickMode:config.quickDragMode || 'board', quickHandle:Boolean(target.closest('.card-grip')) };
     if (kind === 'touch') {
       document.addEventListener('touchmove', move, { passive:false });
       document.addEventListener('touchend', end, { passive:false });

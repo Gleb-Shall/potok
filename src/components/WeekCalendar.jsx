@@ -1,4 +1,5 @@
 import { useTimelineScroll } from '../hooks/useTimelineScroll.js';
+import { useEventResize } from '../hooks/useEventResize.js';
 import { CALENDAR_BUFFER_DAYS, useCalendarPan } from '../hooks/useCalendarPan.js';
 import { useEffect, useMemo, useRef } from 'preact/hooks';
 import { EventCard } from './EventCard.jsx';
@@ -7,15 +8,18 @@ import { MarkerPaint } from './MarkerPaint.jsx';
 import { dateLabel, dayNames, longDays } from './UI.jsx';
 import { addDays, weekdayOf, minutesToTime } from '../lib/domain.js';
 import { DEFAULT_STATE_EFFECTS } from '../lib/state-appearance.js';
+import { eventTitle } from '../lib/events.js';
 import { HOUR_HEIGHT, layoutDay, minuteAt, readTimeTarget, timeTarget, weekBounds } from '../lib/week-layout.js';
 
-export function WeekCalendar({days,events,ghosts,data,now,today,selectedDate,onSelectDate,onOpen,onCreate,onDragStart,onDragEnd,onDrop,onHover,draggingId,draggedEvent,dropTarget,grabOffset=0,fromHour=0,toHour=24,mobileDays=3,focusKey=0,panEnabled=true,onShift}) {
+export function WeekCalendar({days,events,ghosts,data,now,today,selectedDate,onSelectDate,onOpen,onCreate,onDragStart,onDragEnd,onDrop,onHover,onResize,onResizeActive,canEdit=true,draggingId,draggedEvent,dropTarget,grabOffset=0,fromHour=0,toHour=24,mobileDays=3,focusKey=0,panEnabled=true,onShift}) {
   const scroller = useRef(null);
   useTimelineScroll(scroller,draggingId,draggedEvent?.duration,onHover,grabOffset);
   useCalendarPan(scroller,{anchor:days[0],selectedDate,dayCount:days.length,mobileDays,focusKey,enabled:panEnabled,onShift});
   const strip = useMemo(()=>Array.from({length:days.length+2*CALENDAR_BUFFER_DAYS},(_,i)=>addDays(days[0],i-CALENDAR_BUFFER_DAYS)),[days[0],days.length]);
   const bounds = useMemo(()=>weekBounds([...events,...ghosts],fromHour,toHour),[events,ghosts,fromHour,toHour]);
-  const lanes = useMemo(()=>strip.map(date=>({date,items:layoutDay(events.filter(event=>event.date===date)),ghosts:layoutDay(ghosts.filter(event=>event.date===date))})),[strip,events,ghosts]);
+  const resize=useEventResize({scroller,bounds,onResize:canEdit?onResize:null,onActiveChange:onResizeActive});
+  const previewEvents=useMemo(()=>resize.preview ? events.map(event=>event.id===resize.preview.id ? {...event,start:resize.preview.start,duration:resize.preview.duration} : event) : events,[events,resize.preview]);
+  const lanes = useMemo(()=>strip.map(date=>({date,items:layoutDay(previewEvents.filter(event=>event.date===date)),ghosts:layoutDay(ghosts.filter(event=>event.date===date))})),[strip,previewEvents,ghosts]);
   const height = (bounds.end-bounds.start)/60*HOUR_HEIGHT;
   const hours = Array.from({length:(bounds.end-bounds.start)/60},(_,i)=>bounds.start+i*60);
   const target = readTimeTarget(dropTarget);
@@ -46,8 +50,8 @@ export function WeekCalendar({days,events,ghosts,data,now,today,selectedDate,onS
           if(input.target.closest('.week-event'))return;onCreate(date,readTimeTarget(slot(date,input,0)).start);
         }}>
           {old.map(item=><div key={`ghost:${item.event.id}`} class="week-event week-ghost" style={position(item)}><EventCard event={item.event} data={data} onOpen={onOpen} timeline/></div>)}
-          {items.map(item=><div key={item.event.id} class={`week-event ${item.event.duration<35?'is-short':item.event.duration<75?'is-medium':''}`} style={position(item)}><EventCard event={item.event} data={data} now={now} onOpen={onOpen} onDragStart={onDragStart} onDragEnd={onDragEnd} isDragging={draggingId===item.event.id} timeline/></div>)}
-          {target?.date===date && target.start!==null && draggingId && <div class="week-drop-slot" style={{top:`${(target.start-bounds.start)/60*HOUR_HEIGHT}px`,height:`${(draggedEvent?.duration||60)/60*HOUR_HEIGHT}px`}}><span>{minutesToTime(target.start)}–{minutesToTime(target.start+(draggedEvent?.duration||60))}</span></div>}
+          {items.map(item=><div key={item.event.id} class={`week-event ${resize.preview?.id===item.event.id?'is-resizing':''} ${item.event.duration<35?'is-short':item.event.duration<75?'is-medium':''}`} style={position(item)}><EventCard event={item.event} data={data} now={now} onOpen={onOpen} onDragStart={onDragStart} onDragEnd={onDragEnd} isDragging={draggingId===item.event.id} timeline/>{onResize && canEdit && !draggingId && item.event.status!=='done' && ['start','end'].map(edge=><button key={edge} type="button" class={`week-resize-handle is-${edge}`} aria-label={`Изменить ${edge==='start'?'начало':'конец'} события «${eventTitle(data,item.event)}»`} onPointerDown={input=>resize.begin(item.event,edge,input)} onKeyDown={input=>resize.keyboard(item.event,edge,input)}/>)}</div>)}
+          {target?.date===date && target.start!==null && draggingId && <div class="week-drop-slot" style={{top:`${(target.start-bounds.start)/60*HOUR_HEIGHT}px`,height:`${(draggedEvent?.duration||60)/60*HOUR_HEIGHT}px`}}><span>{minutesToTime(target.start)}–{minutesToTime(target.start+(draggedEvent?.duration||60))}</span>{draggedEvent && <strong>{eventTitle(data,draggedEvent)}</strong>}</div>}
           {date===today && currentMinute>=bounds.start && currentMinute<bounds.end && <div class="week-now-line" style={{top:`${(currentMinute-bounds.start)/60*HOUR_HEIGHT}px`}} aria-label={`Сейчас ${minutesToTime(currentMinute)}`}><span/></div>}
         </section>)}
       </div>

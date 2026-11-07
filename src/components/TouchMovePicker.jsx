@@ -5,7 +5,7 @@ import { addDays, monthStart, minutesToTime, todayISO } from '../lib/domain.js';
 
 export function PressDragGhost({ controller, title }) {
   const { drag, ghostRef } = controller;
-  if (!drag) return null;
+  if (!drag || drag.mode==='timeline') return null;
   return createPortal(<div ref={ghostRef} class="press-drag-ghost" aria-hidden="true" style={{ background: drag.background, color: drag.color, transform: `translate3d(${drag.point.x}px,${drag.point.y}px,0)` }}><time>{minutesToTime(drag.item.start)}–{minutesToTime(drag.item.start + drag.item.duration)}</time><strong>{title}</strong></div>, document.body);
 }
 

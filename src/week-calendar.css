@@ -253,3 +253,12 @@
  .layout .calendar-topbar .sync-control { padding:6px; min-width:30px; }
  .layout .calendar-period h2 { font-size:18px; }
 }
+
+.week-drop-slot > strong { display:block; padding:7px; font-size:12px; line-height:1.3; color:var(--ink); overflow:hidden; max-height:100%; }
+.layout .calendar-grid.calendar-day { grid-template-columns:minmax(0,1fr); min-width:0; }
+.week-resize-handle { position:absolute; left:3px; right:3px; height:9px; min-height:0; padding:0; border:0; background:transparent; cursor:ns-resize; z-index:6; touch-action:none; }
+.week-resize-handle.is-start { top:0; }
+.week-resize-handle.is-end { bottom:0; }
+.week-resize-handle::after { content:""; display:block; width:26px; height:3px; margin:auto; border-radius:3px; background:currentColor; opacity:0; }
+.week-event:hover .week-resize-handle::after,.week-resize-handle:focus-visible::after,.week-event.is-resizing .week-resize-handle::after { opacity:.6; }
+.week-event.is-resizing { z-index:7; outline:1px solid var(--accent); border-radius:5px; }

@@ -89,3 +89,10 @@
 :root[data-theme=dark] dialog::backdrop { background:#080c0ab3; }
 :root[data-theme=dark] .quality-options label.selected { outline-color:var(--selection-border); }
 :root[data-theme=dark] .color-option { border-color:var(--line); }
+
+[data-theme] :is(.map-canvas-wrap,.map-canvas) { background:var(--surface-soft); }
+[data-theme] :is(.map-loading,.map-error,.map-source-switch,.apple-map-error) { background:var(--surface-raised); color:var(--muted); }
+[data-theme] :is(.map-source-switch button,.apple-map-error strong) { color:var(--ink); }
+[data-theme] .map-source-switch .active { background:var(--surface); color:var(--ink); }
+[data-theme=dark] .maplibregl-ctrl-attrib { background:#232823e6; color:var(--muted); }
+[data-theme=dark] .maplibregl-ctrl-attrib a { color:var(--ink); }
