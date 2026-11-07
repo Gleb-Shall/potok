@@ -40,6 +40,52 @@ void main() {
       1440,
     );
   });
+  testWidgets('pointer move changes time, bottom handle changes duration', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final date = fixture.json['benchmark']['start'] as String;
+    final event = CalendarEvent({
+      'id': 'gesture',
+      'date': date,
+      'title': 'Проверка жеста',
+      'start': 540,
+      'duration': 60,
+      'color': 'blue',
+    });
+    await tester.pumpWidget(
+      PotokPrototype(initial: fixture.empty.save(event), benchmark: true),
+    );
+    await tester.pumpAndSettle();
+    final title = find.text('Проверка жеста');
+    final move = await tester.startGesture(tester.getCenter(title));
+    await move.moveBy(const Offset(0, 20));
+    await tester.pump();
+    await move.moveBy(const Offset(0, 19));
+    await tester.pump();
+    await move.up();
+    await tester.pumpAndSettle();
+    expect(find.text('09:15–10:15'), findsOneWidget);
+    final tile = find
+        .ancestor(of: title, matching: find.byType(GestureDetector))
+        .first;
+    final bounds = tester.getRect(tile);
+    final resize = await tester.startGesture(
+      Offset(bounds.center.dx, bounds.bottom - 3),
+    );
+    await resize.moveBy(const Offset(0, 20));
+    await tester.pump();
+    await resize.moveBy(const Offset(0, 19));
+    await tester.pump();
+    await resize.up();
+    await tester.pumpAndSettle();
+    expect(find.text('09:15–10:30'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
   testWidgets('calendar, board and editor render in a desktop window', (
     tester,
   ) async {

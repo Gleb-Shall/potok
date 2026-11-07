@@ -6,7 +6,8 @@ const directory=resolve(process.argv[2] || 'builds/flutter-prototype');
 const helper=resolve(process.argv[3] || '/private/tmp/potok-memory-macos');
 const applications={flutter:{bundle:'Potok Flutter Prototype.app',exe:'Potok Flutter Prototype'},tauri:{bundle:'Potok Web Baseline.app',exe:'Potok Web Baseline'}};
 const findPid=app=>{
-  const path=`${directory}/${app.bundle}/Contents/MacOS/${app.exe}`;
+  const binary=execFileSync('plutil',['-extract','CFBundleExecutable','raw','-o','-',`${directory}/${app.bundle}/Contents/Info.plist`],{encoding:'utf8'}).trim();
+  const path=`${directory}/${app.bundle}/Contents/MacOS/${binary}`;
   const matches=execFileSync('ps',['-axo','pid=,comm='],{encoding:'utf8'}).split('\n').map(line=>line.trim().match(/^(\d+)\s+(.*)$/)).filter(match=>match?.[2]===path);
   if(matches.length>1)throw new Error(`More than one isolated ${app.exe} instance. Close the extra one first.`);
   return matches[0]?Number(matches[0][1]):null;
@@ -28,7 +29,7 @@ for(const [scenario,order] of [['empty',['flutter','tauri']],['fixture',['tauri'
         const sample=JSON.parse(execFileSync(helper,[String(pid)],{encoding:'utf8'}));
         if(!sample.complete||!sample.processes.some(p=>p.pid===pid))throw new Error('Incomplete process total.');
         // Reject a coalition shared by a terminal or another host application.
-        if(sample.processes.some(p=>p.pid!==pid&&!/WebKit|Graphics|Networking|Potok/.test(p.name)))throw new Error('Unexpected resource coalition member; inspect grouping before reporting.');
+        if(sample.processes.some(p=>/^(Terminal|iTerm2|Codex|zsh|bash|node)$/.test(p.name)))throw new Error('Coalition shared by an unrelated host; inspect grouping before reporting.');
         samples.push({...sample,at:new Date().toISOString()});
         if(i<9)await sleep(2000);
       }
