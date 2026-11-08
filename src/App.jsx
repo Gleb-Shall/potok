@@ -3,10 +3,8 @@ import { useWorkspaceTheme } from './theme/ThemeProvider.jsx';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { lazy, Suspense } from 'preact/compat';
 import { AppearanceSettings } from './components/AppearanceSettings.jsx';
-import { RecordTemplateBrowser } from './components/RecordTemplateBrowser.jsx';
-import { RecordTypeEditor } from './components/RecordTypeEditor.jsx';
+import { TemplateWorkspace } from './components/TemplateWorkspace.jsx';
 import { RecordsDirectory } from './components/RecordsDirectory.jsx';
-import { TemplateBrowser } from './components/TemplateBrowser.jsx';
 import { MarkerPaint } from './components/MarkerPaint.jsx';
 import { Sidebar } from './components/Sidebar.jsx';
 import { Brand } from './components/Brand.jsx';
@@ -30,8 +28,6 @@ import { ReminderDialog } from './components/ReminderDialog.jsx';
 import { SyncStatus } from './components/SyncStatus.jsx';
 import { EventDetails } from './components/EventDetails.jsx';
 import { StudentEditor, StudentDetails } from './components/StudentEditor.jsx';
-import { CardStyleEditor } from './components/CardStyleEditor.jsx';
-import { TypeEditor } from './components/TypeEditor.jsx';
 import { DeleteDialog } from './components/DeleteDialog.jsx';
 import { MoveEditor } from './components/MoveEditor.jsx';
 import { RecordEditor, RecordDetails } from './components/RecordEditor.jsx';
@@ -69,7 +65,9 @@ export function App({ initialMode, demoOnly = false, requireAccount = false, pro
   const layoutRef = useRef(null);
   const [touchMoving, setTouchMoving] = useState(false);
   const [resizing,setResizing]=useState(false);
-  const workspace = useWorkspace(Boolean(dialog || deletion || touchMoving || resizing || movePicker), { initialMode, demoOnly, provider });
+  const [templateEditing,setTemplateEditing] = useState(false);
+  const [templateSession,setTemplateSession] = useState(0);
+  const workspace = useWorkspace(Boolean(dialog || deletion || touchMoving || resizing || movePicker || templateEditing), { initialMode, demoOnly, provider });
   const { data, mode } = workspace.session;
   const { account, stale } = workspace;
   const cloudConfigured = Boolean(provider);
@@ -115,8 +113,8 @@ export function App({ initialMode, demoOnly = false, requireAccount = false, pro
   const [query, setQuery] = useState('');
   const [filterType, setFilterType] = useState('');
   const [showGhosts, setShowGhosts] = useState(true);
-  const [templateFamily,setTemplateFamily] = useState('events');
-  const [recordTemplate,setRecordTemplate] = useState('');
+  const [templateDraft,setTemplateDraft] = useState('');
+  const templateLeaveGuard = useRef(null);
   const [notice, setNotice] = useState(null);
   const [undo, setUndo] = useState(null);
   const [dropTarget, setDropTarget] = useState('');
@@ -136,7 +134,7 @@ export function App({ initialMode, demoOnly = false, requireAccount = false, pro
   const visibleEvents = useMemo(()=>projection.events.filter(event=>eventMatches(data,event,query,filterType)),[data,projection,query,filterType]);
   const notify = (text, canUndo = false) => setNotice({ text, canUndo });
   useEffect(() => { if (!notice) return; const timer = setTimeout(() => setNotice(null), 7000); return () => clearTimeout(timer); }, [notice]);
-  useEffect(() => { setDialog(null); setDeletion(null); setUndo(null); setNotice(null); setQuery(''); setFilterType(''); setWeek(todayISO()); setSelectedDate(todayISO()); setRangeView('week'); setWeekStart(null); setView('schedule'); setMovePicker(null); }, [account.user?.id]);
+  useEffect(() => { setDialog(null); setDeletion(null); setUndo(null); setNotice(null); setQuery(''); setFilterType(''); setWeek(todayISO()); setSelectedDate(todayISO()); setRangeView('week'); setWeekStart(null); setView('schedule'); setTemplateDraft(''); setMovePicker(null); }, [account.user?.id]);
 
   const commit = (next, message, date) => {
     const finish = saved => {
@@ -154,12 +152,12 @@ export function App({ initialMode, demoOnly = false, requireAccount = false, pro
   const close = () => setDialog(null);
   const newEvent = (date = selectedDate, studentId = '', start) => {
     const typeId = studentId ? (data.types.find(type => !type.archived && recordKind(type) === 'student') || data.types.find(type => !type.archived && recordKind(type) === 'any'))?.id : filterType || data.types.find(type => !type.archived && type.id === 'personal')?.id || data.types.find(type => !type.archived)?.id;
-    if (!typeId) { setView('types'); notify('Сначала создай или верни из архива тип карточки.'); return; }
-    const student = getStudent(data, studentId);
     if (!typeId) {
-      setTemplateFamily('events'); setView('types'); setDialog({kind:'type-editor'});
+      setTemplateDraft('events'); setView('types');
+      notify('Сначала создай шаблон события.');
       return;
     }
+    const student = getStudent(data, studentId);
     setDialog({ kind: 'event-editor', date, typeId, draft: student ? { studentId, recordId: studentId, title: student.name, color: student.color, ...(start===undefined?{}:{start:minutesToTime(start)}) } : start===undefined?undefined:{start:minutesToTime(start)} });
   };
   const findEvent = id => data.events.find(event => event.id === id) || stripProjection.events.find(event => event.id === id);
@@ -182,11 +180,21 @@ export function App({ initialMode, demoOnly = false, requireAccount = false, pro
     if (!type) { setView('types'); close(); notify('В редакторе шаблонов укажи, с какими записями можно связать событие.'); return; }
     setDialog({ kind: 'event-editor', date: selectedDate, typeId: type.id, draft: { recordId: record.id, title: record.name, color: record.color } });
   };
-  const switchView = target => { setView(target); setQuery(''); setSidebarCollapsed(true); if (target === 'schedule') goToday(); };
+  const canLeaveTemplates = () => view !== 'types' || !templateLeaveGuard.current || templateLeaveGuard.current();
+  const goHome = onHome && (() => { if (canLeaveTemplates()) onHome(); });
+  const resetTemplateWorkspace = () => { setTemplateDraft(''); setTemplateSession(value => value + 1); };
+  const switchView = target => {
+    if (target !== view && !canLeaveTemplates()) return;
+    if (target !== 'types') setTemplateDraft('');
+    setView(target); setQuery(''); setSidebarCollapsed(true);
+    if (target === 'schedule') goToday();
+  };
   const switchMode = nextMode => {
+    if (!canLeaveTemplates()) return;
     if (nextMode === 'personal' && onPersonal) { onPersonal(); return; }
     if (nextMode === 'demo' && onDemo) { onDemo(); return; }
     workspace.switchMode(nextMode);
+    setTemplateDraft('');
     setDialog(null); setDeletion(null); setUndo(null); setQuery(''); setFilterType('');
     notify(nextMode === 'personal' ? 'Открыто твоё расписание. Демо хранится отдельно.' : 'Открыт отдельный пример расписания.');
   };
@@ -280,16 +288,6 @@ export function App({ initialMode, demoOnly = false, requireAccount = false, pro
   function Students() {
     return <RecordsDirectory data={data} today={today} query={query} onQuery={setQuery} filter={recordFilter} onFilter={setRecordFilter} onOpen={record=>setDialog(record.kind==='student'?{kind:'student-details',student:record}:{kind:'record-details',record})} onAdd={()=>setDialog({kind:'record-choice'})}/>;
   }
-  const addTemplate = () => setDialog({kind:templateFamily==='records' ? 'record-type-editor' : 'type-editor'});
-  function Types() {
-    return <>
-      <div class="week-layout-switch template-family-switch" role="group" aria-label="Редактор шаблонов">
-        <button type="button" aria-pressed={templateFamily==='events'} onClick={()=>setTemplateFamily('events')}>События</button>
-        <button type="button" aria-pressed={templateFamily==='records'} onClick={()=>setTemplateFamily('records')}>Записи</button>
-      </div>
-      {templateFamily==='records' ? <RecordTemplateBrowser data={data} selected={recordTemplate} onSelect={setRecordTemplate} onEdit={kind=>setDialog({kind:'record-type-editor',recordKind:kind})} onDelete={kind=>setDeletion({kind:'record-template',value:kind})} onAdd={addTemplate}/> : <TemplateBrowser data={data} onAppearance={type=>setDialog({kind:'card-style',original:type})} onEdit={type=>setDialog({kind:'type-editor',original:type})} onCopy={type=>setDialog({kind:'type-editor',original:{...structuredClone(type),id:crypto.randomUUID(),name:`${type.name} (копия)`,archived:false,version:0}})} onDelete={type=>setDeletion({kind:'type',value:type})} onAdd={addTemplate}/>}
-    </>;
-  }
   async function importFile(file) {
     if (!file) return;
     try {
@@ -306,14 +304,14 @@ export function App({ initialMode, demoOnly = false, requireAccount = false, pro
 
   if (requireAccount && (!account.authResolved || (account.user && !account.hasData)) && !account.error) return <div class="planner-loading" role="status"><span class="loading-orbit"/><p>Открываем твоё пространство…</p></div>;
   if (requireAccount && (!account.user || !account.hasData)) return <WorkspaceEntry provider={provider} account={account} onSignIn={workspace.signIn} onRetry={workspace.reconnect} onSignOut={()=>attempt(workspace.signOut)} onHome={onHome} onDemo={onDemo}/>;
-  const body = view === 'schedule' ? Schedule() : view === 'students' ? Students() : view === 'types' ? Types() : view === 'appearance' ? <AppearanceSettings/> : view === 'guide' ? <GuideView initialChapter={guideChapter}/> : view === 'statistics' ? <StatisticsView data={data} now={now} onGuide={()=>openGuide(4)} onOpen={event=>setDialog({kind:'event-details',event})}/> : view === 'history' ? <JournalView data={data} now={now} pending={projection.pending} renderPending={event=>pendingCard(event,true)} onOpenEvent={event => setDialog({ kind: 'event-details', event })} onOpenTransfer={openEvent} onStatus={statusEvent}/> : Settings();
-  return <SaveErrorContext.Provider value={account.error}><div ref={layoutRef} data-workspace-view={view} class={`layout ${draggingId ? 'is-dragging-event' : ''} ${sidebarCollapsed ? 'sidebar-collapsed' : ''} ${view==='schedule'?'is-calendar-workspace':''}`}><Sidebar cloudConfigured={cloudConfigured} provider={provider} collapsed={sidebarCollapsed} onToggle={toggleSidebar} view={view} onChange={switchView} pending={projection.pending.length} account={account} onSignIn={demoOnly && onPersonal ? onPersonal : signIn} onHome={onHome}/>
-    <main class="main"><div class="mobile-workspace-header"><Brand onClick={event=>{event.preventDefault();onHome?.();}}/><div class="mobile-header-actions"><SyncStatus account={account} mode={mode} onSync={workspace.sync}/><button class="mobile-profile" aria-label="Настройки аккаунта" onClick={()=>switchView('settings')}>{account.user?initials(account.user.displayName||account.user.email):'Я'}</button></div></div><header class={`page-header ${view === 'schedule' ? 'calendar-topbar' : ''}`}>{view === 'schedule' ? (<div class="calendar-heading-group"><h1 class="sr-only">Расписание</h1><div class="calendar-period"><h2>{dateLabel(week, { day: rangeView === 'day' ? 'numeric' : undefined, month: 'long', year: 'numeric' })}</h2>{rangeView !== 'month' && range.start.slice(0, 7) !== range.end.slice(0, 7) && <span>{dateLabel(range.start)} — {dateLabel(range.end)}</span>}</div><div class="week-navigation"><button class="icon-button" aria-label="Предыдущий период" onClick={() => navigateWeek(-1)}><Icon name="left"/></button><button class="icon-button" aria-label="Следующий период" onClick={() => navigateWeek(1)}><Icon name="right"/></button></div>
-      </div>) : <h1 class="sr-only">{TITLES[view]}</h1>}{view === 'schedule' && <div class="range-switch" role="group" aria-label="Период расписания">{[['day','День'],['week','Неделя'],['month','Месяц']].map(([id,label]) => <button type="button" key={id} aria-pressed={rangeView === id} class={rangeView === id ? 'active' : ''} onClick={() => selectRange(id)}>{label}</button>)}</div>}<div class="header-actions"><SyncStatus account={account} mode={mode} onSync={workspace.sync}/>{view === 'settings' && !account.user && cloudConfigured && <Button disabled={account.loading} onClick={demoOnly && onPersonal ? onPersonal : signIn}>{cloudConfigured ? signInLabel : 'Подключить облако'}</Button>}<button class="icon-button" aria-label="Настройки" onClick={() => switchView('settings')}><Icon name="settings"/></button>{['schedule','students','types'].includes(view) && <Button kind="primary" icon="plus" onClick={() => view === 'students' ? setDialog({ kind: 'record-choice' }) : view === 'types' ? addTemplate() : newEvent()}>{view === 'students' ? 'Добавить запись' : view === 'types' ? 'Создать шаблон' : 'Добавить событие'}</Button>}</div></header>
+  const body = view === 'schedule' ? Schedule() : view === 'students' ? Students() : view === 'types' ? <TemplateWorkspace key={`${mode}:${templateSession}`} data={data} initialDraft={templateDraft} leaveGuard={templateLeaveGuard} onEditingChange={setTemplateEditing} onSave={commit} onDelete={setDeletion}/> : view === 'appearance' ? <AppearanceSettings/> : view === 'guide' ? <GuideView initialChapter={guideChapter}/> : view === 'statistics' ? <StatisticsView data={data} now={now} onGuide={()=>openGuide(4)} onOpen={event=>setDialog({kind:'event-details',event})}/> : view === 'history' ? <JournalView data={data} now={now} pending={projection.pending} renderPending={event=>pendingCard(event,true)} onOpenEvent={event => setDialog({ kind: 'event-details', event })} onOpenTransfer={openEvent} onStatus={statusEvent}/> : Settings();
+  return <SaveErrorContext.Provider value={account.error}><div ref={layoutRef} data-workspace-view={view} class={`layout ${draggingId ? 'is-dragging-event' : ''} ${sidebarCollapsed ? 'sidebar-collapsed' : ''} ${view==='schedule'?'is-calendar-workspace':''}`}><Sidebar cloudConfigured={cloudConfigured} provider={provider} collapsed={sidebarCollapsed} onToggle={toggleSidebar} view={view} onChange={switchView} pending={projection.pending.length} account={account} onSignIn={demoOnly && onPersonal ? onPersonal : signIn} onHome={goHome}/>
+    <main class="main"><div class="mobile-workspace-header"><Brand onClick={event=>{event.preventDefault();goHome?.();}}/><div class="mobile-header-actions"><SyncStatus account={account} mode={mode} onSync={workspace.sync}/><button class="mobile-profile" aria-label="Настройки аккаунта" onClick={()=>switchView('settings')}>{account.user?initials(account.user.displayName||account.user.email):'Я'}</button></div></div><header class={`page-header ${view === 'schedule' ? 'calendar-topbar' : ''}`}>{view === 'schedule' ? (<div class="calendar-heading-group"><h1 class="sr-only">Расписание</h1><div class="calendar-period"><h2>{dateLabel(week, { day: rangeView === 'day' ? 'numeric' : undefined, month: 'long', year: 'numeric' })}</h2>{rangeView !== 'month' && range.start.slice(0, 7) !== range.end.slice(0, 7) && <span>{dateLabel(range.start)} — {dateLabel(range.end)}</span>}</div><div class="week-navigation"><button class="icon-button" aria-label="Предыдущий период" onClick={() => navigateWeek(-1)}><Icon name="left"/></button><button class="icon-button" aria-label="Следующий период" onClick={() => navigateWeek(1)}><Icon name="right"/></button></div>
+      </div>) : <h1 class="sr-only">{TITLES[view]}</h1>}{view === 'schedule' && <div class="range-switch" role="group" aria-label="Период расписания">{[['day','День'],['week','Неделя'],['month','Месяц']].map(([id,label]) => <button type="button" key={id} aria-pressed={rangeView === id} class={rangeView === id ? 'active' : ''} onClick={() => selectRange(id)}>{label}</button>)}</div>}<div class="header-actions"><SyncStatus account={account} mode={mode} onSync={workspace.sync}/>{view === 'settings' && !account.user && cloudConfigured && <Button disabled={account.loading} onClick={demoOnly && onPersonal ? onPersonal : signIn}>{cloudConfigured ? signInLabel : 'Подключить облако'}</Button>}<button class="icon-button" aria-label="Настройки" onClick={() => switchView('settings')}><Icon name="settings"/></button>{['schedule','students'].includes(view) && <Button kind="primary" icon="plus" onClick={() => view === 'students' ? setDialog({ kind: 'record-choice' }) : newEvent()}>{view === 'students' ? 'Добавить запись' : 'Добавить событие'}</Button>}</div></header>
     {mode === 'demo' && <div class="demo-banner"><Icon name="info"/><span>Деморасписание с вымышленными данными. Пробуй карточки, поля и переносы.</span><button class="text-button" onClick={() => attempt(() => switchMode('personal'))}>Создать своё <Icon name="arrow"/></button></div>}
     {account.error && <div class="account-banner error" role="alert"><span>{account.error}</span><Button onClick={workspace.reconnect}>Подключиться заново</Button></div>}
     {mode === 'cloud' && (!account.ready || !account.online) && <div class="account-banner" role="status">{!account.online ? 'Нет интернета. Расписание доступно для просмотра; для сохранения нужно подключение.' : 'Показана сохранённая копия. Обновляем расписание… Сохранение станет доступно после подключения.'}</div>}
-    {stale && <div class="demo-banner"><span>Расписание изменилось в другой вкладке или на другом устройстве.</span><Button onClick={() => attempt(() => { if (dialog && !confirm('Закрыть редактор и загрузить обновлённое расписание?')) return; workspace.refresh(); close(); setDeletion(null); setUndo(null); })}>Обновить данные</Button></div>}
+    {stale && <div class="demo-banner"><span>Расписание изменилось в другой вкладке или на другом устройстве.</span><Button onClick={() => attempt(() => { if (!canLeaveTemplates() || dialog && !confirm('Закрыть редактор и загрузить обновлённое расписание?')) return; workspace.refresh(); resetTemplateWorkspace(); close(); setDeletion(null); setUndo(null); })}>Обновить данные</Button></div>}
     <div class="reminder-inbox" aria-label="Напоминания" aria-live="polite">{activeReminders(data).filter(reminder => Date.parse(reminder.at) <= now).map(reminder => <article class="reminder-notice" key={reminder.id}><div><strong>{reminderMessage(data,reminder).title}</strong><p>Всё ещё ждёт переноса</p></div><Button onClick={()=>openEvent(reminder.eventId)}>Открыть событие</Button><button type="button" class="text-button" onClick={()=>attempt(()=>commit(removeReminder(data,reminder.eventId),'Напоминание убрано'))}>Убрать</button></article>)}</div>
     {body}<footer class="page-footer">{mode!=='cloud' && <span>Сохранено в этом браузере</span>}<span>Московское время · UTC+3</span></footer></main></div>
     <TouchMovePicker controller={picker} dragging={Boolean(touch.drag || movePicker?.native)} onHover={setMoveHover} title={picker.drag ? eventTitle(data, picker.drag.item) : ''} onChoose={(event, date) => { cancelMovePicker(); dropTouchEvent(event, date); }}/>
@@ -325,20 +323,13 @@ export function App({ initialMode, demoOnly = false, requireAccount = false, pro
     {dialog?.kind === 'student-details' && <StudentDetails data={data} student={dialog.student} onDelete={() => setDeletion({ kind: 'record', value: dialog.student })} onClose={close} onEdit={() => setDialog({ kind: 'student-editor', original: dialog.student })} onEvent={() => newEvent(selectedDate, dialog.student.id)}/>}
     {dialog?.kind === 'stop-series' && <StopSeriesDialog data={data} event={dialog.event} onSave={commit} onClose={close}/>}
     {dialog?.kind === 'move-editor' && <MoveEditor data={data} event={dialog.event} date={dialog.date} onRestore={() => returnEvent(dialog.event)} onClose={close} onSave={commit} onAdvanced={draft => setDialog({ kind: 'event-editor', original: dialog.event, draft })}/>}
-    {dialog?.kind === 'record-type-editor' && <RecordTypeEditor data={data} kind={dialog.recordKind} onClose={close} onSave={(next,message,kind)=>{
-      const finish = saved => {if (saved) setRecordTemplate(kind);};
-      const result = commit(next,message);
-      return result?.then ? result.then(finish) : finish(result);
-    }}/>}
     {dialog?.kind === 'record-choice' && <Modal title="Что добавить?" subtitle="Общие записи можно связывать с разными событиями." onClose={close}><div class="record-choice">{recordKinds(data).map(kind => <Button key={kind} onClick={() => setDialog({ kind: kind === 'student' ? 'student-editor' : 'record-editor', category: kind })}>{RECORD_KINDS[kind] || kind}</Button>)}
-      {!recordKinds(data).length && <Button onClick={()=>{setTemplateFamily('records');setView('types');setDialog({kind:'record-type-editor'});}}>Создать шаблон записи</Button>}</div></Modal>}
+      {!recordKinds(data).length && <Button onClick={()=>{setTemplateDraft('records');setView('types');close();}}>Создать шаблон записи</Button>}</div></Modal>}
     {dialog?.kind === 'record-editor' && <RecordEditor data={data} original={dialog.original} onDelete={() => setDeletion({ kind: 'record', value: dialog.original })} category={dialog.category} onClose={() => dialog.returnTo ? setDialog(dialog.returnTo) : close()} onSave={(next, message, record) => { const returnTo = dialog.returnTo; const finish = ok => { if (!ok) return; if (returnTo) setDialog({ ...returnTo, draft: { ...returnTo.draft, recordId: record.id, studentId: '', title: returnTo.draft.title || record.name, color: record.color } }); }; const result = commit(next, message); return result?.then ? result.then(finish) : finish(result); }}/>}
     {dialog?.kind === 'record-details' && <RecordDetails record={dialog.record} onDelete={() => setDeletion({ kind: 'record', value: dialog.record })} onClose={close} onEdit={() => setDialog({ kind: 'record-editor', original: dialog.record })} onEvent={() => newEventForRecord(dialog.record)}/>}
-    {dialog?.kind === 'card-style' && <CardStyleEditor key={dialog.original.id} data={data} original={dialog.original} onClose={close} onSave={commit}/>}
-    {dialog?.kind === 'type-editor' && <TypeEditor data={data} original={dialog.original} onDelete={() => setDeletion({ kind: 'type', value: dialog.original })} onClose={close} onSave={commit}/>}
     {deletion && <DeleteDialog data={data} target={deletion} onSave={commit} onClose={() => setDeletion(null)}/>}
-    <MobileNav view={view} onChange={switchView} pending={projection.pending.length} onHome={onHome}/>
+    <MobileNav view={view} onChange={switchView} pending={projection.pending.length} onHome={goHome}/>
     {account.saving && <div class="save-shield" role="status" aria-live="polite"><span>Сохраняем изменения…</span></div>}
-    {notice && <div id="notice" class="visible" role="status"><span>{notice.text}</span>{notice.canUndo && undo && undo.mode === mode && undo.revision === data.revision && <button class="toast-undo" onClick={() => attempt(() => { if (undo.revision !== data.revision || undo.mode !== mode) throw new Error('Расписание уже изменилось; это действие больше нельзя отменить.'); const previous = undo.data; const result = commit(previous, 'Последнее изменение отменено'); if (result?.then) return result.then(ok => { if (ok) setUndo(null); }); setUndo(null); })}>Отменить</button>}</div>}
+    {notice && <div id="notice" class="visible" role="status"><span>{notice.text}</span>{notice.canUndo && undo && undo.mode === mode && undo.revision === data.revision && <button class="toast-undo" onClick={() => attempt(() => { if (!canLeaveTemplates()) return; if (undo.revision !== data.revision || undo.mode !== mode) throw new Error('Расписание уже изменилось; это действие больше нельзя отменить.'); const previous = undo.data; const finish = ok => { if (ok) { setUndo(null); if (view === 'types') resetTemplateWorkspace(); } }; const result = commit(previous, 'Последнее изменение отменено'); return result?.then ? result.then(finish) : finish(result); })}>Отменить</button>}</div>}
   </SaveErrorContext.Provider>;
 }

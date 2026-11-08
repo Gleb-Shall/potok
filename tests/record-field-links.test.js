@@ -17,6 +17,18 @@ const record={id:'record',name:'Бег',kind:'Хобби',details:[
 const data=()=>({types:[...defaultTypes(),template],students:[],records:[structuredClone(record)],series:[],events:[]});
 const values={typeId:'training',recordId:'record',title:'Бег',date:'2026-11-07',start:600,duration:60,status:'planned',fields:{}};
 
+test('changes formats for empty fields without carrying the old empty representation forward',()=>{
+  const workspace=data();
+  const lesson=workspace.types[0];
+  workspace.events=[{typeId:lesson.id,fields:{topic:'',rate:0}}];
+  workspace.series=[{typeId:lesson.id,fields:{topic:[]}}];
+  const changed={...lesson,fields:[{...lesson.fields[0],type:'multiselect',options:['Практика']},lesson.fields[1]]};
+  const saved=saveType(workspace,changed);
+  assert.deepEqual(saved.events[0].fields,{rate:0});
+  assert.deepEqual(saved.series[0].fields,{});
+  assert.throws(()=>saveType(workspace,{...changed,fields:[changed.fields[0],{...lesson.fields[1],type:'text'}]}),/значения другого формата/);
+});
+
 test('custom records supply live values and completion freezes the source',()=>{
   let workspace=saveEvent(data(),{values});
   const [event]=workspace.events;

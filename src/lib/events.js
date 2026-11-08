@@ -322,6 +322,18 @@ export function deleteRecordTemplate(data,kind) {
   };
 }
 
+export function populatedEventFields(data, typeId) {
+  const ids = new Set();
+  for (const event of [...data.events, ...data.series]) {
+    if (event.typeId !== typeId) continue;
+    for (const [id,value] of Object.entries(event.fields || {})) {
+      if (value == null || typeof value === 'string' && !value.trim() || Array.isArray(value) && !value.length) continue;
+      ids.add(id);
+    }
+  }
+  return ids;
+}
+
 export function saveType(data, input) {
   if (!input.name.trim() || input.name.length > 80) throw new Error('Укажи название шаблона до 80 символов.');
   if (data.types.some(type => type.id !== input.id && type.name.toLocaleLowerCase('ru') === input.name.trim().toLocaleLowerCase('ru'))) throw new Error('Шаблон с таким названием уже существует.');
@@ -330,22 +342,35 @@ export function saveType(data, input) {
   if (kind==='any' && (!previous || recordKind(previous)!=='any')) throw new Error('Выбери конкретный шаблон записи.');
   const sources = recordTypeFields(data,kind);
   const fields = input.fields.map(field=>inheritChoiceOptions(field,sources));
+  let populated;
+  const changedFormats = [];
   for (const field of fields) {
     if (!field.label.trim()) throw new Error('У каждого поля должно быть название.');
     if (['select', 'multiselect'].includes(field.type) && !field.archived && !field.options.length) throw new Error(`Добавь варианты для поля «${field.label}».`);
-    if (!field.source || field.archived) continue;
     const before = previous?.fields.find(item=>item.id===field.id);
+    if (before && before.type !== field.type) {
+      populated ??= populatedEventFields(data,input.id);
+      if (populated.has(field.id)) throw new Error(`В поле «${field.label}» уже есть значения другого формата.`);
+      changedFormats.push(field.id);
+    }
+    if (!field.source || field.archived) continue;
     if (previous && recordKind(previous)===kind && before?.source?.fieldId===field.source.fieldId && before.type===field.type) continue;
     const source = sources.find(item=>item.id===field.source.fieldId);
     if (!source || source.type!==field.type) throw new Error(`Для поля «${field.label}» выбери источник из выбранного шаблона записи.`);
-    if (before && before.type!==field.type && [...data.events,...data.series].some(event=>event.typeId===input.id && Object.hasOwn(event.fields || {},field.id)))
-      throw new Error(`В поле «${field.label}» уже есть значения другого формата.`);
   }
   const saved = saveCardBackground(data, { ...liveTypeSources({...input,fields}), ...(input.cardStyle ? {cardStyle:readCardStyle(input)} : {}), name: input.name.trim(), version: (input.version || 0) + 1 });
   const types = data.types.some(type => type.id === saved.type.id)
     ? data.types.map(type => type.id === saved.type.id ? saved.type : type)
     : [...data.types, saved.type];
-  return { ...data, cardBackgrounds: saved.cardBackgrounds, types };
+  const next = { ...data, cardBackgrounds: saved.cardBackgrounds, types };
+  if (!changedFormats.length) return next;
+  const clearOldEmptyValues = event => {
+    if (event.typeId !== input.id || !event.fields || !changedFormats.some(id => Object.hasOwn(event.fields,id))) return event;
+    const fields = {...event.fields};
+    for (const id of changedFormats) delete fields[id];
+    return {...event,fields};
+  };
+  return {...next, events:data.events.map(clearOldEmptyValues), series:data.series.map(clearOldEmptyValues)};
 }
 export function fieldDisplay(field, value) {
   if (value === undefined || value === null || value === '') return '';

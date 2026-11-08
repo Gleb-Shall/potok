@@ -133,11 +133,20 @@ it('uses declared record-type sources and locks the inherited event field format
  expect([...source.options].map(option=>option.value)).toContain('detail:board');
  expect([...source.options].map(option=>option.value)).not.toContain('detail:private');
  await act(()=>{source.value='detail:board';source.dispatchEvent(new Event('change',{bubbles:true}));});
- const format=select('Формат из записи');
- expect(format.disabled).toBe(true);
- expect(format.value).toBe('url');
+ const format=root.querySelector('.builder-field[open] .builder-format-fixed');
+ expect(format.textContent).toContain('Ссылка');
+ expect(format.textContent).toContain('наследуется');
+ expect(format.querySelector('select')).toBeNull();
  await act(()=>root.querySelector('form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
  expect(save.mock.calls[0][0].types[0].fields[0]).toMatchObject({label:'Тема',type:'url',source:{fieldId:'detail:board'}});
+});
+
+it('locks populated lesson fields and keeps empty ones editable', async () => {
+ const workspace={students:[],records:[],series:[],events:[{typeId:'lesson',fields:{topic:'',rate:0}}],types:defaultTypes()};
+ await mount(<TypeEditor data={workspace} original={workspace.types[0]} onSave={()=>{}} onClose={()=>{}}/>);
+ const rows=[...root.querySelectorAll('.builder-field-row')];
+ expect(rows[0].querySelector('.form-row select')).not.toBeNull();
+ expect(rows[1].querySelector('.builder-format-fixed').textContent).toContain('сохранённых событиях');
 });
 
 it('opens record templates in the shared template editor and saves a choice field', async () => {
@@ -147,16 +156,63 @@ it('opens record templates in the shared template editor and saves a choice fiel
  await click([...root.querySelectorAll('.nav-item')].find(node=>node.textContent.includes('Редактор шаблонов')));
  await click(root.querySelector('.template-family-switch button:last-child'));
  expect([...root.querySelectorAll('.template-list-select')].map(button=>button.textContent)).toEqual(['Ученик','Предмет']);
- await click(root.querySelector('.template-preview-heading button'));
- await click(root.querySelector('dialog .builder-heading button'));
- await input(root.querySelector('dialog .record-type-field input'),'Уровень');
- const format=root.querySelector('dialog .record-type-field select');
+ expect(root.querySelector('.record-template-fields').textContent).toContain('Контакт');
+ await click(root.querySelector('.template-create'));
+ await input(root.querySelector('.template-draft-row input'),'Группа');
+ await click(root.querySelector('.template-inline-editor .builder-heading button'));
+ const field=root.querySelector('.template-inline-editor .builder-field[open]');
+ expect(field).not.toBeNull();
+ await click(field.querySelector('summary'));
+ expect(field.open).toBe(false);
+ await click(field.querySelector('summary'));
+ expect(field.open).toBe(true);
+ await input(field.querySelector('input'),'Уровень');
+ const format=field.querySelector('select');
  expect([...format.options].map(option=>option.value)).toContain('url');
  await act(()=>{format.value='select';format.dispatchEvent(new Event('change',{bubbles:true}));});
- await click(root.querySelector('dialog .option-editor > button'));
- await input(root.querySelector('dialog .option-row input'),'Средний');
- await act(()=>root.querySelector('dialog form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
- expect(root.querySelector('.record-template-fields').textContent).toContain('Средний');
+ await click(root.querySelector('.template-inline-editor .option-editor > button'));
+ await input(root.querySelector('.template-inline-editor .option-row input'),'Средний');
+ await click(root.querySelector('.template-inline-editor .builder-heading button'));
+ await input(root.querySelector('.builder-field[open] .form-row input'),'Телемост');
+ const list=root.querySelector('.builder-fields');
+ const [first,second]=list.children;
+ const grip=first.querySelector('.builder-field-grip');
+ list.getBoundingClientRect=()=>({top:0,bottom:96});
+ first.getBoundingClientRect=()=>({bottom:48});
+ second.getBoundingClientRect=()=>({bottom:96});
+ grip.setPointerCapture=vi.fn();
+ const pointer=(type,clientY)=>act(()=>grip.dispatchEvent(new PointerEvent(type,{bubbles:true,pointerId:1,isPrimary:true,clientY})));
+ await pointer('pointerdown',24);
+ await pointer('pointermove',72);
+ expect(second.dataset.drop).toBe('after');
+ await pointer('pointerup',72);
+ await click(root.querySelector('.template-inline-editor button[type="submit"]'));
+ expect(root.querySelector('.template-list-select[aria-pressed="true"]').textContent).toBe('Группа');
+ const summaries=[...root.querySelectorAll('.template-inline-editor .builder-field summary')];
+ expect(summaries[0].textContent).toContain('Телемост');
+ expect(summaries[1].textContent).toContain('Средний');
+});
+
+it('saves a new event template with its field definitions and appearance in one draft', async () => {
+ localStorage.setItem('tutor-schedule:mode','personal');
+ await mount(<App/>);
+ await click(root.querySelector('.sidebar-toggle'));
+ await click([...root.querySelectorAll('.nav-item')].find(node=>node.textContent.includes('Редактор шаблонов')));
+ await click(root.querySelector('.template-create'));
+ await input(root.querySelector('.template-draft-row input'),'Семинар');
+ expect(root.querySelector('.builder-heading')).toBeNull();
+ const recordTemplate=root.querySelector('.builder-settings select');
+ await act(()=>{recordTemplate.value='course';recordTemplate.dispatchEvent(new Event('change',{bubbles:true}));});
+ await click(root.querySelector('.template-inline-editor .builder-heading button'));
+ await input(root.querySelector('.builder-field[open] input'),'Материалы');
+ await click(root.querySelector('.template-editor-tabs button:last-child'));
+ expect(root.querySelector('.card-style-field').textContent).toContain('Материалы');
+ await input(root.querySelector('.card-style-tint input'),'#224488');
+ await click(root.querySelector('.template-editor-tabs button:first-child'));
+ expect(root.querySelector('.builder-field[open] input').value).toBe('Материалы');
+ await click(root.querySelector('.template-inline-editor button[type="submit"]'));
+ const workspace=JSON.parse(localStorage.getItem('tutor-schedule:personal:v2'));
+ expect(workspace.types.find(type=>type.name==='Семинар')).toMatchObject({recordKind:'course',cardStyle:{tint:'#224488'},fields:[{label:'Материалы'}]});
 });
 
 it('combines record search, template and active repetition filters', async () => {

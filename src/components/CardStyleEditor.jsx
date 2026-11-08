@@ -4,6 +4,7 @@ import { EventCard } from './EventCard.jsx';
 import { CARD_VIEWS, cardComposition, readCardStyle } from '../lib/card-style.js';
 import { cardBackground, prepareCardBackground } from '../lib/card-backgrounds.js';
 import { saveType } from '../lib/events.js';
+import { moveField, useFieldReorder } from '../hooks/useFieldReorder.js';
 import { todayISO } from '../lib/domain.js';
 
 function previewValue(field) {
@@ -19,59 +20,10 @@ function previewValue(field) {
 }
 
 function CardStyleFields({rows, applyRows, onLinkLabel}) {
-  const list = useRef(null), gesture = useRef(null);
-  const [drop, setDrop] = useState(null);
-  const reorder = (from, to) => {
-    if (from === to || to < 0 || to >= rows.length) return;
-    const next = [...rows];
-    next.splice(to, 0, next.splice(from, 1)[0]);
-    applyRows(next);
-  };
-  const start = (event, index) => {
-    if (!event.isPrimary || event.button !== 0 || gesture.current) return;
-    event.currentTarget.setPointerCapture(event.pointerId);
-    gesture.current = {pointerId:event.pointerId, from:index, startY:event.clientY};
-  };
-  const targetAt = y => {
-    const bounds = list.current.getBoundingClientRect();
-    if (y < bounds.top - 24 || y > bounds.bottom + 24) return null;
-    const target = Array.from(list.current.children).findIndex(row => y < row.getBoundingClientRect().bottom);
-    return target < 0 ? rows.length - 1 : target;
-  };
-  const move = event => {
-    const active = gesture.current;
-    if (active?.pointerId !== event.pointerId) return;
-    if (!active.moved && Math.abs(event.clientY - active.startY) < 5) return;
-    active.moved = true;
-    const to = targetAt(event.clientY);
-    setDrop(to === null ? null : {from:active.from, to});
-  };
-  const finish = event => {
-    const active = gesture.current;
-    if (active?.pointerId !== event.pointerId) return;
-    gesture.current = null;
-    setDrop(null);
-    if (event.type !== 'pointerup' || !active.moved) return;
-    const to = targetAt(event.clientY);
-    if (to !== null) reorder(active.from, to);
-  };
+  const {list,rowProps,gripProps} = useFieldReorder(rows.length, (from, to) => applyRows(moveField(rows, from, to)));
   return <ol class="card-style-fields" ref={list}>
-    {rows.map(({field,slot}, index) => <li class="card-style-field" key={field.id}
-      data-drop={drop?.to === index && drop.from !== index ? (drop.from < index ? 'after' : 'before') : undefined}
-      data-dragging={drop?.from === index ? '' : undefined}>
-      <button type="button" class="card-style-grip" aria-label={`Переместить «${field.label}», позиция ${index + 1} из ${rows.length}`}
-        title="Перетащить поле" disabled={rows.length < 2}
-        onPointerDown={event => start(event, index)} onPointerMove={move}
-        onPointerUp={finish} onPointerCancel={finish} onLostPointerCapture={finish}
-        onKeyDown={event => {
-          const direction = {ArrowUp:-1, ArrowDown:1}[event.key];
-          if (!direction) return;
-          event.preventDefault();
-          reorder(index, index + direction);
-          // WebKit may blur a focused element when its row moves in the DOM.
-          const handle = event.currentTarget;
-          requestAnimationFrame(() => { if (handle.isConnected) handle.focus({preventScroll:true}); });
-        }}><span aria-hidden="true">⠿</span></button>
+    {rows.map(({field,slot}, index) => <li class="card-style-field" key={field.id} {...rowProps(index)}>
+      <button type="button" class="card-style-grip" {...gripProps(index, field.label)}><span aria-hidden="true">⠿</span></button>
       <Select label={field.label} value={slot} onChange={next => applyRows(rows.map(row => row.field.id === field.id ? {...row,slot:next} : row))}>
         <option value="hidden">Не показывать</option>
         {field.type === 'url' ? <option value="link">Подписанная ссылка</option> : <><option value="line">В строке деталей</option><option value="badge">Бейдж</option></>}
@@ -82,18 +34,34 @@ function CardStyleFields({rows, applyRows, onLinkLabel}) {
 }
 
 export function CardStyleEditor({data, original, onSave, onClose}) {
-  const [type, setType] = useState(() => ({...original, cardStyle:readCardStyle(original)}));
+  const [type, setType] = useState(original);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const submit = input => {
+    input.preventDefault();
+    if (busy) return;
+    try { onSave(saveType(data, type), 'Оформление сохранено'); }
+    catch (failure) { setError(failure.message); }
+  };
+  return <Modal title="Оформление карточки" subtitle={type.name} wide onClose={onClose} className="product-dialog card-style-dialog">
+    <form onSubmit={submit} class="card-style-form">
+      <CardStyleSettings data={data} type={type} setType={setType} busy={busy} setBusy={setBusy}/>
+      <ErrorMessage error={error}/><FormFooter onClose={onClose} label="Сохранить оформление" disabled={busy}/>
+    </form>
+  </Modal>;
+}
+
+export function CardStyleSettings({data, type, setType, busy, setBusy}) {
   const [view, setView] = useState('grid');
   const [selected, setSelected] = useState(false);
-  const [background, setBackground] = useState(() => cardBackground(data, original));
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const version = useRef(0);
   useEffect(() => () => { version.current++; }, []);
-  const style = type.cardStyle;
+  const background = type.cardBackgroundImage ?? cardBackground(data, type);
+  const style = readCardStyle(type);
   const rows = cardComposition(type, view, style);
   const patchType = patch => setType(previous => ({...previous,...patch}));
-  const patchStyle = patch => setType(previous => ({...previous,cardStyle:{...previous.cardStyle,...patch}}));
+  const patchStyle = patch => setType(previous => ({...previous,cardStyle:{...readCardStyle(previous),...patch}}));
   const applyRows = next => patchStyle({layouts:{...style.layouts,[view]:next.map(({field,slot}) => ({id:field.id,slot}))}});
   const setLinkLabel = (id, linkLabel) => setType(previous => ({...previous, fields:previous.fields.map(item => item.id === id ? {...item,linkLabel} : item)}));
   const upload = async input => {
@@ -104,23 +72,17 @@ export function CardStyleEditor({data, original, onSave, onClose}) {
     setBusy(true); setError('');
     try {
       const image = await prepareCardBackground(file);
-      if (version.current === request) setBackground(image);
+      if (version.current === request) patchType({cardBackgroundImage:image});
     } catch (failure) {
       if (version.current === request) setError(failure.message);
     } finally {
       if (version.current === request) setBusy(false);
     }
   };
-  const submit = input => {
-    input.preventDefault();
-    if (busy) return;
-    try { onSave(saveType(data, {...type,cardBackgroundImage:background}), 'Оформление сохранено'); }
-    catch (failure) { setError(failure.message); }
-  };
   const timeline = view === 'short' || view === 'grid';
   const previewData = {
     ...data, cardBackgrounds:{...data.cardBackgrounds,'appearance-preview':background},
-    types:data.types.map(item => item.id === type.id ? {...type,cardBackgroundId:background?'appearance-preview':''} : item),
+    types:[...data.types.filter(item => item.id !== type.id), {...type,cardBackgroundId:background?'appearance-preview':''}],
   };
   const preview = {
     id:'appearance-preview', typeId:type.id, title:'Пример события',
@@ -128,12 +90,11 @@ export function CardStyleEditor({data, original, onSave, onClose}) {
     location:type.enableLocation === false ? null : {label:'Место встречи'},
     fields:Object.fromEntries(type.fields.map(field => [field.id,previewValue(field)])),
   };
-  return <Modal title="Оформление карточки" subtitle={type.name} wide onClose={onClose} className="product-dialog card-style-dialog">
-    <form onSubmit={submit} class="card-style-form">
+  return <>
       <div class="card-style-layout">
         <section class="card-style-preview">
           <div class="card-style-toolbar">
-            <Select label="Вид карточки" value={view} onChange={setView}>
+            <Select label="Формат предпросмотра" value={view} onChange={setView}>
               {Object.entries(CARD_VIEWS).map(([key,label]) => <option key={key} value={key}>{label}</option>)}
             </Select>
             <Button class="button secondary card-style-selection" aria-pressed={selected} onClick={() => setSelected(value => !value)}>Выделить карточку</Button>
@@ -164,12 +125,11 @@ export function CardStyleEditor({data, original, onSave, onClose}) {
               <div class="card-style-tint"><label>Свой оттенок <input type="color" value={style.tint || '#ff7848'} onInput={input => patchStyle({tint:input.currentTarget.value})}/></label>{style.tint && <Button onClick={() => patchStyle({tint:''})}>Сбросить</Button>}</div>
               <label class="background-strength">Непрозрачность фона <output>{style.opacity}%</output><input type="range" min="0" max="100" value={style.opacity} onInput={input => patchStyle({opacity:Number(input.currentTarget.value)})}/></label>
               <label class="card-style-upload">{busy?'Обработка…':background?'Заменить PNG':'Загрузить PNG'}<input type="file" accept="image/png,.png" disabled={busy} aria-label="PNG для фона карточки" onChange={upload}/></label>
-              {background && <><label class="background-strength">Яркость картинки <output>{type.cardBackgroundStrength ?? 20}%</output><input type="range" min="0" max="50" value={type.cardBackgroundStrength ?? 20} onInput={input => patchType({cardBackgroundStrength:Number(input.currentTarget.value)})}/></label><Button disabled={busy} onClick={() => setBackground('')}>Убрать картинку</Button></>}
+              {background && <><label class="background-strength">Яркость картинки <output>{type.cardBackgroundStrength ?? 20}%</output><input type="range" min="0" max="50" value={type.cardBackgroundStrength ?? 20} onInput={input => patchType({cardBackgroundStrength:Number(input.currentTarget.value)})}/></label><Button disabled={busy} onClick={() => patchType({cardBackgroundImage:''})}>Убрать картинку</Button></>}
             </div>
           </details>
         </div>
       </div>
-      <ErrorMessage error={error}/><FormFooter onClose={onClose} label="Сохранить оформление"/>
-    </form>
-  </Modal>;
+      <ErrorMessage error={error}/>
+  </>;
 }

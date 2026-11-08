@@ -48,7 +48,7 @@ it('named text hyperlinks remain text-safe and reject executable protocols',asyn
 });
 it('URL format in the constructor defaults to showing the link in compact cards',async()=>{
  const data=base();const save=vi.fn();await mount(<TypeEditor data={data} original={data.types[2]} onSave={save} onClose={()=>{}}/>);
- await click('Добавить поле');const section=root.querySelector('.builder-field:last-child');
+ await click('Добавить поле');const section=root.querySelector('.builder-field[open]');
  await input(section.querySelector('input[type=text]'),'Телемост');await input(section.querySelector('select'),'url','change');
  await submit();expect(save).toHaveBeenCalled();expect(save.mock.calls[0][0].types[2].fields.at(-1)).toMatchObject({type:'url',showCompact:true});
 });

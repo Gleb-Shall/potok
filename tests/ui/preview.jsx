@@ -12,7 +12,7 @@ import {GuideView} from '../../src/components/GuideView.jsx';
 import {StatisticsView} from '../../src/components/StatisticsView.jsx';
 import {PendingEventCard} from '../../src/components/PendingEvents.jsx';
 import {RecordsDirectory} from '../../src/components/RecordsDirectory.jsx';
-import {TemplateBrowser} from '../../src/components/TemplateBrowser.jsx';
+import {TemplateWorkspace} from '../../src/components/TemplateWorkspace.jsx';
 import {AppearanceSettings} from '../../src/components/AppearanceSettings.jsx';
 import {EventDetails} from '../../src/components/EventDetails.jsx';
 import {EventEditor} from '../../src/components/EventEditor.jsx';
@@ -49,6 +49,7 @@ function Review(){
  useWorkspaceTheme();
  const [view,setView]=useState(()=>sections.includes(initialView)?initialView:'transfers'),[theme,setTheme]=useState(readColorTheme),[query,setQuery]=useState(''),[filter,setFilter]=useState('');
  const [statisticsEvent,setStatisticsEvent]=useState(null);
+ const [templateData,setTemplateData]=useState(data);
  const [dialog,setDialog]=useState(()=>new URLSearchParams(location.search).get('dialog')==='card-style'?'card-style':'');const close=()=>setDialog('');
  const renderPending=event=><PendingEventCard key={event.id} data={data} event={event} onOpen={()=>setDialog('pending')} onMove={()=>setDialog('move')} onRemind={()=>setDialog('reminder')} onRestore={noop}/>;
  return <div class="layout sidebar-collapsed" data-workspace-view={view}><main class="main">
@@ -63,7 +64,7 @@ function Review(){
   {view==='guide' && <GuideView initialChapter={initialView==='statistics'?4:0}/>}
   {statisticsEvent && <EventDetails key={statisticsEvent.id} data={statisticsData} event={statisticsEvent} onClose={()=>setStatisticsEvent(null)} onEdit={noop} onMove={noop} onStatus={noop}/>}
   {view==='records' && <RecordsDirectory data={data} today={today} query={query} onQuery={setQuery} filter={filter} onFilter={setFilter} onOpen={()=>setDialog('student')} onAdd={()=>setDialog('record-editor')}/>}
-  {view==='templates' && <TemplateBrowser data={data} onEdit={()=>setDialog('type-editor')} onAppearance={()=>setDialog('card-style')} onCopy={noop} onDelete={noop} onAdd={()=>setDialog('type-editor')} onArchived={noop}/>}
+  {view==='templates' && <TemplateWorkspace data={templateData} onSave={setTemplateData} onDelete={noop}/>}
   {view==='appearance' && <AppearanceSettings/>}
   {view==='cards' && <div style={{maxWidth:'420px',display:'grid',gap:'16px'}}><EventCard data={data} event={sample} expanded onOpen={noop}/><EventCard data={data} event={{...sample,status:'done'}} expanded onOpen={noop}/></div>}
   {['event','pending'].includes(dialog) && <EventDetails data={data} event={dialog==='pending'?pending:sample} onClose={close} onEdit={()=>setDialog('event-editor')} onMove={()=>setDialog('move')} onRestore={noop} onRemind={()=>setDialog('reminder')} onStatus={noop} onStudent={()=>setDialog('student')} onRecord={noop}/>}
