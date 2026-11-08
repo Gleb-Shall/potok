@@ -4,6 +4,8 @@ import { useState } from 'preact/hooks';
 import { beforeEach, afterEach, expect, it, vi } from 'vitest';
 import { ActionMenu } from '../src/components/ActionMenu.jsx';
 import { EventDetails } from '../src/components/EventDetails.jsx';
+import { TypeEditor } from '../src/components/TypeEditor.jsx';
+import { RecordsDirectory } from '../src/components/RecordsDirectory.jsx';
 import { RecordFields } from '../src/components/RecordFields.jsx';
 import { App } from '../src/App.jsx';
 import { defaultTypes, moveEvent } from '../src/lib/events.js';
@@ -16,6 +18,7 @@ beforeEach(() => { localStorage.clear(); root=document.createElement('div'); doc
 afterEach(async () => { await mount(null);root.remove();vi.restoreAllMocks(); });
 it.each(['header', 'directory'])('creates and persists a project from the %s add-record button', async source => {
  localStorage.setItem('tutor-schedule:mode','personal');
+ localStorage.setItem('tutor-schedule:personal:v2',JSON.stringify({version:2,students:[],records:[],series:[],events:[],types:defaultTypes(),recordTypes:[{kind:'project',fields:[]}]}));
  await mount(<App/>);
  await click(root.querySelector('.sidebar-toggle'));
  await click([...root.querySelectorAll('.nav-item')].find(node=>node.textContent.includes('Записи')));
@@ -115,4 +118,83 @@ it.each([false,true])('restores a waiting event to its original slot, respecting
   const undone=JSON.parse(localStorage.getItem('tutor-schedule:personal:v2'));
   expect(undone.events.find(item=>item.id==='waiting').status).toBe('pending');expect(undone.reminders).toHaveLength(1);
  }
+});
+
+it('uses declared record-type sources and locks the inherited event field format', async () => {
+ const workspace={students:[{id:'a',name:'Анна',details:[{id:'private',label:'Личная ссылка',type:'url'}]}],records:[],series:[],events:[],types:defaultTypes(),
+   recordTypes:[{kind:'student',fields:[{id:'board',label:'Доска',type:'url'}]}]};
+ const original=workspace.types[0];
+ const save=vi.fn();
+ await mount(<TypeEditor data={workspace} original={original} onSave={save} onClose={()=>{}}/>);
+ const select=(label)=>[...root.querySelectorAll('label')].find(node=>node.firstElementChild?.textContent===label)?.querySelector('select');
+ expect([...select('Шаблон связанной записи').options].map(option=>option.value)).not.toContain('any');
+ expect([...select('Формат').options].map(option=>option.value)).not.toContain('date');
+ const source=select('Источник значения');
+ expect([...source.options].map(option=>option.value)).toContain('detail:board');
+ expect([...source.options].map(option=>option.value)).not.toContain('detail:private');
+ await act(()=>{source.value='detail:board';source.dispatchEvent(new Event('change',{bubbles:true}));});
+ const format=select('Формат из записи');
+ expect(format.disabled).toBe(true);
+ expect(format.value).toBe('url');
+ await act(()=>root.querySelector('form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+ expect(save.mock.calls[0][0].types[0].fields[0]).toMatchObject({label:'Тема',type:'url',source:{fieldId:'detail:board'}});
+});
+
+it('opens record templates in the shared template editor and saves a choice field', async () => {
+ localStorage.setItem('tutor-schedule:mode','personal');
+ await mount(<App/>);
+ await click(root.querySelector('.sidebar-toggle'));
+ await click([...root.querySelectorAll('.nav-item')].find(node=>node.textContent.includes('Редактор шаблонов')));
+ await click(root.querySelector('.template-family-switch button:last-child'));
+ expect([...root.querySelectorAll('.template-list-select')].map(button=>button.textContent)).toEqual(['Ученик','Предмет']);
+ await click(root.querySelector('.template-preview-heading button'));
+ await click(root.querySelector('dialog .builder-heading button'));
+ await input(root.querySelector('dialog .record-type-field input'),'Уровень');
+ const format=root.querySelector('dialog .record-type-field select');
+ expect([...format.options].map(option=>option.value)).toContain('url');
+ await act(()=>{format.value='select';format.dispatchEvent(new Event('change',{bubbles:true}));});
+ await click(root.querySelector('dialog .option-editor > button'));
+ await input(root.querySelector('dialog .option-row input'),'Средний');
+ await act(()=>root.querySelector('dialog form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+ expect(root.querySelector('.record-template-fields').textContent).toContain('Средний');
+});
+
+it('combines record search, template and active repetition filters', async () => {
+ const workspace={students:[{id:'a',name:'Артём',contact:'+7 (999) 111-22-33'}],
+   records:[{id:'p',kind:'project',name:'Артем и команда',details:[{label:'Предмет',value:'Математика'}]}],
+   series:[{studentId:'a',until:'2026-11-20'}]};
+ function Harness(){
+   const [query,setQuery]=useState(''),[filter,setFilter]=useState('');
+   return <RecordsDirectory data={workspace} today="2026-11-08" query={query} onQuery={setQuery} filter={filter} onFilter={setFilter}/>;
+ }
+ await mount(<Harness/>);
+ const search=root.querySelector('input[type="search"]');
+ const [template,repeats]=root.querySelectorAll('.record-filter-toolbar select');
+ const choose=(select,value)=>act(()=>{select.value=value;select.dispatchEvent(new Event('change',{bubbles:true}));});
+ await input(search,'артем математика');
+ expect(root.querySelectorAll('.record-list-row')).toHaveLength(1);
+ expect(root.querySelector('.record-list-row').textContent).toContain('Артем и команда');
+ await choose(template,'student');
+ expect(root.querySelectorAll('.record-list-row')).toHaveLength(0);
+ await input(search,'7999111');
+ await choose(repeats,'scheduled');
+ expect(root.querySelector('.record-list-row').textContent).toContain('Артём');
+ await click(root.querySelector('.record-filter-results button'));
+ expect(root.querySelectorAll('.record-list-row')).toHaveLength(2);
+});
+
+it('deletes an unused record template from its menu', async () => {
+ const workspace={version:2,students:[],records:[],series:[],events:[],types:defaultTypes(),recordTypes:[{kind:'project',fields:[]}]};
+ localStorage.setItem('tutor-schedule:mode','personal');
+ localStorage.setItem('tutor-schedule:personal:v2',JSON.stringify(workspace));
+ await mount(<App/>);
+ await click(root.querySelector('.sidebar-toggle'));
+ await click([...root.querySelectorAll('.nav-item')].find(node=>node.textContent.includes('Редактор шаблонов')));
+ await click(root.querySelector('.template-family-switch button:last-child'));
+ const menu=root.querySelector('[aria-label="Другие действия с шаблоном «Проект»"]').closest('details');
+ await click(menu.querySelector('summary'));
+ await click(menu.querySelector('button'));
+ expect(root.querySelector('.delete-modal h2').textContent).toBe('Удалить шаблон записи?');
+ await act(()=>root.querySelector('.delete-modal form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+ expect(root.querySelector('[aria-label="Другие действия с шаблоном «Проект»"]')).toBeNull();
 });

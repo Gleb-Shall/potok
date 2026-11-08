@@ -8,107 +8,133 @@ import { ActivityStatus, ActivityTime } from './EventListRow.jsx';
 import { Button, Field, money } from './UI.jsx';
 
 import { Icon } from './Icon.jsx';
+import { GuideTransferExample } from './GuideTransferExample.jsx';
 
 const lesson = {id:'guide-lesson',title:'Занятие с Анной',typeId:'lesson',date:'2026-11-10',anchorDate:'2026-11-10',start:900,duration:60,status:'planned',fields:{},history:[]};
 const workspace = {types:defaultTypes(),students:[],records:[],series:[],events:[lesson]};
 const later = Date.parse('2026-11-10T16:05:00+03:00');
-const laterWeek = 'Вт, 17 ноября · 15:00–16:00';
-
-function TransferExample({defer = false}) {
+function DeferredTransferExample() {
   const [event,setEvent] = useState(lesson);
+  const [selected,setSelected] = useState(false);
   const pending = event.status==='pending';
-  const moved = event.date!==lesson.date;
-  const change = () => {
-    if (moved) {
-      const restored = restoreMove({...workspace,events:[event]},event);
-      setEvent(restored.events[0]);
-    } else {
-      setEvent(moveEvent(event,defer ? null : '2026-11-11',defer ? 900 : 960,60));
-    }
+  const move = (date,start) => {
+    setEvent(moveEvent(event,date,start,event.duration));
+    setSelected(false);
   };
+  const restore = () => {
+    setEvent(restoreMove({...workspace,events:[event]},event).events[0]);
+    setSelected(false);
+  };
+  const card = <button class="guide-event-sample guide-pick-card" type="button" aria-expanded={selected} onClick={()=>setSelected(value=>!value)}>
+    <strong>{event.title}</strong>
+    {pending ? <ActivityStatus appearance={eventAppearance(event)}/> : <span><ActivityTime start={event.start} duration={event.duration}/></span>}
+  </button>;
   return <>
-    <p>{defer ? 'Отложи встречу, пока новое время неизвестно.' : 'Перенеси занятие этой недели на среду.'}</p>
-    <div class="guide-example-slots guide-transfer-demo" aria-live="polite">
-      <div><small>Эта неделя · Вт</small>
-        {moved ? <span class="guide-slot-empty"><s>15:00–16:00</s><br/>Исходное время</span> :
-          <div class="guide-event-sample"><strong>{event.title}</strong><span><ActivityTime start={event.start} duration={event.duration}/></span></div>}
-      </div>
-      <div><small>{defer ? 'Ждут новой даты' : 'Эта неделя · Ср'}</small>
-        {moved ? <div class="guide-event-sample" key={event.date || 'pending'}><strong>{event.title}</strong>
-          {pending ? <ActivityStatus appearance={eventAppearance(event)}/> : <span><ActivityTime start={event.start} duration={event.duration}/></span>}
-        </div> : <span class="guide-slot-empty">{defer ? 'Очередь пуста' : 'Свободно'}</span>}
-      </div>
-      <div><small>Следующая встреча</small><strong>{event.title}</strong><span>{laterWeek}</span></div>
+    <p>Открой карточку занятия и отложи перенос. Затем открой её в очереди, чтобы назначить новое время.</p>
+    <div class="guide-example-slots" aria-live="polite">
+      <div><small>Расписание</small>{pending ? <span class="guide-slot-empty">Исходное время освобождено</span> : card}</div>
+      <div><small>Ждут новой даты</small>{pending ? card : <span class="guide-slot-empty">Очередь пуста</span>}</div>
     </div>
-    <Button onClick={change}>{moved ? 'Вернуть на место' : defer ? 'Отложить перенос' : 'Перенести на среду, 16:00'}</Button>
+    {selected && <div class="guide-example-actions">{pending ? <>
+      <Button onClick={()=>move('2026-11-11',960)}>Выбрать среду, 16:00</Button>
+      <Button onClick={restore}>Вернуть на место</Button>
+    </> : <Button onClick={()=>move(null,event.start)}>Отложить перенос</Button>}</div>}
   </>;
 }
 
 function ConfirmationExample() {
   const [data,setData] = useState(workspace);
   const [event] = data.events;
+  const [selected,setSelected] = useState(false);
+  const confirm = status => {setData(setEventStatus(data,event,status,later));setSelected(false);};
   const waiting = unconfirmedEvents(data,later).length>0;
+  const Card = waiting ? 'button' : 'div';
+  const cardProps = waiting ? {type:'button','aria-expanded':selected,onClick:()=>setSelected(value=>!value)} : {};
   return <>
-    <p>Занятие закончилось. Выбери, состоялось ли оно.</p>
+    <p>Открой карточку занятия и отметь, состоялось ли оно.</p>
     <div class="guide-example-slots guide-journal-demo" aria-live="polite">
       {['Ждут подтверждения','Архив'].map((label,i)=><div key={label}>
         <small>{label}</small>
-        {waiting===(i===0) ? <div class="guide-event-sample" key={event.status}>
+        {waiting===(i===0) ? <Card class={`guide-event-sample${waiting ? ' guide-pick-card' : ''}`} key={event.status} {...cardProps}>
           <strong>{event.title}</strong><span><ActivityTime start={event.start} duration={event.duration}/></span>
           <ActivityStatus appearance={eventAppearance(event,{now:later})}/>
-        </div> : <span class="guide-slot-empty">{i===0 ? 'Очередь пуста' : 'Здесь появится итог занятия'}</span>}
+        </Card> : <span class="guide-slot-empty">{i===0 ? 'Очередь пуста' : 'Здесь появится итог занятия'}</span>}
       </div>)}
     </div>
-    {waiting && <div class="guide-example-actions">
-      <Button icon="check" onClick={()=>setData(setEventStatus(data,event,'done',later))}>Проведено</Button>
-      <Button icon="close" onClick={()=>setData(setEventStatus(data,event,'cancelled',later))}>Отменено</Button>
+    {waiting && selected && <div class="guide-example-actions">
+      <Button icon="check" onClick={()=>confirm('done')}>Проведено</Button>
+      <Button icon="close" onClick={()=>confirm('cancelled')}>Отменено</Button>
     </div>}
   </>;
 }
 
 const contacts = {
-  anna:{name:'Анна',initial:'А',contact:'anna@example.com',withName:'Анной'},
-  ivan:{name:'Иван',initial:'И',contact:'ivan@example.com',withName:'Иваном'},
+  anna:{name:'Анна',initial:'А',contact:'anna@example.com'},
+  ivan:{name:'Иван',initial:'И',contact:'ivan@example.com'},
 };
-const contactField = mode => [{id:'contact',type:'text',source:{mode,fieldId:'record:contact'}}];
+const reviewEvent = {title:'Разбор задач',time:'Вт · 15:00–16:00'};
+const consultationEvent = {title:'Консультация',time:'Пт · 17:00–17:30'};
+const contactField = {id:'contact',type:'text',source:{fieldId:'record:contact'}};
 
-function ExampleChoice({label,value,options,onChange}) {
+function ExampleChoice({label,value,options,onChange,className = ''}) {
   const name = useId();
-  return <fieldset class="guide-choice">
+  return <fieldset class={`guide-choice ${className}`}>
     <legend>{label}</legend>
     <div>{options.map(([id,text])=><label key={id}>
       <input class="sr-only" type="radio" name={name} value={id} checked={value===id} onChange={()=>onChange(id)}/>
-      <span>{text}</span>
+      <span class="guide-choice-option">{text}</span>
     </label>)}</div>
   </fieldset>;
 }
 
-function RecordExample({showModes = false}) {
+function RecordExample({variant = 'linked'}) {
+  const configureSource = variant==='source';
+  const multipleEvents = variant==='shared';
+  const chooseRecord = variant==='linked';
   const [recordId,setRecordId] = useState('anna');
-  const [mode,setMode] = useState('live');
+  const [useRecord,setUseRecord] = useState(true);
   const [annaContact,setAnnaContact] = useState(contacts.anna.contact);
-  const original = contacts[recordId];
-  const record = recordId==='anna' ? {...original,contact:annaContact} : original;
-  const source = mode==='copy' ? original : record;
-  const values = resolveRecordFields(contactField(mode),{},source,mode);
+  const [eventContact,setEventContact] = useState('');
+  const record = chooseRecord ? contacts[recordId] : {...contacts.anna,contact:annaContact};
+  const events = multipleEvents ? [reviewEvent,consultationEvent] : [reviewEvent];
+  const {contact} = resolveRecordFields([contactField],{},record);
+  const instructions = {
+    linked:'Переключи запись между Анной и Иваном. Имя и контакт изменятся в одной и той же карточке события.',
+    shared:'Измени контакт в записи Анны. «Разбор задач» и «Консультация» получат новый адрес из этой записи.',
+    source:'Выбери, откуда берётся контакт. При ручном заполнении у события будет своё значение.',
+  };
   return <>
-    <p>{showModes ? 'Измени контакт Анны и переключи способ подстановки, чтобы сравнить значения.' : 'Выбери ученика. Контакт из его записи сразу появится в занятии.'}</p>
-    <ExampleChoice label={showModes ? 'Источник значения' : 'Связанная запись'} value={showModes ? mode : recordId}
-      options={showModes ? [['live','Брать из записи'],['copy','Подставить при создании']] : [['anna','Анна'],['ivan','Иван']]}
-      onChange={showModes ? setMode : setRecordId}/>
-    <div class="guide-connection" data-linked-person={recordId}>
-      <div class="guide-object">
-        <small><Icon name="users"/>Запись ученика</small>
-        <div class="guide-contact-name"><span aria-hidden="true">{record.initial}</span><strong>{record.name}</strong></div>
-        {showModes ? <Field label="Контакт" value={annaContact} onChange={setAnnaContact}/> :
-          <div class="guide-contact-value"><small>Контакт</small><span>{record.contact}</span></div>}
+    <p>{instructions[variant]}</p>
+    {configureSource && <ExampleChoice label="Источник значения" value={useRecord ? 'record' : 'event'} onChange={value=>setUseRecord(value==='record')}
+      options={[['record','Контакт из записи'],['event','Заполнять в событии']]}/>}
+    <div class={`guide-connection${multipleEvents ? ' guide-connection-many' : ''}`}>
+      {!chooseRecord ? <div class="guide-object">
+        <small>Запись ученика</small>
+        <strong>{record.name}</strong>
+        <Field label="Контакт" value={annaContact} onChange={setAnnaContact}/>
+      </div> : <ExampleChoice label="Связанная запись" value={recordId} className="guide-contact-picker" onChange={setRecordId}
+        options={Object.entries(contacts).map(([id,person])=>[id,<>
+          <span class="guide-contact-initial" aria-hidden="true">{person.initial}</span>
+          <span><strong>{person.name}</strong><small>{person.contact}</small></span>
+        </>])}/>}
+      <div class={`guide-connection-arrow${multipleEvents ? ' guide-connection-branch' : ''}`} aria-hidden="true">
+        <Icon name="arrow"/>
+        {multipleEvents && <svg viewBox="0 0 36 100" preserveAspectRatio="none" fill="none">
+          <path d="M0 50H10M10 50C22 50 14 25 27 25H36M10 50C22 50 14 75 27 75H36"
+            stroke="currentColor" vector-effect="non-scaling-stroke"/>
+        </svg>}
       </div>
-      <div class="guide-connection-arrow" aria-hidden="true"><Icon name="arrow"/></div>
-      <div class="guide-object guide-object-event" aria-live="polite">
-        <small><Icon name="calendar"/>Вт · 15:00–16:00</small>
-        <strong>Занятие с {record.withName}</strong>
-        <div class="guide-contact-value"><small>{mode==='copy' ? 'Копия при создании' : 'Контакт из записи'}</small>
-          <span key={values.contact}>{values.contact || 'Контакт не указан'}</span>
+      <div class="guide-event-preview">
+        <small class="guide-event-preview-label">{multipleEvents ? 'Связанные события' : 'Карточка события'}</small>
+        <div class="guide-event-preview-list" aria-live="polite">
+          {events.map(event=><article class="guide-object guide-object-event" key={event.title}>
+              <small>{event.time}</small>
+              <strong>{event.title}</strong>
+              {chooseRecord && <small><Icon name="users"/>{record.name}</small>}
+              {useRecord ? <div class="guide-contact-value"><small>Контакт из записи</small>
+                <span key={contact}>{contact || 'Контакт не указан'}</span>
+              </div> : <Field label="Контакт в событии" value={eventContact} onChange={setEventContact}/>}
+            </article>)}
         </div>
       </div>
     </div>
@@ -116,9 +142,9 @@ function RecordExample({showModes = false}) {
 }
 
 const reportData = {...workspace,events:[
-  {...lesson,id:'guide-report-1',title:'Разбор задач',status:'done',fields:{rate:1500}},
-  {...lesson,id:'guide-report-2',title:'Подготовка к экзамену',status:'done',fields:{rate:2400}},
-  {...lesson,id:'guide-report-3',title:'Пробное занятие',status:'done',fields:{rate:0}},
+  {...lesson,id:'guide-report-1',recordId:'anna',title:'Разбор задач',status:'done',fields:{rate:1500}},
+  {...lesson,id:'guide-report-2',recordId:'anna',title:'Подготовка к экзамену',status:'done',fields:{rate:2400}},
+  {...lesson,id:'guide-report-3',recordId:'ivan',title:'Пробное занятие',status:'done',fields:{rate:0}},
   {...lesson,id:'guide-report-4',title:'Отменённое занятие',status:'cancelled',fields:{rate:2000}},
 ]};
 const report = reportRows(reportData,'2026-11-01','2026-11-30');
@@ -127,32 +153,38 @@ const highestRate = Math.max(...report.map(row=>row.values.rate));
 
 function ReportExample() {
   const [operation,setOperation] = useState('sum');
-  const {value} = reportMeasure(report,[rate],operation);
+  const [recordId,setRecordId] = useState('');
+  const entries = recordId ? report.filter(row=>row.recordId===recordId) : report;
+  const {value} = reportMeasure(entries,[rate],operation);
   return <>
-    <p>Переключи способ расчёта стоимости проведённых занятий.</p>
-    <ExampleChoice label="Как считать" value={operation} onChange={setOperation} options={[['sum','Сумма'],['average','Среднее']]}/>
+    <p>Выбери ученика и способ расчёта. Итог и список проведённых занятий обновятся вместе.</p>
+    <div class="guide-example-actions">
+      <ExampleChoice label="Запись" value={recordId} onChange={setRecordId} options={[['','Все'],['anna','Анна'],['ivan','Иван']]}/>
+      <ExampleChoice label="Как считать" value={operation} onChange={setOperation} options={[['sum','Сумма'],['average','Среднее']]}/>
+    </div>
     <div class="guide-example-result" aria-live="polite"><small>{operation==='sum' ? 'Итого за занятия' : 'В среднем за занятие'}</small><strong>{money(value)}</strong></div>
     <ul class="guide-example-breakdown">
-      {report.map(({event,values})=><li key={event.id}><span>{event.title}</span><strong>{money(values.rate)}</strong>
+      {entries.map(({event,values})=><li key={event.id}><span>{event.title}</span><strong>{money(values.rate)}</strong>
         <i aria-hidden="true" style={{width:`${values.rate/highestRate*100}%`}}/></li>)}
     </ul>
   </>;
 }
 
 const examples = {
-  move:TransferExample,
+  move:()=> <GuideTransferExample lesson={lesson} workspace={workspace}/>,
   linked:RecordExample,
-  source:()=> <RecordExample showModes/>,
+  sharedRecord:()=> <RecordExample variant="shared"/>,
+  source:()=> <RecordExample variant="source"/>,
   confirm:ConfirmationExample,
-  defer:()=> <TransferExample defer/>,
+  defer:DeferredTransferExample,
   report:ReportExample,
 };
 
 export function GuideExample({name}) {
   const [reset,setReset] = useState(0);
   const Example = examples[name];
-  return <div class="guide-example">
-    <header><strong><Icon name="play"/>Попробовать в примере</strong><Button kind="text-button" icon="refresh" onClick={()=>setReset(value=>value+1)}>Сначала</Button></header>
-    <Example key={reset}/>
-  </div>;
+  return <section class="guide-example" aria-label="Практика на примере">
+    <header><div><h3>Попробуй сам</h3><small>Учебные данные</small></div><Button kind="text-button" icon="refresh" onClick={()=>setReset(value=>value+1)}>Сначала</Button></header>
+    <div class="guide-demo"><Example key={reset}/></div>
+  </section>;
 }

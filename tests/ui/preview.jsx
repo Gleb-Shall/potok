@@ -63,7 +63,7 @@ function Review(){
   {view==='guide' && <GuideView initialChapter={initialView==='statistics'?4:0}/>}
   {statisticsEvent && <EventDetails key={statisticsEvent.id} data={statisticsData} event={statisticsEvent} onClose={()=>setStatisticsEvent(null)} onEdit={noop} onMove={noop} onStatus={noop}/>}
   {view==='records' && <RecordsDirectory data={data} today={today} query={query} onQuery={setQuery} filter={filter} onFilter={setFilter} onOpen={()=>setDialog('student')} onAdd={()=>setDialog('record-editor')}/>}
-  {view==='templates' && <TemplateBrowser data={data} onEdit={()=>setDialog('type-editor')} onAppearance={()=>setDialog('card-style')} onCopy={noop} onArchive={noop} onDelete={noop} onAdd={()=>setDialog('type-editor')} onArchived={noop}/>}
+  {view==='templates' && <TemplateBrowser data={data} onEdit={()=>setDialog('type-editor')} onAppearance={()=>setDialog('card-style')} onCopy={noop} onDelete={noop} onAdd={()=>setDialog('type-editor')} onArchived={noop}/>}
   {view==='appearance' && <AppearanceSettings/>}
   {view==='cards' && <div style={{maxWidth:'420px',display:'grid',gap:'16px'}}><EventCard data={data} event={sample} expanded onOpen={noop}/><EventCard data={data} event={{...sample,status:'done'}} expanded onOpen={noop}/></div>}
   {['event','pending'].includes(dialog) && <EventDetails data={data} event={dialog==='pending'?pending:sample} onClose={close} onEdit={()=>setDialog('event-editor')} onMove={()=>setDialog('move')} onRestore={noop} onRemind={()=>setDialog('reminder')} onStatus={noop} onStudent={()=>setDialog('student')} onRecord={noop}/>}

@@ -123,7 +123,7 @@ export function CardStyleEditor({data, original, onSave, onClose}) {
     types:data.types.map(item => item.id === type.id ? {...type,cardBackgroundId:background?'appearance-preview':''} : item),
   };
   const preview = {
-    id:'appearance-preview', typeId:type.id, title:type.titleLabel === 'Название события' ? type.name : type.titleLabel,
+    id:'appearance-preview', typeId:type.id, title:'Пример события',
     date:todayISO(), start:900, duration:view === 'short' ? 30 : 60, status:'planned',
     location:type.enableLocation === false ? null : {label:'Место встречи'},
     fields:Object.fromEntries(type.fields.map(field => [field.id,previewValue(field)])),

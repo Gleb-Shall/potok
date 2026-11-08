@@ -112,8 +112,8 @@ export function StatisticsView({data, now, onOpen, onGuide}) {
           <option value="">Все записи</option>
           {records.filter(record=>recordCounts.has(record.id)||record.id===recordId).map(record=><option key={record.id} value={record.id}>{record.name} · {recordCounts.get(record.id)||0}</option>)}
         </Select>
-        <Select label="Тип события" value={typeId} onChange={clearGroup(setTypeId)}>
-          <option value="">Все типы</option>
+        <Select label="Шаблон события" value={typeId} onChange={clearGroup(setTypeId)}>
+          <option value="">Все шаблоны</option>
           {[...types].filter(([id])=>typeCounts.has(id)||id===typeId).map(([id,name])=><option key={id} value={id}>{name} · {typeCounts.get(id)||0}</option>)}
         </Select>
       </div>
@@ -141,7 +141,7 @@ export function StatisticsView({data, now, onOpen, onGuide}) {
           {Object.entries(calculations).map(([id,label])=><option key={id} value={id}>{label}</option>)}
         </Select>}
         <Select label="Разбить по" value={group} onChange={clearGroup(setGroup)}>
-          <option value="">Без разбивки</option><option value="record">Записям</option><option value="type">Типам событий</option><option value="day">Дням</option><option value="place">Местам</option>
+          <option value="">Без разбивки</option><option value="record">Записям</option><option value="type">Шаблонам событий</option><option value="day">Дням</option><option value="place">Местам</option>
           {group && !['record','type','day','place'].includes(group) && !byKey.has(group) && <option value={group}>Поле вне выборки</option>}
           {fields.filter(field=>groupedTypes.has(field.type)).map(field=><option key={field.key} value={field.key}>{fieldLabel(field)}</option>)}
         </Select>

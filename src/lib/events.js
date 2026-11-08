@@ -1,5 +1,5 @@
 import { linkHref } from './links.js';
-import { resolveRecordFields } from './record-field-links.js';
+import { choiceOptions, declaredRecordFields, isChoiceField, RECORD_FIELD_FORMATS, recordTypeFields, resolveRecordFields } from './record-field-links.js';
 import { readCardStyle } from './card-style.js';
 import { saveCardBackground } from './card-backgrounds.js';
 import { activeReminders } from './reminder-model.js';
@@ -9,6 +9,10 @@ export const FIELD_TYPES = { text: 'Текст', url: 'Ссылка', textarea: 
 export const RECORD_KINDS = { student: 'Ученик', person: 'Человек', course: 'Предмет', place: 'Место', project: 'Проект' };
 export const recordKind = type => type.recordKind ?? (type.linkStudent ? 'student' : type.id === 'class' ? 'course' : type.id === 'personal' ? 'any' : '');
 export const allRecords = data => [...data.students.map(item => ({ ...item, kind: 'student' })), ...(data.records || [])];
+export const recordKinds = data => [...new Set([
+  'student', ...(data.recordTypes || []).map(type=>type.kind),
+  ...(data.records || []).map(record=>record.kind), ...data.types.map(recordKind),
+])].filter(kind=>kind && kind!=='any' && !data.deletedRecordKinds?.includes(kind));
 export function getRecord(data,event) {
   if(event.snapshot) return event.snapshot.record || undefined;
   const id=event.recordId || event.studentId;
@@ -19,14 +23,20 @@ export const COLOR_NAMES = { violet: 'Сиреневый', blue: 'Голубой
 const field = (id, label, type = 'text', extra = {}) => ({ id, label, type, required: false, showOnCard: true, archived: false, options: [], ...extra });
 export function defaultTypes() {
   return [
-    { id: 'lesson', name: 'Урок', titleLabel: 'Название занятия', icon: '✎', color: 'violet', linkStudent: true, requireStudent: true, archived: false, fields: [field('topic', 'Тема'), field('rate', 'Стоимость, ₽', 'number')] },
-    { id: 'class', name: 'Пара', titleLabel: 'Предмет', icon: '▤', color: 'blue', linkStudent: false, requireStudent: false, archived: false, fields: [field('teacher', 'Преподаватель'), field('room', 'Аудитория'), field('format', 'Формат', 'select', { options: ['Лекция', 'Семинар', 'Практика', 'Лабораторная'] })] },
-    { id: 'personal', name: 'Личное', titleLabel: 'Название события', icon: '◇', color: 'green', linkStudent: false, requireStudent: false, archived: false, fields: [field('description', 'Описание', 'textarea', { showOnCard: false })] }
+    { id: 'lesson', name: 'Урок', icon: '✎', color: 'violet', linkStudent: true, requireStudent: true, archived: false, fields: [field('topic', 'Тема'), field('rate', 'Стоимость, ₽', 'number')] },
+    { id: 'class', name: 'Пара', icon: '▤', color: 'blue', linkStudent: false, requireStudent: false, archived: false, fields: [field('teacher', 'Преподаватель'), field('room', 'Аудитория'), field('format', 'Формат', 'select', { options: ['Лекция', 'Семинар', 'Практика', 'Лабораторная'] })] },
+    { id: 'personal', name: 'Личное', icon: '◇', color: 'green', linkStudent: false, requireStudent: false, recordKind: '', archived: false, fields: [field('description', 'Описание', 'textarea', { showOnCard: false })] }
   ];
 }
-export function getType(data, id) { return data.types.find(type => type.id === id) || { id, name: 'Архивный тип', titleLabel: 'Название', icon: '◇', color: 'violet', fields: [] }; }
+export function getType(data, id) { return data.types.find(type => type.id === id) || { id, name: 'Архивный шаблон', icon: '◇', color: 'violet', fields: [] }; }
 export const eventType = (data, event) => event.snapshot?.type?.id === event.typeId ? event.snapshot.type : getType(data, event.typeId);
-export const eventFields = (data,event) => resolveRecordFields(eventType(data,event).fields,event.fields,getRecord(data,event));
+export const eventFields = (data,event) => {
+  const type = eventType(data,event);
+  const record = getRecord(data,event);
+  const kind = recordKind(type);
+  const source = !kind || kind==='any' || record?.kind===kind ? record : undefined;
+  return resolveRecordFields(type.fields,event.fields,source);
+};
 export function snapshotEvent(data, event) {
   const record = getRecord(data, event);
   return { ...structuredClone(event), title: eventTitle(data, event), snapshot: event.snapshot || { type: structuredClone(eventType(data, event)), record: record ? structuredClone(record) : null } };
@@ -40,13 +50,21 @@ export function eventMatches(data, event, query, typeId = '') {
 }
 export const daysBetween = (from, to) => Math.round((Date.parse(to + 'T00:00:00Z') - Date.parse(from + 'T00:00:00Z')) / 86400000);
 
+function liveTypeSources(type) {
+  return { ...type, fields: type.fields.map(field => field.source?.mode === 'copy'
+    ? { ...field, source:{ ...field.source, mode:'live' } } : field) };
+}
+
 export function normalizeData(source) {
   if (source?.version === 2) {
     if (!['students', 'types', 'series', 'events'].every(key => Array.isArray(source[key]))) throw new Error('Неизвестный формат данных. Исходная копия сохранена.');
     if (source.records !== undefined && !Array.isArray(source.records)) throw new Error('Не удалось прочитать общие записи. Исходная копия сохранена.');
+    if (source.recordTypes !== undefined && (!Array.isArray(source.recordTypes) || source.recordTypes.some(type=>!type || typeof type.kind!=='string' || !Array.isArray(type.fields))))
+      throw new Error('Не удалось прочитать шаблоны записей. Исходная копия сохранена.');
     const normalized = { ...structuredClone(source), records: structuredClone(source.records || []) };
     if (normalized.reminders) normalized.reminders = activeReminders(normalized);
     normalized.events = normalized.events.map(event => event.status === 'done' && !event.snapshot ? snapshotEvent(normalized, event) : event);
+    normalized.types = normalized.types.map(liveTypeSources);
     return normalized;
   }
   if (!source || !['students', 'series', 'lessons'].every(key => Array.isArray(source[key]))) throw new Error('Не удалось прочитать старое расписание. Исходная копия сохранена.');
@@ -125,12 +143,12 @@ export function validateEvent(data, input) {
   addDays(input.date, 0);
   if (!Number.isInteger(input.start) || !Number.isInteger(input.duration) || input.start < 0 || input.duration < 5 || input.start + input.duration > 1440) throw new Error('Событие должно длиться не меньше 5 минут и закончиться в тот же день.');
   const type = data.types.find(item => item.id === input.typeId);
-  if (!type) throw new Error('Выбери существующий тип события.');
+  if (!type) throw new Error('Выбери существующий шаблон события.');
   if (type.requireStudent && !input.recordDetached && !data.students.some(student => student.id === input.studentId)) throw new Error('Для этого типа нужен ученик. Сначала добавь его в разделе «Записи».');
   const linked = getRecord(data, input);
   const kind = recordKind(type);
   if (type.requireRecord && !input.recordDetached && !linked) throw new Error('Выбери связанную запись.');
-  if (linked && kind && kind !== 'any' && linked.kind !== kind) throw new Error('Связанная запись не подходит этому типу события.');
+  if (linked && kind && kind !== 'any' && linked.kind !== kind) throw new Error('Связанная запись не подходит этому шаблону события.');
   if (input.location && (!Number.isFinite(input.location.lat) || !Number.isFinite(input.location.lng) || Math.abs(input.location.lat) > 90 || Math.abs(input.location.lng) > 180)) throw new Error('Выбери корректную точку на карте.');
   if ((input.notes || '').length > 5000) throw new Error('Заметка слишком длинная.');
   const effectiveFields = resolveRecordFields(type.fields,input.fields,linked);
@@ -141,8 +159,9 @@ export function validateEvent(data, input) {
     if (value && field.type === 'url' && !linkHref(value)) throw new Error(`В поле «${field.label}» нужна ссылка http:// или https://.`);
     if (value && field.type === 'date') addDays(value, 0);
     const previous = data.events.find(event => event.id === input.id) || data.series.find(series => series.id === input.seriesId);
-    if (value && field.type === 'select' && !field.options.includes(value) && previous?.fields?.[field.id] !== value) throw new Error(`Выбери значение поля «${field.label}» из списка.`);
-    if (field.type === 'multiselect' && value != null && (!Array.isArray(value) || value.some(item => !field.options.includes(item) && !previous?.fields?.[field.id]?.includes(item)))) throw new Error(`Выбери варианты поля «${field.label}» из списка.`);
+    const fromRecord = Boolean(field.source) && !Object.hasOwn(input.fields || {},field.id);
+    if (!fromRecord && value && field.type === 'select' && !field.options.includes(value) && previous?.fields?.[field.id] !== value) throw new Error(`Выбери значение поля «${field.label}» из списка.`);
+    if (!fromRecord && field.type === 'multiselect' && value != null && (!Array.isArray(value) || value.some(item => !field.options.includes(item) && !previous?.fields?.[field.id]?.includes(item)))) throw new Error(`Выбери варианты поля «${field.label}» из списка.`);
   }
   return { ...input, title: input.title.trim() };
 }
@@ -173,9 +192,7 @@ function makeSeries(event, repeat, id = crypto.randomUUID()) {
   return { ...details, id, from: date, until: repeat.until, intervalWeeks: repeat.intervalWeeks, weekday: weekdayOf(date) };
 }
 export function saveEvent(data, { values, original = null, repeat = null, scope = 'one' }) {
-  const type = getType(data,values.typeId);
-  const fields = original ? values.fields : resolveRecordFields(type.fields,values.fields,getRecord(data,values),'copy');
-  const input = {...values,fields};
+  const input = {...values};
   if (input.snapshot && original && (original.typeId !== input.typeId || (original.recordId || original.studentId || '') !== (input.recordId || input.studentId || ''))) delete input.snapshot;
   const validated = validateEvent(data,input);
   const event = validated.status === 'done' && !validated.snapshot ? snapshotEvent(data,validated) : validated;
@@ -230,26 +247,101 @@ export function validateRecordDetails(details = []) {
     if (item.type === 'number' && item.value != null && item.value !== '' && !Number.isFinite(Number(item.value))) throw new Error(`В поле «${item.label}» нужно число.`);
     if (item.type === 'url' && item.value && !linkHref(item.value)) throw new Error(`В поле «${item.label}» нужна ссылка http:// или https://.`);
   }
-  return kept;
+  return kept.map(item=>{
+    if (item.type==='url' && item.value) return {...item,value:linkHref(item.value)};
+    if (isChoiceField(item.type)) {
+      const options = choiceOptions(item.options);
+      const valid = item.type==='select' ? typeof item.value==='string' : Array.isArray(item.value) && item.value.every(value=>typeof value==='string');
+      if (item.value!=null && item.value!=='' && !valid) throw new Error(`Проверь варианты в поле «${item.label}».`);
+      return {...item,options};
+    }
+    return item;
+  });
 }
 export function saveStudent(data, student) { return { ...data, students: upsert(data.students, { ...validateStudent(student), details: validateRecordDetails(student.details) }) }; }
 export function saveRecord(data, input) {
   if (!input.name?.trim() || input.name.length > 200) throw new Error('Укажи название до 200 символов.');
-  if (!input.kind?.trim() || input.kind.length > 80 || input.kind === 'student') throw new Error('Укажи категорию записи. Для ученика используй карточку ученика.');
+  if (!input.kind?.trim() || input.kind.length > 80 || input.kind === 'student') throw new Error('Укажи шаблон записи. Для ученика используй карточку ученика.');
   const original = (data.records || []).find(item => item.id === input.id);
-  if (original && original.kind !== input.kind && [...data.events, ...data.series].some(item => item.recordId === input.id)) throw new Error('У записи уже есть события. Сохрани её категорию или создай новую запись.');
+  if (original && original.kind !== input.kind && [...data.events, ...data.series].some(item => item.recordId === input.id)) throw new Error('У записи уже есть события. Сохрани её шаблон или создай новую запись.');
   const record = { ...input, name: input.name.trim(), kind: input.kind.trim(), details: validateRecordDetails(input.details) };
   if (record.details.some(item => !item.label.trim())) throw new Error('Дай название каждому сведению.');
   return { ...data, records: upsert(data.records || [], record) };
 }
+function inheritChoiceOptions(field,sources) {
+  if (!field.source || !isChoiceField(field.type)) return field;
+  const source = sources.find(item=>item.id===field.source.fieldId);
+  return source?.type===field.type ? {...field,options:source.options} : field;
+}
+
+export function saveRecordType(data, kind, definitions) {
+  kind = kind.trim();
+  if (!kind || kind.length>80 || kind==='any') throw new Error('Укажи название шаблона записи до 80 символов.');
+  const ids = new Set();
+  const fields = definitions.map(({id,label,type,options})=>{
+    const name = label.trim();
+    if (!id || ids.has(id) || !name || !RECORD_FIELD_FORMATS.includes(type)) throw new Error('Проверь название и формат каждого поля.');
+    ids.add(id);
+    const choices = isChoiceField(type) ? choiceOptions(options) : null;
+    if (choices && !choices.length) throw new Error(`Добавь варианты для поля «${name}».`);
+    return {id,label:name,type,...(choices ? {options:choices} : {})};
+  });
+  const records = allRecords(data).filter(record=>record.kind===kind);
+  for (const field of fields) {
+    if (records.some(record=>record.details?.some(item=>item.id===field.id && (item.type || 'text')!==field.type)))
+      throw new Error(`Поле «${field.label}» уже есть в записях с другим форматом.`);
+  }
+  for (const field of declaredRecordFields(data,kind)) {
+    if (fields.some(item=>item.id===field.id && item.type===field.type)) continue;
+    if (data.types.some(type=>recordKind(type)===kind && type.fields.some(item=>item.source?.fieldId===`detail:${field.id}`)))
+      throw new Error(`Поле «${field.label}» используется в шаблоне события.`);
+  }
+  const recordTypes = [...(data.recordTypes || []).filter(type=>type.kind!==kind),{kind,fields}];
+  const sources = recordTypeFields({recordTypes},kind);
+  const types = data.types.map(type=>recordKind(type)!==kind
+    ? type : {...type,fields:type.fields.map(field=>inheritChoiceOptions(field,sources))});
+  const next = {...data,recordTypes,types};
+  if (data.deletedRecordKinds?.includes(kind)) next.deletedRecordKinds = data.deletedRecordKinds.filter(item=>item!==kind);
+  return next;
+}
+
+export function recordTemplateUsage(data,kind) {
+  return {
+    records:allRecords(data).filter(record=>record.kind===kind).length,
+    eventTemplates:data.types.filter(type=>recordKind(type)===kind).length,
+  };
+}
+
+export function deleteRecordTemplate(data,kind) {
+  const {records,eventTemplates} = recordTemplateUsage(data,kind);
+  if (records || eventTemplates) throw new Error('Шаблон используется. Сначала поменяй шаблон у записей и убери связи из шаблонов событий.');
+  return {
+    ...data,
+    recordTypes:(data.recordTypes || []).filter(type=>type.kind!==kind),
+    deletedRecordKinds:[...new Set([...(data.deletedRecordKinds || []),kind])],
+  };
+}
+
 export function saveType(data, input) {
-  if (!input.name.trim() || input.name.length > 80) throw new Error('Укажи название типа до 80 символов.');
-  if (data.types.some(type => type.id !== input.id && type.name.toLocaleLowerCase('ru') === input.name.trim().toLocaleLowerCase('ru'))) throw new Error('Тип с таким названием уже существует.');
-  for (const field of input.fields) {
+  if (!input.name.trim() || input.name.length > 80) throw new Error('Укажи название шаблона до 80 символов.');
+  if (data.types.some(type => type.id !== input.id && type.name.toLocaleLowerCase('ru') === input.name.trim().toLocaleLowerCase('ru'))) throw new Error('Шаблон с таким названием уже существует.');
+  const previous = data.types.find(type=>type.id===input.id);
+  const kind = recordKind(input);
+  if (kind==='any' && (!previous || recordKind(previous)!=='any')) throw new Error('Выбери конкретный шаблон записи.');
+  const sources = recordTypeFields(data,kind);
+  const fields = input.fields.map(field=>inheritChoiceOptions(field,sources));
+  for (const field of fields) {
     if (!field.label.trim()) throw new Error('У каждого поля должно быть название.');
     if (['select', 'multiselect'].includes(field.type) && !field.archived && !field.options.length) throw new Error(`Добавь варианты для поля «${field.label}».`);
+    if (!field.source || field.archived) continue;
+    const before = previous?.fields.find(item=>item.id===field.id);
+    if (previous && recordKind(previous)===kind && before?.source?.fieldId===field.source.fieldId && before.type===field.type) continue;
+    const source = sources.find(item=>item.id===field.source.fieldId);
+    if (!source || source.type!==field.type) throw new Error(`Для поля «${field.label}» выбери источник из выбранного шаблона записи.`);
+    if (before && before.type!==field.type && [...data.events,...data.series].some(event=>event.typeId===input.id && Object.hasOwn(event.fields || {},field.id)))
+      throw new Error(`В поле «${field.label}» уже есть значения другого формата.`);
   }
-  const saved = saveCardBackground(data, { ...input, ...(input.cardStyle ? {cardStyle:readCardStyle(input)} : {}), name: input.name.trim(), version: (input.version || 0) + 1 });
+  const saved = saveCardBackground(data, { ...liveTypeSources({...input,fields}), ...(input.cardStyle ? {cardStyle:readCardStyle(input)} : {}), name: input.name.trim(), version: (input.version || 0) + 1 });
   const types = data.types.some(type => type.id === saved.type.id)
     ? data.types.map(type => type.id === saved.type.id ? saved.type : type)
     : [...data.types, saved.type];

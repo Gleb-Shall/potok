@@ -259,10 +259,10 @@ describe('critical user flows', () => {
   it('explains and performs deletion of a template with its dependent events', async () => {
     const data = base(); data.events.push(sample());
     localStorage.setItem('tutor-schedule:mode', 'personal'); localStorage.setItem('tutor-schedule:personal:v2', JSON.stringify(data));
-    await mount(<App/>); await click(byText('Шаблоны')); await click(root.querySelector('[aria-label="Другие действия с шаблоном «Пара»"]'));
+    await mount(<App/>); await click(byText('Редактор шаблонов')); await click(root.querySelector('[aria-label="Другие действия с шаблоном «Пара»"]'));
     const tile = [...root.querySelectorAll('.template-gallery-card')].find(item => item.querySelector('h3')?.textContent === 'Пара');
     await click([...tile.querySelectorAll('button')].find(button => button.textContent.includes('Удалить шаблон')));
-    expect(root.querySelector('.delete-modal').textContent).toContain('все события этого типа');
+    expect(root.querySelector('.delete-modal').textContent).toContain('все события этого шаблона');
     await submit(root.querySelector('.delete-modal form'));
     const saved = JSON.parse(localStorage.getItem('tutor-schedule:personal:v2'));
     expect(saved.types.some(type => type.id === 'class')).toBe(false); expect(saved.events).toHaveLength(0);

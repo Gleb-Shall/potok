@@ -101,7 +101,7 @@ it('statistics facets follow one another and a selected group narrows the event 
   const choose=async (select,value)=>act(()=>{select.value=value;select.dispatchEvent(new Event('change',{bubbles:true}));});
   const record=root.querySelector('[aria-label="Запись для статистики"]');
   const findSelect=label=>[...root.querySelectorAll('.statistics-view label')].find(item=>item.firstElementChild?.textContent===label).querySelector('select');
-  const type=findSelect('Тип события');
+  const type=findSelect('Шаблон события');
   await choose(record,'pavel');
   expect([...type.options].map(option=>option.value)).toEqual(['','lesson']);
   await choose(record,'');
@@ -118,10 +118,12 @@ it('statistics facets follow one another and a selected group narrows the event 
 
 it('the guide opens a requested chapter and navigates through the contents',async () => {
   await mount(<GuideView initialChapter={4}/>);
-  expect(root.querySelector('[aria-current="page"]').textContent).toBe('Статистика');
+  expect(root.querySelector('[aria-current="page"]').textContent).toBe('Выбрать период и события');
   await click('.user-guide nav button');
-  expect(root.querySelector('.user-guide-article h3').textContent).toBe('Расписание');
-  expect(root.querySelector('.user-guide-article').textContent).toContain('Создать событие');
+  expect(root.querySelector('.user-guide-article h2').textContent).toBe('Создать событие');
+  await click('.guide-chapter-navigation [data-next]');
+  expect(root.querySelector('.user-guide-article h2').textContent).toBe('Открыть и изменить карточку');
+  expect(root.querySelector('.guide-mobile-contents select[aria-label="Тема"]').value).toBe('1');
 });
 
 it('guide keywords expand a journal example with reversible sample actions',async () => {
@@ -132,32 +134,78 @@ it('guide keywords expand a journal example with reversible sample actions',asyn
   await press(keyword);
   expect(keyword.getAttribute('aria-expanded')).toBe('true');
   const panel=document.getElementById(keyword.getAttribute('aria-controls'));
+  await click('.guide-pick-card');
   await press(byText('Проведено'));
   expect(panel.textContent).toContain('Архив');
   expect(panel.querySelector('[data-event-state]').dataset.eventState).toBe('confirmed');
   await press(byText('Сначала'));
+  await click('.guide-pick-card');
   await press(byText('Отменено'));
   expect(panel.querySelector('[data-event-state]').dataset.eventState).toBe('cancelled');
-  await press(byText('«Отложить перенос»'));
+  await press(byText('Отложить выбор даты'));
   expect(panel.hidden).toBe(true);
+  await press(byText('«Отложить перенос»'));
+  await click('.guide-pick-card');
   await press(byText('Отложить перенос'));
   expect(root.querySelector('.guide-example-slots').textContent).toContain('Ждут новой даты');
+  await click('.guide-pick-card');
   await press(byText('Вернуть на место'));
-  expect(root.querySelector('.guide-example-slots').textContent).toContain('Эта неделя');
+  expect(root.querySelector('.guide-example-slots').textContent).toContain('Очередь пуста');
 });
 
-it('guide shows the chosen contact and compares live and copied contact fields',async () => {
-  await mount(<GuideView initialChapter={1}/>);
+it('guide separates switching a record from sharing its contact across events',async () => {
+  await mount(<GuideView/>);
   const byText=(selector,text)=>[...root.querySelectorAll(selector)].find(element=>element.textContent===text);
   const press=element=>act(()=>element.click());
+  await press(byText('.guide-chapter-topics button','Связать событие с записью'));
   await press(byText('.guide-keyword','«Связанная запись»'));
+  const eventContacts=()=>[...root.querySelectorAll('.guide-object-event .guide-contact-value > span')].map(item=>item.textContent);
+  expect(eventContacts()).toEqual(['anna@example.com']);
   await press(root.querySelector('input[value="ivan"]'));
-  expect(root.querySelector('.guide-object-event').textContent).toContain('ivan@example.com');
-  await press(byText('.guide-chapter-button','Шаблоны'));
+  expect(eventContacts()).toEqual(['ivan@example.com']);
+  expect(root.querySelector('.guide-object-event').textContent).toContain('Иван');
+  await press(byText('.guide-chapter-button','Записи'));
+  await press(byText('.guide-chapter-topics button','Использовать запись в нескольких событиях'));
+  await press(byText('.guide-keyword','«Источник значения»'));
+  expect(eventContacts()).toEqual(['anna@example.com','anna@example.com']);
+  const sharedContact=root.querySelector('.guide-object input');
+  await act(()=>{sharedContact.value='shared@example.com';sharedContact.dispatchEvent(new Event('input',{bubbles:true}));});
+  expect(eventContacts()).toEqual(['shared@example.com','shared@example.com']);
+});
+
+it('guide switches between a linked contact and manual entry',async () => {
+  await mount(<GuideView initialChapter={2}/>);
+  const byText=(selector,text)=>[...root.querySelectorAll(selector)].find(element=>element.textContent===text);
+  const press=element=>act(()=>element.click());
+  await press(byText('.guide-chapter-topics button','Брать значение из записи'));
   await press(byText('.guide-keyword','«Источник значения»'));
   const input=root.querySelector('.guide-object input');
   await act(()=>{input.value='new@example.com';input.dispatchEvent(new Event('input',{bubbles:true}));});
   expect(root.querySelector('.guide-object-event').textContent).toContain('new@example.com');
-  await press(root.querySelector('input[value="copy"]'));
-  expect(root.querySelector('.guide-object-event').textContent).toContain('anna@example.com');
+  await press(root.querySelector('input[type="radio"][value="event"]'));
+  expect(root.querySelector('.guide-object-event input').value).toBe('');
+  await press(root.querySelector('input[type="radio"][value="record"]'));
+  expect(root.querySelector('.guide-object-event').textContent).toContain('new@example.com');
+});
+
+it('guide transfers by dragging the card or by selecting a free slot',async () => {
+  await mount(<GuideView/>);
+  const topic=[...root.querySelectorAll('.guide-chapter-topics button')].find(button=>button.textContent==='Перенести одну встречу');
+  await act(()=>topic.click());
+  await click('.guide-keyword');
+  const [tuesday,wednesday]=root.querySelectorAll('[data-transfer-date]');
+  wednesday.getBoundingClientRect=()=>({left:150,right:300,top:0,bottom:100});
+  const card=tuesday.querySelector('.guide-drag-card');
+  card.setPointerCapture=()=>{};
+  card.hasPointerCapture=()=>false;
+  const pointer=(type,x)=>new PointerEvent(type,{bubbles:true,pointerId:1,isPrimary:true,clientX:x,clientY:30,button:0});
+  await act(()=>{card.dispatchEvent(pointer('pointerdown',50));card.dispatchEvent(pointer('pointermove',180));});
+  expect(wednesday.hasAttribute('data-drop-target')).toBe(true);
+  await act(()=>card.dispatchEvent(pointer('pointerup',180)));
+  expect(wednesday.querySelector('.guide-drag-card')).toBeTruthy();
+  expect(tuesday.querySelector('.guide-drop-slot').disabled).toBe(true);
+  await click('.guide-drag-card');
+  await click('.guide-drop-slot');
+  expect(tuesday.querySelector('.guide-drag-card')).toBeTruthy();
+  expect(root.querySelector('.guide-demo-status').textContent).toContain('вернулось');
 });

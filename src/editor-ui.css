@@ -112,6 +112,9 @@ dialog.product-dialog::backdrop { background:#1c241f55; }
 .product-dialog .record-preview-identity strong { font-size:20px; }
 .product-dialog .record-edit-preview dl { margin-top:20px; }
 .product-dialog .record-info-editor { margin:28px 0; padding:0; background:none; border:0; }
+.record-defined-fields { display:grid; gap:12px; margin-bottom:20px; }
+.record-defined-fields h3 { margin:0; }
+.record-type-field.form-row { grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) auto; align-items:end; margin-bottom:8px; }
 .product-dialog .record-detail-editor { padding:0; margin:8px 0; background:transparent; border:1px solid var(--control-border); border-radius:8px; } /* taste-skill-ignore: editable field rows in a working form, not ornamental cards. */
 .record-detail-editor > summary { display:flex; align-items:center; gap:16px; padding:16px; cursor:pointer; list-style:none; }
 .record-detail-editor > summary > span { display:block; min-width:0; flex:1; }
@@ -248,3 +251,21 @@ dialog.product-dialog.event-inspector.is-anchored {
 .event-inspector.is-anchored .inspector-record { margin-top:12px; }
 .inspector-history > summary { padding:8px 0; color:var(--text-secondary); font-size:13px; cursor:pointer; }
 .event-inspector.is-anchored .inspector-footer { padding:8px 16px 12px; gap:8px; border-top:1px solid var(--line); }
+
+.template-family-switch { display:inline-flex; margin-bottom:16px; }
+.record-template-fields { margin:0; }
+.record-template-fields > div { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:12px; padding:10px 0; border-bottom:1px solid var(--line); }
+.record-template-fields dt { font-weight:600; overflow-wrap:anywhere; }
+.record-template-fields dd { margin:0; color:var(--text-secondary); overflow-wrap:anywhere; }
+.record-template-fields small { display:block; margin-top:4px; }
+.record-schema-field { margin-bottom:14px; }
+
+.record-filter-toolbar { display:grid; grid-template-columns:minmax(180px,1fr) minmax(140px,210px) minmax(125px,180px); gap:12px; align-items:end; }
+.record-filter-toolbar :is(.search-field,.field,select) { min-width:0; width:100%; }
+.record-filter-toolbar select { min-height:36px; }
+.record-filter-results { display:flex; align-items:center; justify-content:space-between; min-height:36px; gap:8px; color:var(--text-secondary); font-size:13px; }
+@media(max-width:650px) {
+  .record-filter-toolbar { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+  .record-filter-toolbar .search-field { grid-column:1/-1; }
+  .record-filter-toolbar select { min-height:44px; }
+}

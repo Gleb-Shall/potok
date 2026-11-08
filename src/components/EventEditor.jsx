@@ -7,7 +7,7 @@ import { getType, saveEvent, allRecords, recordKind, RECORD_KINDS } from '../lib
 import { Icon } from './Icon.jsx';
 import { eventEnd, updateTiming } from '../lib/timing.js';
 import { TimingFields } from './TimingFields.jsx';
-import { readRecordField, resolveRecordFields } from '../lib/record-field-links.js';
+import { resolveRecordFields } from '../lib/record-field-links.js';
 import { LocationField } from './LocationField.jsx';
 
 function CustomField({ field, value, onChange }) {
@@ -34,10 +34,12 @@ export function EventEditor({ data, original, date, typeId, draft, onSave, onClo
   const kind = recordKind(type);
   const records = allRecords(data);
   const linked = records.find(item => item.id === values.recordId);
-  const fields = type.fields.filter(field => !field.archived);
-  const sourceRecord = original?.snapshot && values.recordId === (original.recordId || original.studentId || '') ? original.snapshot.record : linked;
-  const copiedFields = original ? values.fields : resolveRecordFields(fields,values.fields,sourceRecord,'copy');
-  const effectiveFields = resolveRecordFields(fields,copiedFields,sourceRecord);
+  const usesSnapshot = original?.snapshot && values.typeId === original.typeId && values.recordId === (original.recordId || original.studentId || '');
+  const fields = type.fields.filter(field => !field.archived).map(field =>
+    usesSnapshot && original.snapshot.type?.fields.some(item=>item.id===field.id && item.source?.mode==='copy')
+      ? {...field,source:null} : field);
+  const sourceRecord = usesSnapshot ? original.snapshot.record : linked && (kind==='any' || linked.kind===kind) ? linked : null;
+  const effectiveFields = resolveRecordFields(fields,values.fields,sourceRecord);
   const change = (key, value) => setValues(previous => ({ ...previous, [key]: value }));
   const timing = (key, value) => setValues(previous => ({ ...previous, ...updateTiming(previous, key, value) }));
   const requiredRecord = !values.recordDetached && (type.requireStudent || type.requireRecord);
@@ -65,24 +67,22 @@ export function EventEditor({ data, original, date, typeId, draft, onSave, onClo
   };
   return <Modal title={original ? 'Редактор события' : 'Новое событие'} wide onClose={onClose} className="product-dialog event-editor-dialog" panel>
     <form onSubmit={submit} class="event-form">
-      <section class="editor-section"><Select label="Тип события" value={values.typeId} onChange={changeType}>{data.types.filter(item => !item.archived || item.id === original?.typeId).map(item => <option key={item.id} value={item.id}>{item.name}{item.archived ? ' (архив)' : ''}</option>)}</Select>
+      <section class="editor-section"><Select label="Шаблон события" value={values.typeId} onChange={changeType}>{data.types.filter(item => !item.archived || item.id === original?.typeId).map(item => <option key={item.id} value={item.id}>{item.name}{item.archived ? ' (архив)' : ''}</option>)}</Select>
       {kind && <div class="student-select-row"><Select label={`Связанная запись${requiredRecord ? ' *' : ' · необязательно'}`} value={values.recordId} onChange={chooseRecord} required={requiredRecord}><option value="">Выбери запись</option>{records.filter(item => kind === 'any' || item.kind === kind).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</Select><button type="button" class="icon-button" onClick={newRecord} aria-label="Создать связанную запись"><Icon name="plus"/></button></div>}
       {values.recordDetached && <p class="quiet-note">Связанная запись удалена. Это самостоятельное событие; при желании можно выбрать другую запись.</p>}
       {linked && <div class="linked-record-summary"><strong>{linked.name}</strong><span>{linked.subject || linked.subtitle || RECORD_KINDS[linked.kind] || linked.kind}</span>{linked.details?.length > 0 && <details><summary>Общие сведения</summary><dl>{linked.details.map(item => <div key={item.id}><dt>{item.label}</dt><dd><LinkedText value={item.value}/></dd></div>)}</dl></details>}</div>}
-      <Field label={type.titleLabel || 'Название события'} value={values.title} onChange={value => change('title', value)} required maxLength={200} placeholder={values.typeId === 'class' ? 'Математический анализ' : 'Название события'}/>
+      <Field label="Название события" value={values.title} onChange={value => change('title', value)} required maxLength={200} placeholder={values.typeId === 'class' ? 'Математический анализ' : 'Название события'}/>
       <div class="form-row time-fields"><Field label="Дата" type="date" value={values.date} onChange={value => change('date', value)} required/><TimingFields values={values} onChange={timing}/></div></section>
       <section class="editor-section recurrence-section">{currentSeries ? <Select label="Какие события изменить" value={scope} onChange={setScope}><option value="one">Только это событие</option><option value="future">Это и последующие по расписанию</option></Select> : <Check checked={repeat} onChange={setRepeat}>Повторять событие</Check>}
       {(repeat || currentSeries && scope === 'future') && <div class="recurrence-box"><div class="form-row"><Field label="Каждые, недель" type="number" value={weeks} onChange={setWeeks} min="1" max="12" required/><Field label="До даты · необязательно" type="date" value={until} onChange={setUntil}/></div><small>2 недели — для чередующихся пар. Без даты окончания — постоянно.</small></div>}</section>
       {fields.length > 0 && <details class="editor-disclosure" open={fields.some(field => field.required || values.fields[field.id] != null && values.fields[field.id] !== '')}><summary>Детали события <span>{fields.length} полей</span></summary><div class="editor-disclosure-body">{fields.map(field => {
-        const sourceValue = readRecordField(sourceRecord,field);
         const own = Object.hasOwn(values.fields,field.id);
         const updateValue = value => setValues(previous => ({...previous,fields:{...previous.fields,[field.id]:value}}));
         return <div class="event-field" key={`${type.id}:${field.id}`}>
           <CustomField field={field} value={effectiveFields[field.id]} onChange={value=>updateValue(field.type === 'number' && value !== '' ? Number(value) : value)}/>
-          {field.source && <div class="event-field-source">
-            <small>{field.source.mode === 'live' ? own ? 'Значение для этого события' : 'Из связанной записи' : 'Подстановка из связанной записи'}</small>
-            {field.source.mode === 'live' && own && <Button kind="text-button" onClick={()=>setValues(previous=>{const fields={...previous.fields};delete fields[field.id];return {...previous,fields};})}>Брать из записи</Button>}
-            {field.source.mode === 'copy' && sourceValue !== undefined && (original || own) && <Button kind="text-button" onClick={()=>updateValue(sourceValue)}>Подставить из записи</Button>}
+          {field.source && field.source.mode !== 'copy' && <div class="event-field-source">
+            <small>{own ? 'Значение для этого события' : !sourceRecord ? 'Выбери связанную запись' : effectiveFields[field.id]===undefined ? 'В записи нет значения. Можно заполнить вручную.' : 'Из связанной записи'}</small>
+            {own && <Button kind="text-button" onClick={()=>setValues(previous=>{const fields={...previous.fields};delete fields[field.id];return {...previous,fields};})}>Брать из записи</Button>}
           </div>}
         </div>;
       })}</div></details>}

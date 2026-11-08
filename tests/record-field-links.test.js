@@ -1,13 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { defaultTypes, eventFields, saveEvent } from '../src/lib/events.js';
+import { defaultTypes, deleteRecordTemplate, eventFields, normalizeData, recordKinds, saveEvent, saveRecord, saveRecordType, saveType } from '../src/lib/events.js';
+import { eventLinks } from '../src/lib/links.js';
 import { setEventStatus } from '../src/lib/event-history.js';
-import { recordFieldCatalog } from '../src/lib/record-field-links.js';
+import { recordFieldCatalog, recordTypeFields } from '../src/lib/record-field-links.js';
 import { eventStatistics, matchesReportFilter, reportFields, reportGroups, reportMeasure, reportRows } from '../src/lib/statistics.js';
 
 const template={id:'training',name:'Тренировка',recordKind:'Хобби',fields:[
   {id:'link',label:'План',type:'url',required:true,source:{fieldId:'detail:plan',mode:'live'}},
-  {id:'distance',label:'Расстояние',type:'number',metric:true,metricUnit:'км',source:{fieldId:'detail:route',mode:'copy'}},
+  {id:'distance',label:'Расстояние',type:'number',metric:true,metricUnit:'км',source:{fieldId:'detail:route',mode:'live'}},
 ]};
 const record={id:'record',name:'Бег',kind:'Хобби',details:[
   {id:'plan',label:'План',type:'url',value:'https://example.com/old'},
@@ -16,19 +17,38 @@ const record={id:'record',name:'Бег',kind:'Хобби',details:[
 const data=()=>({types:[...defaultTypes(),template],students:[],records:[structuredClone(record)],series:[],events:[]});
 const values={typeId:'training',recordId:'record',title:'Бег',date:'2026-11-07',start:600,duration:60,status:'planned',fields:{}};
 
-test('custom records supply live and copied values and completion freezes the source',()=>{
+test('custom records supply live values and completion freezes the source',()=>{
   let workspace=saveEvent(data(),{values});
   const [event]=workspace.events;
-  assert.deepEqual(event.fields,{distance:5});
+  assert.deepEqual(event.fields,{});
   assert.deepEqual(eventFields(workspace,event),{distance:5,link:'https://example.com/old'});
   assert.ok(recordFieldCatalog(workspace.records,'Хобби').some(field=>field.id==='detail:route'));
   workspace.records[0].details[0].value='https://example.com/new';
   workspace.records[0].details[1].value='12';
-  assert.deepEqual(eventFields(workspace,event),{distance:5,link:'https://example.com/new'});
+  assert.deepEqual(eventFields(workspace,event),{distance:12,link:'https://example.com/new'});
   assert.equal(eventFields(workspace,{...event,fields:{...event.fields,link:'https://example.com/override'}}).link,'https://example.com/override');
   workspace=setEventStatus(workspace,event,'done');
   workspace.records[0].details[0].value='https://example.com/later';
   assert.equal(eventFields(workspace,workspace.events[0]).link,'https://example.com/new');
+});
+
+test('legacy copy sources become live and stored values and historical blanks stay intact',()=>{
+  const raw={...data(),version:2};
+  const legacyType={...template,fields:template.fields.map(field=>field.id==='distance'
+    ? {...field,source:{...field.source,mode:'copy'}} : field)};
+  raw.types=[...defaultTypes(),legacyType];
+  raw.events=[
+    {...values,id:'stored',status:'planned',fields:{distance:5}},
+    {...values,id:'historical',status:'done',snapshot:{type:legacyType,record}},
+  ];
+  const workspace=normalizeData(raw);
+  workspace.records[0].details[1].value='12';
+  const [stored,historical]=workspace.events;
+  assert.equal(eventFields(workspace,stored).distance,5);
+  assert.equal(eventFields(workspace,historical).distance,undefined);
+  const created=saveEvent(workspace,{values:{...values,date:'2026-11-08'}}).events.at(-1);
+  assert.deepEqual(created.fields,{});
+  assert.equal(eventFields(workspace,created).distance,12);
 });
 
 test('statistics uses each completed event amount and keeps missing amounts distinct from zero',()=>{
@@ -73,4 +93,53 @@ test('custom reports separate historical units after a template changes',()=>{
   const rows=reportRows(workspace,'2026-11-07','2026-11-07');
   const distances=reportFields(rows).filter(field=>field.id==='distance');
   assert.deepEqual(new Map(distances.map(field=>[field.unit,reportMeasure(rows,[field],'sum').value])),new Map([['км',5],['м',5000]]));
+});
+
+test('record type definitions are available before records exist and guard event links',()=>{
+  const workspace=saveRecordType({...data(),types:defaultTypes(),records:[]},'Хобби',[{id:'plan',label:'План',type:'url'}]);
+  assert.deepEqual(recordTypeFields(workspace,'Хобби').find(field=>field.id==='detail:plan'),{id:'detail:plan',label:'План',type:'url'});
+  const input={...template,fields:[template.fields[0]]};
+  const linked=saveType(workspace,input);
+  assert.throws(()=>saveRecordType(linked,'Хобби',[]),/используется в шаблоне/);
+  assert.throws(()=>saveType(workspace,{...input,recordKind:'any'}),/конкретный шаблон/);
+  assert.throws(()=>saveType(workspace,{...input,fields:[{...input.fields[0],type:'text'}]}),/источник из выбранного шаблона/);
+  const other={...record,id:'other',kind:'project'};
+  assert.throws(()=>saveEvent({...linked,records:[other]},{values:{...values,recordId:other.id}}),/не подходит/);
+  const second={...record,id:'second',details:[{id:'plan',label:'План',type:'url',value:'https://example.com/second'}]};
+  const withRecords={...linked,records:[record,second]};
+  const scheduled=saveEvent(withRecords,{values:{...values,recordId:second.id}});
+  assert.equal(eventFields(scheduled,scheduled.events[0]).link,'https://example.com/second');
+});
+
+test('record template links and choices are inherited with their formats and current options',()=>{
+  const definitions=[
+    {id:'plan',label:'Доска',type:'url'},
+    {id:'level',label:'Уровень',type:'select',options:['Начальный','Средний']},
+  ];
+  let workspace=saveRecordType({...data(),types:defaultTypes(),records:[]},'Хобби',definitions);
+  workspace=saveType(workspace,{...template,fields:[
+    {id:'board',label:'Открыть доску',type:'url',source:{fieldId:'detail:plan'}},
+    {id:'level',label:'Уровень',type:'select',options:[],source:{fieldId:'detail:level'}},
+  ]});
+  workspace=saveRecord(workspace,{...record,details:[
+    {id:'plan',label:'Доска',type:'url',value:'example.com/board'},
+    {...definitions[1],value:'Средний'},
+  ]});
+  const created=saveEvent(workspace,{values});
+  const [event]=created.events;
+  assert.deepEqual(eventFields(created,event),{board:'https://example.com/board',level:'Средний'});
+  assert.equal(eventLinks(created.types.at(-1).fields,eventFields(created,event))[0].label,'Открыть доску');
+  const updated=saveRecordType(created,'Хобби',[definitions[0],{...definitions[1],options:['Начальный','Продвинутый']}]);
+  assert.deepEqual(updated.types.at(-1).fields[1].options,['Начальный','Продвинутый']);
+  assert.equal(eventFields(updated,event).level,'Средний');
+});
+
+test('deleting a record template preserves dependencies and removes unused built-ins from the picker',()=>{
+  const workspace={...data(),types:defaultTypes(),records:[]};
+  assert.throws(()=>deleteRecordTemplate(workspace,'student'),/используется/);
+  const independent={...workspace,types:workspace.types.filter(type=>type.id!=='lesson')};
+  const deleted=deleteRecordTemplate(independent,'student');
+  assert.equal(recordKinds(deleted).includes('student'),false);
+  assert.equal(recordKinds(saveRecordType(deleted,'student',[])).includes('student'),true);
+  assert.throws(()=>deleteRecordTemplate({...independent,students:[{id:'a',name:'Анна'}]},'student'),/используется/);
 });
