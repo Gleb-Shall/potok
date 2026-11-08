@@ -8,6 +8,14 @@ export const cardBackground = (data, type) => {
   return isCardBackground(image) ? image : '';
 };
 
+export function referencedCardBackgrounds(data) {
+  const referenced = new Set([
+    ...data.types.map(type=>type.cardBackgroundId),
+    ...[...data.events, ...data.series, ...(data.eventArchive || [])].map(event=>event.snapshot?.type?.cardBackgroundId),
+  ]);
+  return Object.fromEntries(Object.entries(data.cardBackgrounds || {}).filter(([id,image])=>referenced.has(id) && isCardBackground(image)));
+}
+
 export function saveCardBackground(data, input) {
   const { cardBackgroundImage, ...type } = input;
   const assets = { ...data.cardBackgrounds };
@@ -18,12 +26,7 @@ export function saveCardBackground(data, input) {
   }
   if (type.cardBackgroundId && !isCardBackground(assets[type.cardBackgroundId])) throw new Error('Картинка фона не найдена. Выбери PNG заново.');
   type.cardBackgroundStrength = Math.min(50, Math.max(0, Number(type.cardBackgroundStrength ?? 20) || 0));
-  const referenced = new Set([
-    type.cardBackgroundId,
-    ...data.types.filter(item => item.id !== type.id).map(item => item.cardBackgroundId),
-    ...[...data.events, ...data.series].map(event => event.snapshot?.type?.cardBackgroundId),
-  ]);
-  const cardBackgrounds = Object.fromEntries(Object.entries(assets).filter(([id, image]) => referenced.has(id) && isCardBackground(image)));
+  const cardBackgrounds = referencedCardBackgrounds({...data,cardBackgrounds:assets,types:[...data.types.filter(item=>item.id!==type.id),type]});
   if (Object.values(cardBackgrounds).reduce((size, image) => size + image.length, 0) > MAX_STORE_CHARS) throw new Error('Много разных фонов. Убери неиспользуемый фон у одного из шаблонов и попробуй ещё раз.');
   return { type, cardBackgrounds };
 }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { defaultTypes, deleteRecordTemplate, eventFields, normalizeData, recordKinds, saveEvent, saveRecord, saveRecordType, saveType } from '../src/lib/events.js';
+import { clearEventArchive, defaultTypes, deleteRecordTemplate, eventFields, normalizeData, projectWeek, recordKinds, saveEvent, saveRecord, saveRecordType, saveType, setTemplateArchived } from '../src/lib/events.js';
 import { eventLinks } from '../src/lib/links.js';
 import { setEventStatus } from '../src/lib/event-history.js';
 import { recordFieldCatalog, recordTypeFields } from '../src/lib/record-field-links.js';
@@ -154,4 +154,25 @@ test('deleting a record template preserves dependencies and removes unused built
   assert.equal(recordKinds(deleted).includes('student'),false);
   assert.equal(recordKinds(saveRecordType(deleted,'student',[])).includes('student'),true);
   assert.throws(()=>deleteRecordTemplate({...independent,students:[{id:'a',name:'Анна'}]},'student'),/используется/);
+});
+
+test('record template archive is reversible, deletion freezes its events and series until the archive is cleaned',()=>{
+  const workspace = {...data(),students:[{id:'s',name:'Анна',subject:'Математика'}]};
+  const lesson = {id:'meeting',typeId:'lesson',studentId:'s',date:'2026-11-07',start:600,duration:60,status:'done',fields:{rate:1200}};
+  workspace.events=[lesson,{...lesson,id:'other',typeId:'personal',studentId:'',status:'planned'}];
+  workspace.series=[{...lesson,id:'repeat',from:'2026-11-07',weekday:6}];
+  const archived=setTemplateArchived(workspace,'records','student',true);
+  assert.equal(recordKinds(archived).includes('student'),false);
+  assert.equal(archived.students.length,1);
+  assert.equal(recordKinds(setTemplateArchived(archived,'records','student',false)).includes('student'),true);
+  const deleted=deleteRecordTemplate(archived,'student',{removeRecords:true});
+  assert.deepEqual(deleted.students,[]);
+  assert.deepEqual(deleted.series,[]);
+  assert.deepEqual(projectWeek(deleted,'2026-11-07').events.map(event=>event.id),['other']);
+  assert.equal(deleted.types.find(type=>type.id==='lesson').recordKind,'');
+  assert.deepEqual(deleted.eventArchive.map(item=>[item.id,item.archiveKind,item.snapshot.record.name]),[['meeting','event','Анна'],['repeat','series','Анна']]);
+  assert.equal(reportRows(deleted,'2026-11-01','2026-11-30').length,1);
+  const partlyCleared=clearEventArchive(deleted,deleted.eventArchive[0]);
+  assert.deepEqual(partlyCleared.eventArchive.map(item=>item.id),['repeat']);
+  assert.deepEqual(clearEventArchive(partlyCleared).eventArchive,[]);
 });

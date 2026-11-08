@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { allRecords, FIELD_TYPES, RECORD_KINDS, recordKinds, saveRecordType } from '../lib/events.js';
-import { builtinRecordFields, declaredRecordFields, isChoiceField, RECORD_FIELD_FORMATS, recordFieldCatalog } from '../lib/record-field-links.js';
+import { builtinRecordFields, declaredRecordFields, isChoiceField, RECORD_FIELD_FORMATS, recordFieldCatalog, recordTemplateUsesNameOnly } from '../lib/record-field-links.js';
 import { moveField } from '../hooks/useFieldReorder.js';
 import { FieldOptionsEditor } from './FieldOptionsEditor.jsx';
 import { TemplateEditorLayout, TemplateEditorSettings, TemplateEditorFields, TemplateEditorField, TemplateFieldIdentity } from './TemplateEditorLayout.jsx';
@@ -16,7 +16,7 @@ export function RecordTypeEditor({data,kind = '',onSave,onClose,inline,draftName
   const [error,setError] = useState('');
   const dirty = initial.current !== fields;
   useEffect(() => { onDirty?.(dirty); }, [dirty, onDirty]);
-  const kinds = recordKinds(data);
+  const kinds = recordKinds(data,{includeArchived:true});
   const reusable = recordFieldCatalog(allRecords(data),kind)
     .filter(field=>field.id.startsWith('detail:') && !fields.some(item=>item.id===field.id.slice(7)));
   const add = source => {
@@ -43,7 +43,7 @@ export function RecordTypeEditor({data,kind = '',onSave,onClose,inline,draftName
       }
     }
   };
-  const builtinFields = builtinRecordFields(kind || 'new');
+  const builtinFields = builtinRecordFields(kind || 'new', !kind || recordTemplateUsesNameOnly(data,kind));
   return <TemplateEditorLayout title={kind ? 'Шаблон записи' : 'Новый шаблон записи'} error={error} onClose={onClose} onSubmit={submit} inline={inline}>
     {inline ? <section class="template-builtin-fields" aria-label="Встроенные поля">
       <h3>Встроенные поля</h3>

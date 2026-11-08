@@ -52,9 +52,10 @@ export function EventEditor({ data, original, date, typeId, draft, onSave, onClo
     const record = records.find(item => item.id === id);
     setValues(previous => ({ ...previous, recordId: id, recordDetached: id ? false : previous.recordDetached, studentId: record?.kind === 'student' ? id : '', title: !previous.title || previous.title === linked?.name ? record?.name || '' : previous.title, color: record?.color || previous.color }));
   };
+  const newRecordKind = kind === 'any' ? 'person' : kind;
   const newRecord = () => {
     const nextDraft = { ...values, editor: { repeat, scope, weeks, until } };
-    if (kind === 'student') onNewStudent(nextDraft); else onNewRecord(kind === 'any' ? 'person' : kind, nextDraft);
+    if (kind === 'student') onNewStudent(nextDraft); else onNewRecord(newRecordKind, nextDraft);
   };
   const submit = event => {
     event.preventDefault(); setError('');
@@ -68,7 +69,7 @@ export function EventEditor({ data, original, date, typeId, draft, onSave, onClo
   return <Modal title={original ? 'Редактор события' : 'Новое событие'} wide onClose={onClose} className="product-dialog event-editor-dialog" panel>
     <form onSubmit={submit} class="event-form">
       <section class="editor-section"><Select label="Шаблон события" value={values.typeId} onChange={changeType}>{data.types.filter(item => !item.archived || item.id === original?.typeId).map(item => <option key={item.id} value={item.id}>{item.name}{item.archived ? ' (архив)' : ''}</option>)}</Select>
-      {kind && <div class="student-select-row"><Select label={`Связанная запись${requiredRecord ? ' *' : ' · необязательно'}`} value={values.recordId} onChange={chooseRecord} required={requiredRecord}><option value="">Выбери запись</option>{records.filter(item => kind === 'any' || item.kind === kind).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</Select><button type="button" class="icon-button" onClick={newRecord} aria-label="Создать связанную запись"><Icon name="plus"/></button></div>}
+      {kind && <div class="student-select-row"><Select label={`Связанная запись${requiredRecord ? ' *' : ' · необязательно'}`} value={values.recordId} onChange={chooseRecord} required={requiredRecord}><option value="">Выбери запись</option>{records.filter(item => kind === 'any' || item.kind === kind).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</Select>{!data.archivedRecordKinds?.includes(newRecordKind) && !data.deletedRecordKinds?.includes(newRecordKind) && <button type="button" class="icon-button" onClick={newRecord} aria-label="Создать связанную запись"><Icon name="plus"/></button>}</div>}
       {values.recordDetached && <p class="quiet-note">Связанная запись удалена. Это самостоятельное событие; при желании можно выбрать другую запись.</p>}
       {linked && <div class="linked-record-summary"><strong>{linked.name}</strong><span>{linked.subject || linked.subtitle || RECORD_KINDS[linked.kind] || linked.kind}</span>{linked.details?.length > 0 && <details><summary>Общие сведения</summary><dl>{linked.details.map(item => <div key={item.id}><dt>{item.label}</dt><dd><LinkedText value={item.value}/></dd></div>)}</dl></details>}</div>}
       <Field label="Название события" value={values.title} onChange={value => change('title', value)} required maxLength={200} placeholder={values.typeId === 'class' ? 'Математический анализ' : 'Название события'}/>

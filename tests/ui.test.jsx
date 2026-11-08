@@ -263,10 +263,21 @@ describe('critical user flows', () => {
     const menu = root.querySelector('[aria-label="Другие действия с шаблоном «Пара»"]');
     await click(menu);
     await click([...menu.parentElement.querySelectorAll('button')].find(button => button.textContent.includes('Удалить шаблон')));
-    expect(root.querySelector('.delete-modal').textContent).toContain('все события этого шаблона');
+    expect(root.querySelector('.delete-modal').textContent).toContain('уйдут в архив');
     await submit(root.querySelector('.delete-modal form'));
     const saved = JSON.parse(localStorage.getItem('tutor-schedule:personal:v2'));
     expect(saved.types.some(type => type.id === 'class')).toBe(false); expect(saved.events).toHaveLength(0);
+    expect(saved.eventArchive[0]).toMatchObject({id:'test-event',archiveKind:'event'});
+    expect(root.querySelector('.toast-undo')).toBeNull();
+    await click(byText('Журнал'));
+    await click(byText('Из удалённых шаблонов'));
+    await click(root.querySelector('[data-activity-id="test-event"] .activity-open'));
+    expect(root.querySelector('.event-inspector').textContent).toContain('В архиве');
+    expect(root.querySelector('.event-inspector .inspector-footer')).toBeNull();
+    await click(root.querySelector('.event-inspector .modal-close'));
+    await click(byText('Очистить архив'));
+    await submit(root.querySelector('.delete-modal form'));
+    expect(JSON.parse(localStorage.getItem('tutor-schedule:personal:v2')).eventArchive).toEqual([]);
   });
   it('expands the place picker to the window and Escape first returns to the ordinary picker', async () => {
     const onClose = vi.fn(); await mount(<MapPicker value={null} saved={[]} onChange={() => {}} onClose={onClose}/>);

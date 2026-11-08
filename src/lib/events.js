@@ -1,7 +1,7 @@
 import { linkHref } from './links.js';
 import { choiceOptions, declaredRecordFields, isChoiceField, RECORD_FIELD_FORMATS, recordTypeFields, resolveRecordFields } from './record-field-links.js';
 import { readCardStyle } from './card-style.js';
-import { saveCardBackground } from './card-backgrounds.js';
+import { referencedCardBackgrounds, saveCardBackground } from './card-backgrounds.js';
 import { activeReminders } from './reminder-model.js';
 import { addDays, mondayOf, weekdayOf, validateStudent } from './domain.js';
 
@@ -9,10 +9,10 @@ export const FIELD_TYPES = { text: 'Текст', url: 'Ссылка', textarea: 
 export const RECORD_KINDS = { student: 'Ученик', person: 'Человек', course: 'Предмет', place: 'Место', project: 'Проект' };
 export const recordKind = type => type.recordKind ?? (type.linkStudent ? 'student' : type.id === 'class' ? 'course' : type.id === 'personal' ? 'any' : '');
 export const allRecords = data => [...data.students.map(item => ({ ...item, kind: 'student' })), ...(data.records || [])];
-export const recordKinds = data => [...new Set([
+export const recordKinds = (data, {includeArchived = false} = {}) => [...new Set([
   'student', ...(data.recordTypes || []).map(type=>type.kind),
-  ...(data.records || []).map(record=>record.kind), ...data.types.map(recordKind),
-])].filter(kind=>kind && kind!=='any' && !data.deletedRecordKinds?.includes(kind));
+  ...(data.records || []).map(record=>record.kind), ...data.types.map(recordKind), ...(data.archivedRecordKinds || []),
+])].filter(kind=>kind && kind!=='any' && !data.deletedRecordKinds?.includes(kind) && (includeArchived || !data.archivedRecordKinds?.includes(kind)));
 export function getRecord(data,event) {
   if(event.snapshot) return event.snapshot.record || undefined;
   const id=event.recordId || event.studentId;
@@ -59,6 +59,8 @@ export function normalizeData(source) {
   if (source?.version === 2) {
     if (!['students', 'types', 'series', 'events'].every(key => Array.isArray(source[key]))) throw new Error('Неизвестный формат данных. Исходная копия сохранена.');
     if (source.records !== undefined && !Array.isArray(source.records)) throw new Error('Не удалось прочитать общие записи. Исходная копия сохранена.');
+    if (source.eventArchive !== undefined && !Array.isArray(source.eventArchive)) throw new Error('Не удалось прочитать архив событий. Исходная копия сохранена.');
+    if (source.archivedRecordKinds !== undefined && !Array.isArray(source.archivedRecordKinds)) throw new Error('Не удалось прочитать архив шаблонов. Исходная копия сохранена.');
     if (source.recordTypes !== undefined && (!Array.isArray(source.recordTypes) || source.recordTypes.some(type=>!type || typeof type.kind!=='string' || !Array.isArray(type.fields))))
       throw new Error('Не удалось прочитать шаблоны записей. Исходная копия сохранена.');
     const normalized = { ...structuredClone(source), records: structuredClone(source.records || []) };
@@ -193,6 +195,8 @@ function makeSeries(event, repeat, id = crypto.randomUUID()) {
 }
 export function saveEvent(data, { values, original = null, repeat = null, scope = 'one' }) {
   const input = {...values};
+  if (original?.typeId !== input.typeId && data.types.some(type=>type.id===input.typeId && type.archived))
+    throw new Error('Верни шаблон из архива, чтобы создать по нему событие.');
   if (input.snapshot && original && (original.typeId !== input.typeId || (original.recordId || original.studentId || '') !== (input.recordId || input.studentId || ''))) delete input.snapshot;
   const validated = validateEvent(data,input);
   const event = validated.status === 'done' && !validated.snapshot ? snapshotEvent(data,validated) : validated;
@@ -258,11 +262,19 @@ export function validateRecordDetails(details = []) {
     return item;
   });
 }
-export function saveStudent(data, student) { return { ...data, students: upsert(data.students, { ...validateStudent(student), details: validateRecordDetails(student.details) }) }; }
+export function saveStudent(data, student) {
+  if (!data.students.some(item=>item.id===student.id)) assertRecordTemplateAvailable(data,'student');
+  return { ...data, students: upsert(data.students, { ...validateStudent(student), details: validateRecordDetails(student.details) }) };
+}
+function assertRecordTemplateAvailable(data, kind) {
+  if (data.archivedRecordKinds?.includes(kind)) throw new Error('Верни шаблон из архива, чтобы создать по нему запись.');
+  if (data.deletedRecordKinds?.includes(kind)) throw new Error('Шаблон записи удалён. Выбери другой шаблон.');
+}
 export function saveRecord(data, input) {
   if (!input.name?.trim() || input.name.length > 200) throw new Error('Укажи название до 200 символов.');
   if (!input.kind?.trim() || input.kind.length > 80 || input.kind === 'student') throw new Error('Укажи шаблон записи. Для ученика используй карточку ученика.');
   const original = (data.records || []).find(item => item.id === input.id);
+  if (original?.kind !== input.kind) assertRecordTemplateAvailable(data,input.kind);
   if (original && original.kind !== input.kind && [...data.events, ...data.series].some(item => item.recordId === input.id)) throw new Error('У записи уже есть события. Сохрани её шаблон или создай новую запись.');
   const record = { ...input, name: input.name.trim(), kind: input.kind.trim(), details: validateRecordDetails(input.details) };
   if (record.details.some(item => !item.label.trim())) throw new Error('Дай название каждому сведению.');
@@ -296,7 +308,9 @@ export function saveRecordType(data, kind, definitions) {
     if (data.types.some(type=>recordKind(type)===kind && type.fields.some(item=>item.source?.fieldId===`detail:${field.id}`)))
       throw new Error(`Поле «${field.label}» используется в шаблоне события.`);
   }
-  const recordTypes = [...(data.recordTypes || []).filter(type=>type.kind!==kind),{kind,fields}];
+  const previous = data.recordTypes?.find(type=>type.kind===kind);
+  const nameOnly = previous?.nameOnly === true || !recordKinds(data,{includeArchived:true}).includes(kind);
+  const recordTypes = [...(data.recordTypes || []).filter(type=>type.kind!==kind),{kind,fields,...(nameOnly ? {nameOnly:true} : {})}];
   const sources = recordTypeFields({recordTypes},kind);
   const types = data.types.map(type=>recordKind(type)!==kind
     ? type : {...type,fields:type.fields.map(field=>inheritChoiceOptions(field,sources))});
@@ -312,14 +326,31 @@ export function recordTemplateUsage(data,kind) {
   };
 }
 
-export function deleteRecordTemplate(data,kind) {
-  const {records,eventTemplates} = recordTemplateUsage(data,kind);
-  if (records || eventTemplates) throw new Error('Шаблон используется. Сначала поменяй шаблон у записей и убери связи из шаблонов событий.');
+export function deleteRecordTemplate(data,kind,{removeRecords = false} = {}) {
+  const records = allRecords(data).filter(record=>record.kind===kind);
+  if (!removeRecords && (records.length || data.types.some(type=>recordKind(type)===kind)))
+    throw new Error('Шаблон используется. Подтверди удаление вместе с записями и связанными событиями.');
+  const ids = new Set(records.map(record=>record.id));
+  const next = archiveMatchingEvents(data,item=>ids.has(item.recordId) || ids.has(item.studentId) || item.snapshot?.record?.kind===kind);
   return {
-    ...data,
-    recordTypes:(data.recordTypes || []).filter(type=>type.kind!==kind),
-    deletedRecordKinds:[...new Set([...(data.deletedRecordKinds || []),kind])],
+    ...next,
+    students:kind==='student' ? [] : next.students,
+    records:(next.records || []).filter(record=>record.kind!==kind),
+    types:next.types.map(type=>recordKind(type)===kind ? {
+      ...type, recordKind:'', linkStudent:false, requireStudent:false, requireRecord:false,
+      fields:type.fields.map(field=>field.source ? {...field,source:null} : field),
+    } : type),
+    recordTypes:(next.recordTypes || []).filter(type=>type.kind!==kind),
+    archivedRecordKinds:(next.archivedRecordKinds || []).filter(item=>item!==kind),
+    deletedRecordKinds:[...new Set([...(next.deletedRecordKinds || []),kind])],
   };
+}
+
+export function setTemplateArchived(data, family, id, archived) {
+  if (family==='events') return {...data,types:data.types.map(type=>type.id===id ? {...type,archived} : type)};
+  const kinds = new Set(data.archivedRecordKinds);
+  if (archived) kinds.add(id); else kinds.delete(id);
+  return {...data,archivedRecordKinds:[...kinds]};
 }
 
 export function populatedEventFields(data, typeId) {
@@ -424,11 +455,27 @@ export function deleteRecord(data, record, removeEvents = false) {
   return next;
 }
 
-export function deleteType(data, id) {
-  const next = structuredClone(data);
-  const seriesIds = new Set(next.series.filter(item => item.typeId === id).map(item => item.id));
-  next.series = next.series.filter(item => !seriesIds.has(item.id));
-  next.events = next.events.filter(item => item.typeId !== id && !seriesIds.has(item.seriesId));
-  next.types = next.types.filter(item => item.id !== id);
+function archiveMatchingEvents(data, matches) {
+  const series = data.series.filter(matches);
+  const seriesIds = new Set(series.map(item=>item.id));
+  const isArchived = item => matches(item) || seriesIds.has(item.seriesId);
+  const events = data.events.filter(isArchived);
+  if (!series.length && !events.length) return data;
+  const next = {
+    ...data, series:data.series.filter(item=>!seriesIds.has(item.id)), events:data.events.filter(item=>!isArchived(item)),
+    eventArchive:[...(data.eventArchive || []), ...events.map(item=>({...snapshotEvent(data,item),archiveKind:'event'})),
+      ...series.map(item=>({...snapshotEvent(data,item),archiveKind:'series'}))],
+  };
+  if (next.reminders) next.reminders = activeReminders(next);
   return next;
+}
+
+export function deleteType(data, id) {
+  const next = archiveMatchingEvents(data,item=>item.typeId===id);
+  return {...next,types:next.types.filter(item=>item.id!==id)};
+}
+
+export function clearEventArchive(data, item) {
+  const next = {...data,eventArchive:item ? (data.eventArchive || []).filter(event=>event.id!==item.id || event.archiveKind!==item.archiveKind) : []};
+  return data.cardBackgrounds ? {...next,cardBackgrounds:referencedCardBackgrounds(next)} : next;
 }

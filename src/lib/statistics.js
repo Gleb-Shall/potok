@@ -1,8 +1,10 @@
 import { allRecords, eventFields, eventType } from './events.js';
 
+const reportableEvents = data => [...data.events, ...(data.eventArchive || []).filter(item=>item.archiveKind==='event' && item.status==='done')];
+
 export function recordStatisticsOptions(data) {
   const records = new Map(allRecords(data).map(record=>[record.id,record]));
-  for (const event of data.events) {
+  for (const event of reportableEvents(data)) {
     const record = event.snapshot?.record;
     if (record?.id && !records.has(record.id)) records.set(record.id,record);
   }
@@ -10,7 +12,7 @@ export function recordStatisticsOptions(data) {
 }
 
 export function eventStatistics(data, month, recordId = '') {
-  const entries = data.events.filter(event => event.status === 'done' && event.date?.slice(0,7) === month &&
+  const entries = reportableEvents(data).filter(event => event.status === 'done' && event.date?.slice(0,7) === month &&
     (!recordId || eventRecordId(event) === recordId))
     .sort((a,b)=>b.date.localeCompare(a.date) || b.start-a.start);
   return summarizeEvents(data,entries);
@@ -65,7 +67,7 @@ function reportField(type, historical, currentType) {
 
 export function reportRows(data, from, to) {
   const currentTypes = new Map(data.types.map(type=>[type.id,type]));
-  return data.events.filter(event=>event.status==='done' && event.date && event.date>=from && event.date<=to)
+  return reportableEvents(data).filter(event=>event.status==='done' && event.date && event.date>=from && event.date<=to)
     .sort((a,b)=>b.date.localeCompare(a.date)||b.start-a.start)
     .map(event=>{
       const type = eventType(data,event);

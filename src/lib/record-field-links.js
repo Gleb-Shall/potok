@@ -11,9 +11,11 @@ const common = [
   {id:'subtitle',label:'Короткое описание',type:'text',nonStudent:true},
 ];
 
-export function builtinRecordFields(kind) {
+export const recordTemplateUsesNameOnly = (data,kind) => data.recordTypes?.some(type=>type.kind===kind && type.nameOnly===true) ?? false;
+
+export function builtinRecordFields(kind, nameOnly = false) {
   if (!kind || kind === 'any') return [];
-  return common.filter(field => (!field.kind || field.kind === kind) && (!field.nonStudent || kind !== 'student'))
+  return common.filter(field => nameOnly ? field.id==='name' : (!field.kind || field.kind === kind) && (!field.nonStudent || kind !== 'student'))
     .map(field => ({id:`record:${field.id}`,label:field.label,type:field.type}));
 }
 
@@ -21,7 +23,7 @@ export const declaredRecordFields = (data,kind) => data.recordTypes?.find(type=>
 
 export function recordTypeFields(data, kind) {
   if (!kind || kind === 'any') return [];
-  return [...builtinRecordFields(kind),...declaredRecordFields(data,kind).map(field=>({...field,id:`detail:${field.id}`}))];
+  return [...builtinRecordFields(kind,recordTemplateUsesNameOnly(data,kind)),...declaredRecordFields(data,kind).map(field=>({...field,id:`detail:${field.id}`}))];
 }
 
 export function recordFieldCatalog(records, kind) {

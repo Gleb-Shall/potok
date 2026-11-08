@@ -29,6 +29,8 @@ export function TypeEditor({ data, original, onSave, onClose, onDelete, inline, 
   };
   const reorder = (from, to) => setType(previous => ({...previous, fields:moveField(previous.fields,from,to)}));
   const sources = recordTypeFields(data,type.recordKind);
+  const linkedKinds = recordKinds(data);
+  if (type.recordKind && type.recordKind!=='any' && !linkedKinds.includes(type.recordKind)) linkedKinds.push(type.recordKind);
   const populated = useMemo(() => populatedEventFields(data,type.id), [data,type.id]);
   const chooseSource = (field, id) => {
     const source = sources.find(item=>item.id===id);
@@ -63,7 +65,7 @@ export function TypeEditor({ data, original, onSave, onClose, onDelete, inline, 
     {appearance ? <CardStyleSettings data={data} type={type} setType={setType} busy={busy} setBusy={setBusy}/> : <>
     <TemplateEditorSettings description={inline ? RECORD_KINDS[type.recordKind] || type.recordKind : name || 'Название, связи и место'} open={basicsOpen} onToggle={setBasicsOpen}>
       {draftName === undefined && <Field label="Название шаблона" value={name} onChange={value => change('name', value)} required maxLength="80" placeholder="Например, Тренировка"/>}
-      <Select label="Шаблон связанной записи" value={type.recordKind ?? '__choose__'} onChange={value => setType(previous=>({...previous,recordKind:value,fields:previous.fields.map(field=>({...field,source:null}))}))}>{needsRecordChoice && <option value="__choose__" disabled>Выбери шаблон записи</option>}<option value="">Без связи</option>{type.recordKind==='any' && <option value="any">Любая запись (старый шаблон)</option>}{recordKinds(data).map(kind => <option key={kind} value={kind}>{RECORD_KINDS[kind] || kind}</option>)}</Select>
+      <Select label="Шаблон связанной записи" value={type.recordKind ?? '__choose__'} onChange={value => setType(previous=>({...previous,recordKind:value,fields:previous.fields.map(field=>({...field,source:null}))}))}>{needsRecordChoice && <option value="__choose__" disabled>Выбери шаблон записи</option>}<option value="">Без связи</option>{type.recordKind==='any' && <option value="any">Любая запись (старый шаблон)</option>}{linkedKinds.map(kind => <option key={kind} value={kind}>{RECORD_KINDS[kind] || kind}{data.archivedRecordKinds?.includes(kind) ? ' · архив' : ''}</option>)}</Select>
       <p class="quiet-note">Общие поля настраиваются в разделе «Редактор шаблонов → Записи».</p>
       {type.recordKind && <Check checked={type.requireRecord} onChange={value => change('requireRecord', value)}>Связанная запись обязательна</Check>}
       <Check checked={type.enableLocation} onChange={value => change('enableLocation', value)}>Можно выбрать место на карте</Check>

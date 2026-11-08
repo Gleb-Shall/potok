@@ -7,7 +7,7 @@ import { Button } from './UI.jsx';
 
 const confirmDiscard = () => window.confirm('Отменить несохранённые изменения в шаблоне?');
 
-export function TemplateWorkspace({ data, onSave, onDelete, initialDraft, leaveGuard, onEditingChange }) {
+export function TemplateWorkspace({ data, onSave, onDelete, onArchive, initialDraft, leaveGuard, onEditingChange }) {
   const [family, setFamily] = useState(initialDraft || 'events');
   const [selection, setSelection] = useState({events:'',records:''});
   const [draft, setDraft] = useState(() => initialDraft ? {name:''} : null);
@@ -16,9 +16,11 @@ export function TemplateWorkspace({ data, onSave, onDelete, initialDraft, leaveG
   const draftInput = useRef(null);
   const revision = useRef(data.revision);
   const records = family === 'records';
-  const entries = records
-    ? recordKinds(data).map(id => ({id, name:RECORD_KINDS[id] || id}))
+  const templates = records
+    ? recordKinds(data,{includeArchived:true}).map(id => ({id,name:RECORD_KINDS[id] || id,archived:data.archivedRecordKinds?.includes(id)}))
     : data.types;
+  const entries = templates.filter(entry=>!entry.archived);
+  const archived = templates.filter(entry=>entry.archived);
   const active = entries.find(entry => entry.id === selection[family]) || entries[0];
   const changed = dirty || Boolean(draft?.name);
 
@@ -64,6 +66,8 @@ export function TemplateWorkspace({ data, onSave, onDelete, initialDraft, leaveG
     data, inline:true, draftName:draft?.name, onDirty:setDirty,
     onSave:save, onClose:() => { if (draft || dirty) reset(); },
   };
+  const deleteEntry = entry => onDelete(records ? {kind:'record-template',value:entry.id} : {kind:'type',value:entry});
+  const archiveEntry = (entry, value) => changeEditor(() => onArchive(family,entry.id,value));
 
   return <section class="template-browser template-workspace" aria-label="Редактор шаблонов">
     <div class="template-browser-layout">
@@ -87,11 +91,23 @@ export function TemplateWorkspace({ data, onSave, onDelete, initialDraft, leaveG
               <summary aria-label={`Другие действия с шаблоном «${entry.name}»`}><Icon name="more"/></summary>
               <div>
                 {!records && <button type="button" onClick={event => { event.currentTarget.closest('details').open = false; copy(entry); }}>Создать копию</button>}
-                <button type="button" class="danger-text" onClick={event => { event.currentTarget.closest('details').open = false; onDelete(records ? {kind:'record-template',value:entry.id} : {kind:'type',value:entry}); }}>Удалить шаблон</button>
+                {onArchive && <button type="button" onClick={event => { event.currentTarget.closest('details').open = false; archiveEntry(entry,true); }}>В архив</button>}
+                <button type="button" class="danger-text" onClick={event => { event.currentTarget.closest('details').open = false; deleteEntry(entry); }}>Удалить шаблон</button>
               </div>
             </details>
           </div>;
         })}
+        {archived.length>0 && <details class="template-archive-list">
+          <summary>Архив шаблонов <span class="section-count">{archived.length}</span></summary>
+          {archived.map(entry=><div class="template-archived-row" key={entry.id}>
+            <span>{entry.name}</span><details class="tile-actions-menu">
+              <summary aria-label={`Действия с архивным шаблоном «${entry.name}»`}><Icon name="more"/></summary>
+              <div>{onArchive && <button type="button" onClick={event=>{event.currentTarget.closest('details').open=false;archiveEntry(entry,false);}}>Вернуть из архива</button>}
+                <button type="button" class="danger-text" onClick={event=>{event.currentTarget.closest('details').open=false;deleteEntry(entry);}}>Удалить шаблон</button>
+              </div>
+            </details>
+          </div>)}
+        </details>}
       </aside>
       <div class="template-workspace-editor">
         {draft || active ? <>

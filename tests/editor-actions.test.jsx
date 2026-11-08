@@ -158,6 +158,7 @@ it('opens record templates in the shared template editor and saves a choice fiel
  expect([...root.querySelectorAll('.template-list-select')].map(button=>button.textContent)).toEqual(['Ученик','Предмет']);
  expect(root.querySelector('.record-template-fields').textContent).toContain('Контакт');
  await click(root.querySelector('.template-create'));
+ expect([...root.querySelectorAll('.record-template-fields dt')].map(item=>item.textContent)).toEqual(['Имя или название']);
  await input(root.querySelector('.template-draft-row input'),'Группа');
  await click(root.querySelector('.template-inline-editor .builder-heading button'));
  const field=root.querySelector('.template-inline-editor .builder-field[open]');
@@ -188,6 +189,7 @@ it('opens record templates in the shared template editor and saves a choice fiel
  await pointer('pointerup',72);
  await click(root.querySelector('.template-inline-editor button[type="submit"]'));
  expect(root.querySelector('.template-list-select[aria-pressed="true"]').textContent).toBe('Группа');
+ expect([...root.querySelectorAll('.record-template-fields dt')].map(item=>item.textContent)).toEqual(['Имя или название']);
  const summaries=[...root.querySelectorAll('.template-inline-editor .builder-field summary')];
  expect(summaries[0].textContent).toContain('Телемост');
  expect(summaries[1].textContent).toContain('Средний');
@@ -249,7 +251,16 @@ it('deletes an unused record template from its menu', async () => {
  await click(root.querySelector('.template-family-switch button:last-child'));
  const menu=root.querySelector('[aria-label="Другие действия с шаблоном «Проект»"]').closest('details');
  await click(menu.querySelector('summary'));
- await click(menu.querySelector('button'));
+ await click([...menu.querySelectorAll('button')].find(button=>button.textContent==='В архив'));
+ expect(root.querySelector('.template-list-select')).not.toBeNull();
+ expect(root.querySelector('[aria-label="Другие действия с шаблоном «Проект»"]')).toBeNull();
+ const archivedMenu=root.querySelector('[aria-label="Действия с архивным шаблоном «Проект»"]').closest('details');
+ await click(root.querySelector('.template-archive-list > summary'));
+ await click(archivedMenu.querySelector('summary'));
+ await click([...archivedMenu.querySelectorAll('button')].find(button=>button.textContent==='Вернуть из архива'));
+ const restoredMenu=root.querySelector('[aria-label="Другие действия с шаблоном «Проект»"]').closest('details');
+ await click(restoredMenu.querySelector('summary'));
+ await click([...restoredMenu.querySelectorAll('button')].find(button=>button.textContent==='Удалить шаблон'));
  expect(root.querySelector('.delete-modal h2').textContent).toBe('Удалить шаблон записи?');
  await act(()=>root.querySelector('.delete-modal form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
  expect(root.querySelector('[aria-label="Другие действия с шаблоном «Проект»"]')).toBeNull();
