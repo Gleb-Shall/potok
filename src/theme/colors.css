@@ -82,9 +82,6 @@
 :root[data-theme=dark] :is(.map-actions,.map-view-expand) .button,
 :root[data-theme=dark] :is(.map-current-place,.map-location-details,.place-results,.place-results button,.map-source-switch,.place-location,.location-trigger) { background:var(--surface-raised); color:var(--ink); border-color:var(--line); }
 :root[data-theme=dark] .event-card :is(.card-link-chip,.inline-value-link,.card-record-links a) { color:inherit; }
-:root[data-theme=dark] .event-card[data-event-state=confirmed] .event-state-mark { background:#264331; color:#b1d8b0; }
-:root[data-theme=dark] .event-card[data-event-state=cancelled] .event-state-mark { background:#4c2d35; color:#f0bac4; }
-:root[data-theme=dark] .event-card .event-state-mark { color:var(--muted); }
 :root[data-theme=dark] .ui-action-menu[popover] { box-shadow:0 0 0 1px #0003,0 12px 32px #0004; }
 :root[data-theme=dark] dialog::backdrop { background:#080c0ab3; }
 :root[data-theme=dark] .quality-options label.selected { outline-color:var(--selection-border); }

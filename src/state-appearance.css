@@ -3,10 +3,11 @@
 .card-time-icons { display:inline-flex; align-items:center; gap:5px; flex-shrink:0; }
 .event-place-mark { display:inline-flex; align-items:center; flex-shrink:0; color:inherit; }
 .event-place-mark .icon { width:14px; height:14px; }
-.event-state-mark { display:inline-grid; place-items:center; width:17px; height:17px; border-radius:50%; color:#817d88; flex-shrink:0; }
+.event-state-mark { display:inline-grid; place-items:center; width:17px; height:17px; border-radius:50%; color:var(--muted); flex-shrink:0; }
 .event-state-mark .icon { width:13px; height:13px; }
-.event-card[data-event-state="confirmed"] .event-state-mark { color:#39734e; background:#dcebdd; }
-.event-card[data-event-state="cancelled"] .event-state-mark { color:#9b6065; background:#f3e2e4; }
+.event-card[data-event-state="elapsed"] .event-state-mark { color:var(--pending-ink); background:var(--pending-surface); }
+.event-card[data-event-state="confirmed"] .event-state-mark { color:var(--done-ink); background:var(--done-surface); }
+.event-card[data-event-state="cancelled"] .event-state-mark { color:var(--danger); background:var(--danger-surface); }
 .event-card[data-event-state="elapsed"] { border-left-style:solid; }
 .event-card[data-event-state="confirmed"] { opacity:1; }
 .event-card[data-event-state="confirmed"] .card-name { text-decoration:none; }
@@ -57,7 +58,7 @@
 .event-card[data-state-effect="marker"][data-event-state="elapsed"] .event-type-label { color:var(--elapsed-meta); }
 .event-card[data-state-effect="marker"][data-event-state="confirmed"] { --marker-paint:#9ec98d; --marker-opacity:var(--confirmed-marker-opacity); }
 .event-card[data-state-effect="marker"][data-event-state="confirmed"] .card-name { color:var(--confirmed-title); }
-.event-card[data-state-effect="marker"][data-event-state="confirmed"] .event-state-mark { border-radius:43% 56% 46% 54%; background:#cee7c7; }
+.event-card[data-state-effect="marker"][data-event-state="confirmed"] .event-state-mark { border-radius:43% 56% 46% 54%; }
 .event-card[data-state-effect="marker"][data-event-state="confirmed"] .event-state-mark path { stroke-dasharray:30; animation:state-check-draw 400ms 1450ms ease-out both; }
 
 .day-header[data-day-state="past"][data-state-effect="marker"] { --marker-opacity:.25; --marker-duration:1700ms; background:#faf9fc; border-bottom:1px solid #e3dee7; }

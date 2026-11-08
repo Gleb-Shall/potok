@@ -1,11 +1,39 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { linkHref, linkParts, recordLinks } from '../src/lib/links.js';
-import { defaultTypes, projectWeek, saveMove, normalizeData, deleteRecord, saveEvent, validateEvent, saveStudent } from '../src/lib/events.js';
-import { eventHasEnded, setEventStatus, stopSeries, historyEvents } from '../src/lib/event-history.js';
+import { defaultTypes, projectWeek, saveMove, normalizeData, deleteRecord, saveEvent, validateEvent, saveStudent, moveEvent } from '../src/lib/events.js';
+import { eventHasEnded, eventState, setEventStatus, stopSeries, historyEvents, unconfirmedEvents } from '../src/lib/event-history.js';
 const now = Date.parse('2026-10-30T12:00:00+03:00');
 const record = { id: 's', name: 'Ученик', kind: 'student', subject: 'Математика', contact: '', rate: 1000, color: 'violet', details: [{ id: 'board', label: 'Доска', type: 'url', value: 'https://board.example.com/student', showOnCard: true }] };
 const base = () => ({ version: 2, students: [structuredClone(record)], records: [], types: defaultTypes(), series: [{ id: 'weekly', typeId: 'lesson', title: 'Занятие', studentId: 's', fields: { topic: 'Тема' }, from: '2026-10-02', until: '', weekday: 5, start: 600, duration: 60, intervalWeeks: 1 }], events: [] });
+
+test('confirmation queue orders elapsed occurrences across months and respects saved exceptions', () => {
+ const data = base();
+ const [completed] = projectWeek(data,'2026-10-02',1).events;
+ const saved = setEventStatus(data,completed,'done',now);
+ saved.events.push({id:'early',date:'2026-11-07',start:600,duration:30,status:'planned'},
+   {id:'late',date:'2026-11-07',start:660,duration:30,status:'planned'},
+   {id:'ongoing',date:'2026-11-07',start:705,duration:60,status:'planned'},
+   {id:'pending',date:null,start:540,duration:60,status:'pending'});
+ const waiting = unconfirmedEvents(saved,Date.parse('2026-11-07T12:00:00+03:00'));
+ assert.deepEqual(waiting.map(event=>event.id), ['late','early','weekly:2026-11-06','weekly:2026-10-30','weekly:2026-10-23','weekly:2026-10-16','weekly:2026-10-09']);
+});
+
+test('cancelling a deferred repeat archives the last scheduled slot and keeps other repeats', () => {
+ const data=base(), [original]=projectWeek(data,'2026-10-30',1).events;
+ const moved=moveEvent(original,'2026-11-01',780,45);
+ const pending=moveEvent(moved,null,780,45);
+ assert.equal(eventState(pending,now),'pending');
+ const next=setEventStatus(data,pending,'cancelled',now);
+ const [archived]=historyEvents(next,'2026-11','cancelled',now);
+ assert.equal(eventState(archived,now),'cancelled');
+ assert.equal(archived.id,original.id);
+ assert.deepEqual([archived.date,archived.start,archived.duration],['2026-11-01',780,45]);
+ assert.equal(archived.originalDate,'2026-10-30');
+ assert.equal(projectWeek(next,'2026-11-01',7).events[0].id,'weekly:2026-11-06');
+ const stopped=stopSeries(next,archived,'2026-10-30',now);
+ assert.equal(historyEvents(stopped,'2026-11','cancelled',now)[0].id,original.id);
+});
 
 test('only web links become clickable, including domain normalization', () => {
  assert.equal(linkHref('www.example.com/board'), 'https://www.example.com/board');

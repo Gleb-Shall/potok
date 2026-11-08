@@ -7,6 +7,7 @@ import { getType, saveEvent, allRecords, recordKind, RECORD_KINDS } from '../lib
 import { Icon } from './Icon.jsx';
 import { eventEnd, updateTiming } from '../lib/timing.js';
 import { TimingFields } from './TimingFields.jsx';
+import { readRecordField, resolveRecordFields } from '../lib/record-field-links.js';
 import { LocationField } from './LocationField.jsx';
 
 function CustomField({ field, value, onChange }) {
@@ -34,6 +35,9 @@ export function EventEditor({ data, original, date, typeId, draft, onSave, onClo
   const records = allRecords(data);
   const linked = records.find(item => item.id === values.recordId);
   const fields = type.fields.filter(field => !field.archived);
+  const sourceRecord = original?.snapshot && values.recordId === (original.recordId || original.studentId || '') ? original.snapshot.record : linked;
+  const copiedFields = original ? values.fields : resolveRecordFields(fields,values.fields,sourceRecord,'copy');
+  const effectiveFields = resolveRecordFields(fields,copiedFields,sourceRecord);
   const change = (key, value) => setValues(previous => ({ ...previous, [key]: value }));
   const timing = (key, value) => setValues(previous => ({ ...previous, ...updateTiming(previous, key, value) }));
   const requiredRecord = !values.recordDetached && (type.requireStudent || type.requireRecord);
@@ -44,7 +48,7 @@ export function EventEditor({ data, original, date, typeId, draft, onSave, onClo
   };
   const chooseRecord = id => {
     const record = records.find(item => item.id === id);
-    setValues(previous => ({ ...previous, recordId: id, recordDetached: id ? false : previous.recordDetached, studentId: record?.kind === 'student' ? id : '', title: !previous.title || previous.title === linked?.name ? record?.name || '' : previous.title, color: record?.color || previous.color, fields: { ...previous.fields, ...(record?.kind === 'student' && previous.typeId === 'lesson' && previous.fields.rate == null ? { rate: record.rate } : {}) } }));
+    setValues(previous => ({ ...previous, recordId: id, recordDetached: id ? false : previous.recordDetached, studentId: record?.kind === 'student' ? id : '', title: !previous.title || previous.title === linked?.name ? record?.name || '' : previous.title, color: record?.color || previous.color }));
   };
   const newRecord = () => {
     const nextDraft = { ...values, editor: { repeat, scope, weeks, until } };
@@ -69,7 +73,19 @@ export function EventEditor({ data, original, date, typeId, draft, onSave, onClo
       <div class="form-row time-fields"><Field label="Дата" type="date" value={values.date} onChange={value => change('date', value)} required/><TimingFields values={values} onChange={timing}/></div></section>
       <section class="editor-section recurrence-section">{currentSeries ? <Select label="Какие события изменить" value={scope} onChange={setScope}><option value="one">Только это событие</option><option value="future">Это и последующие по расписанию</option></Select> : <Check checked={repeat} onChange={setRepeat}>Повторять событие</Check>}
       {(repeat || currentSeries && scope === 'future') && <div class="recurrence-box"><div class="form-row"><Field label="Каждые, недель" type="number" value={weeks} onChange={setWeeks} min="1" max="12" required/><Field label="До даты · необязательно" type="date" value={until} onChange={setUntil}/></div><small>2 недели — для чередующихся пар. Без даты окончания — постоянно.</small></div>}</section>
-      {fields.length > 0 && <details class="editor-disclosure" open={fields.some(field => field.required || values.fields[field.id] != null && values.fields[field.id] !== '')}><summary>Детали события <span>{fields.length} полей</span></summary><div class="editor-disclosure-body">{fields.map(field => <CustomField key={`${type.id}:${field.id}`} field={field} value={values.fields[field.id]} onChange={value => setValues(previous => ({ ...previous, fields: { ...previous.fields, [field.id]: field.type === 'number' && value !== '' ? Number(value) : value } }))}/>)}</div></details>}
+      {fields.length > 0 && <details class="editor-disclosure" open={fields.some(field => field.required || values.fields[field.id] != null && values.fields[field.id] !== '')}><summary>Детали события <span>{fields.length} полей</span></summary><div class="editor-disclosure-body">{fields.map(field => {
+        const sourceValue = readRecordField(sourceRecord,field);
+        const own = Object.hasOwn(values.fields,field.id);
+        const updateValue = value => setValues(previous => ({...previous,fields:{...previous.fields,[field.id]:value}}));
+        return <div class="event-field" key={`${type.id}:${field.id}`}>
+          <CustomField field={field} value={effectiveFields[field.id]} onChange={value=>updateValue(field.type === 'number' && value !== '' ? Number(value) : value)}/>
+          {field.source && <div class="event-field-source">
+            <small>{field.source.mode === 'live' ? own ? 'Значение для этого события' : 'Из связанной записи' : 'Подстановка из связанной записи'}</small>
+            {field.source.mode === 'live' && own && <Button kind="text-button" onClick={()=>setValues(previous=>{const fields={...previous.fields};delete fields[field.id];return {...previous,fields};})}>Брать из записи</Button>}
+            {field.source.mode === 'copy' && sourceValue !== undefined && (original || own) && <Button kind="text-button" onClick={()=>updateValue(sourceValue)}>Подставить из записи</Button>}
+          </div>}
+        </div>;
+      })}</div></details>}
       {(type.enableLocation !== false || values.location) && <LocationField value={values.location} onChange={value => change('location', value)} data={data}/>}
       <details class="editor-disclosure" open={Boolean(values.notes)}><summary>Заметки <span>для этого события</span></summary><div class="editor-disclosure-body"><Field label="Заметка" type="textarea" rows="3" value={values.notes} onChange={value => change('notes', value)} maxLength={5000}/></div></details>
       <details class="editor-disclosure"><summary>Оформление и занятость</summary><div class="editor-disclosure-body"><Colors value={values.color} onChange={value => change('color', value)}/><Check checked={values.busy} onChange={value => change('busy', value)}>Занимает время — предупреждать о пересечениях</Check></div></details>

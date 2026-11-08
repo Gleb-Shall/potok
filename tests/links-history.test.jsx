@@ -26,7 +26,7 @@ it('compact card opens meeting and record board links separately from its main b
  const links=[...root.querySelectorAll('a')];expect(links.map(a=>a.textContent)).toEqual(['Телемост','Доска']);
  expect(links.every(a=>a.target==='_blank'&&a.rel.includes('noopener')&&!a.closest('button'))).toBe(true);
  links[0].addEventListener('click',e=>e.preventDefault());await act(()=>links[0].click());expect(open).not.toHaveBeenCalled();
- expect(root.textContent).not.toContain('Время прошло');expect(root.querySelector('.event-card').dataset.eventState).toBe('elapsed');expect(root.querySelector('.event-state-mark').getAttribute('aria-label')).toContain('не подтверждено');
+ expect(root.textContent).not.toContain('Время прошло');expect(root.querySelector('.event-card').dataset.eventState).toBe('elapsed');expect(root.querySelector('.event-state-mark').getAttribute('aria-label')).toBe('Ждёт подтверждения');
 });
 it('hidden event fields and hidden record links stay hidden in compact cards',async()=>{
  const data=base();data.types[1].fields.push({id:'call',label:'Телемост',type:'url',showOnCard:false,showCompact:false});data.records[0].details[0].showOnCard=false;
@@ -75,7 +75,7 @@ it('app ends repeats without losing earlier meetings after reopening storage',as
  await mount(<App/>);await act(()=>root.querySelector('.card-open').click());await act(()=>root.querySelector('[aria-label="Действия с событием"]').click());await click('Завершить повторы');await submit();
  const saved=JSON.parse(localStorage.getItem('tutor-schedule:personal:v2'));expect(saved.series[0].until).toBe(addDays(today,-1));expect(projectWeek(saved,addDays(today,7),7).events).toHaveLength(0);
  expect(projectWeek(saved,addDays(today,-14),7).events).toHaveLength(1);expect(saved.series[0].snapshot.record.name).toBe('Математика');
- await click('История');expect(root.textContent).toContain('Прошедшее время не означает');
+ await click('Журнал');expect(root.textContent).toContain('Прошедшее время не означает');
 });
 it('past days use visual states without automatic completion',async()=>{
  const data=base();const yesterday=addDays(todayISO(),-1);data.events=[{...event(),date:yesterday,anchorDate:yesterday}];localStorage.setItem('tutor-schedule:personal:v2',JSON.stringify(data));localStorage.setItem('tutor-schedule:mode','personal');
@@ -93,7 +93,7 @@ it('keeps confirmed and elapsed treatments distinct and replaceable',async()=>{
  const data=base();
  await mount(<EventCard data={data} event={{...event(),status:'done'}} now={now} expanded={false} onOpen={()=>{}}/>);
  expect(root.querySelector('.event-card').dataset.eventState).toBe('confirmed');
- expect(root.querySelector('.event-state-mark').getAttribute('aria-label')).toBe('Проведение подтверждено');
+ expect(root.querySelector('.event-state-mark').getAttribute('aria-label')).toBe('Проведено');
  expect(root.querySelector('.event-time-state')).toBeNull();
  await mount(<EventCard data={data} event={event()} now={now} stateEffects={{elapsed:'plain'}} expanded={false} onOpen={()=>{}}/>);
  expect(root.querySelector('.event-card').dataset.eventState).toBe('elapsed');

@@ -12,3 +12,5 @@ entry. Production builds start at the root `index.html` only.
 Use `/tests/ui/?dialog=card-style` to open the card appearance editor directly.
 Enable “Показать выделение” and move the pointer over the preview to inspect the
 smoke and letter displacement without touching saved templates.
+
+Open `/tests/ui/?view=statistics` for sample reports or `/tests/ui/?view=guide` for the user guide.

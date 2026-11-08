@@ -2,7 +2,8 @@ import { Icon } from './Icon.jsx';
 import { ActionMenu } from './ActionMenu.jsx';
 import { useState } from 'preact/hooks';
 import { Modal, Field, Select, Check, Button, FormFooter, ErrorMessage } from './UI.jsx';
-import { FIELD_TYPES, saveType, RECORD_KINDS, recordKind } from '../lib/events.js';
+import { compatibleRecordField, recordFieldCatalog } from '../lib/record-field-links.js';
+import { FIELD_TYPES, saveType, RECORD_KINDS, recordKind, allRecords } from '../lib/events.js';
 
 export function TypeEditor({ data, original, onSave, onClose, onDelete }) {
   const [type, setType] = useState(() => structuredClone(original ? { ...original, recordKind: recordKind(original), requireRecord: original.requireRecord ?? original.requireStudent, enableLocation: original.enableLocation !== false } : { id: crypto.randomUUID(), name: '', titleLabel: 'Название события', icon: '◇', color: 'peach', recordKind: '', requireRecord: false, enableLocation: true, fields: [], archived: false }));
@@ -21,6 +22,7 @@ export function TypeEditor({ data, original, onSave, onClose, onDelete }) {
     if (target >= 0 && target < fields.length) [fields[index], fields[target]] = [fields[target], fields[index]];
     return { ...previous, fields };
   });
+  const sources = recordFieldCatalog(allRecords(data),type.recordKind);
   const used = field => [...data.events, ...data.series].some(event => event.typeId === type.id && Object.hasOwn(event.fields || {}, field.id));
   const submit = event => {
     event.preventDefault(); setError('');
@@ -38,18 +40,32 @@ export function TypeEditor({ data, original, onSave, onClose, onDelete }) {
     <form onSubmit={submit} class="type-builder-form" noValidate><div class="builder-main"><details class="builder-settings" open={basicsOpen} onToggle={event => setBasicsOpen(event.currentTarget.open)}><summary><span>Общие настройки</span><small>{type.name || 'Название, связи и место'}</small><Icon name="down"/></summary><div class="builder-settings-body">
       <Field label="Название типа" value={type.name} onChange={value => change('name', value)} required maxLength="80" placeholder="Например, Тренировка"/>
       <Field label="Как назвать основное поле" value={type.titleLabel} onChange={value => change('titleLabel', value)} required maxLength="80" placeholder="Например, Предмет или Название встречи"/>
-      <Select label="Связь с общей записью" value={type.recordKind} onChange={value => change('recordKind', value)}><option value="">Без связи</option><option value="any">Любая запись</option>{[...new Set([...Object.keys(RECORD_KINDS), ...(data.records || []).map(item => item.kind)])].map(kind => <option key={kind} value={kind}>{RECORD_KINDS[kind] || kind}</option>)}</Select>
+      <Select label="Связь с общей записью" value={type.recordKind} onChange={value => setType(previous=>({...previous,recordKind:value,fields:previous.fields.map(field=>({...field,source:null}))}))}><option value="">Без связи</option><option value="any">Любая запись</option>{[...new Set([...Object.keys(RECORD_KINDS), ...(data.records || []).map(item => item.kind)])].map(kind => <option key={kind} value={kind}>{RECORD_KINDS[kind] || kind}</option>)}</Select>
       {type.recordKind && <Check checked={type.requireRecord} onChange={value => change('requireRecord', value)}>Связанная запись обязательна</Check>}
       <Check checked={type.enableLocation} onChange={value => change('enableLocation', value)}>Можно выбрать место на карте</Check>
       </div></details><div class="builder-heading"><h3>Дополнительные поля</h3><Button icon="plus" onClick={addField}>Добавить поле</Button></div>
       {type.fields.length === 0 && <p class="builder-empty">Название, дата и время уже есть. Добавь поля для своих событий.</p>}
-      <div class="builder-fields">{type.fields.map((field, index) => <details key={field.id} class={`builder-field ${field.archived ? 'field-archived' : ''}`} open={activeField === field.id} onToggle={event => { if (event.currentTarget.open) setActiveField(field.id); else if (activeField === field.id) setActiveField(''); }}><summary class="builder-field-summary"><Icon name={field.type === 'url' ? 'external' : field.type === 'checkbox' ? 'check' : 'sliders'}/><strong>{field.label || 'Новое поле'}</strong><small>{field.archived ? 'Скрыто' : FIELD_TYPES[field.type]}</small><Icon name="down"/></summary><div class="builder-field-body">
+      <div class="builder-fields">{type.fields.map((field, index) => {
+        const compatible = sources.filter(source=>compatibleRecordField(source,field.type));
+        return <details key={field.id} class={`builder-field ${field.archived ? 'field-archived' : ''}`} open={activeField === field.id} onToggle={event => { if (event.currentTarget.open) setActiveField(field.id); else if (activeField === field.id) setActiveField(''); }}><summary class="builder-field-summary"><Icon name={field.type === 'url' ? 'external' : field.type === 'checkbox' ? 'check' : 'sliders'}/><strong>{field.label || 'Новое поле'}</strong><small>{field.archived ? 'Скрыто' : FIELD_TYPES[field.type]}</small><Icon name="down"/></summary><div class="builder-field-body">
         <div class="builder-field-header"><span>Настройки поля</span><div><button type="button" class="icon-button" aria-label={`Поднять поле ${index + 1}`} disabled={index === 0} onClick={() => reorder(field.id, -1)}>↑</button><button type="button" class="icon-button" aria-label={`Опустить поле ${index + 1}`} disabled={index === type.fields.length - 1} onClick={() => reorder(field.id, 1)}>↓</button><button type="button" class="text-button" onClick={() => updateField(field.id, { archived: !field.archived, required: false })}>{field.archived ? 'Вернуть' : 'Скрыть'}</button></div></div>
-        <div class="form-row"><Field label="Название поля" value={field.label} onChange={value => updateField(field.id, { label: value })} required maxLength="100"/><Select label="Формат" value={field.type} onChange={value => updateField(field.id, { type: value, ...(value === 'url' && field.showCompact == null ? { showCompact: true } : {}) })} disabled={used(field)}>{Object.entries(FIELD_TYPES).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</Select></div>
+        <div class="form-row"><Field label="Название поля" value={field.label} onChange={value => updateField(field.id, { label: value })} required maxLength="100"/><Select label="Формат" value={field.type} onChange={value => updateField(field.id, { type: value, source:null, metric:false, ...(value === 'url' && field.showCompact == null ? { showCompact: true } : {}) })} disabled={used(field)}>{Object.entries(FIELD_TYPES).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</Select></div>
         {['select', 'multiselect'].includes(field.type) && <div class="option-editor"><span>Варианты ответа</span>{field.options.map((option, optionIndex) => <div class="option-row" key={optionIndex}><input aria-label={`Вариант ${optionIndex + 1} поля ${field.label || index + 1}`} value={option} maxLength="200" placeholder={`Вариант ${optionIndex + 1}`} onInput={event => updateField(field.id, { options: field.options.map((value, i) => i === optionIndex ? event.currentTarget.value : value) })}/><button type="button" class="icon-button" aria-label={`Убрать вариант ${optionIndex + 1}`} onClick={() => updateField(field.id, { options: field.options.filter((_, i) => i !== optionIndex) })}>×</button></div>)}<Button icon="plus" onClick={() => updateField(field.id, { options: [...field.options, ''] })}>Добавить вариант</Button><p class="quiet-note">{field.type === 'multiselect' ? 'В событии можно отметить несколько вариантов.' : 'В событии выбирается один вариант.'} Ранее выбранные значения сохранятся, даже если убрать вариант.</p></div>}
+        {!field.archived && (compatible.length > 0 || field.source) && <div class="form-row field-source-settings">
+          <Select label="Источник значения" value={field.source?.fieldId || ''} onChange={fieldId=>updateField(field.id,{source:fieldId ? {fieldId,mode:field.source?.mode || 'live'} : null})}>
+            <option value="">Заполнять в событии</option>
+            {field.source && !compatible.some(item=>item.id===field.source.fieldId) && <option value={field.source.fieldId}>Поле записи недоступно</option>}
+            {compatible.map(item=><option key={item.id} value={item.id}>{item.label}</option>)}
+          </Select>
+          {field.source && <Select label="Как брать значение" value={field.source.mode} onChange={mode=>updateField(field.id,{source:{...field.source,mode}})}>
+            <option value="live">Брать из записи</option><option value="copy">Подставить при создании</option>
+          </Select>}
+        </div>}
+        {!field.archived && field.type==='number' && <><Check checked={field.metric ?? (type.id==='lesson' && field.id==='rate')} onChange={metric=>updateField(field.id,{metric})}>Суммировать в статистике</Check>
+          {field.metric && <Field label="Единица измерения" value={field.metricUnit || ''} maxLength="24" placeholder="Например, км" onChange={metricUnit=>updateField(field.id,{metricUnit})}/>}</>}
         {!field.archived && <Check checked={field.required} onChange={value => updateField(field.id, { required: value })}>Обязательное</Check>}
         {used(field) && <small class="quiet-note">Формат поля зафиксирован: в событиях уже есть значения. Можно переименовать или скрыть поле — данные сохранятся.</small>}
-      </div></details>)}</div>
+      </div></details>; })}</div>
       </div>
       <ErrorMessage error={error}/><FormFooter onClose={onClose} label="Сохранить шаблон">{data.types.some(item => item.id === original?.id) && onDelete && <ActionMenu label="Ещё" items={[{id:'delete',icon:'trash',label:'Удалить шаблон',danger:true,onSelect:onDelete}]}/>}</FormFooter>
     </form>

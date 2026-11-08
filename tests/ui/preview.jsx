@@ -8,6 +8,8 @@ import {todayISO,addDays} from '../../src/lib/domain.js';
 import {moveEvent} from '../../src/lib/events.js';
 import {TransfersView} from '../../src/components/TransfersView.jsx';
 import {HistoryView} from '../../src/components/HistoryView.jsx';
+import {GuideView} from '../../src/components/GuideView.jsx';
+import {StatisticsView} from '../../src/components/StatisticsView.jsx';
 import {PendingEventCard} from '../../src/components/PendingEvents.jsx';
 import {RecordsDirectory} from '../../src/components/RecordsDirectory.jsx';
 import {TemplateBrowser} from '../../src/components/TemplateBrowser.jsx';
@@ -27,21 +29,39 @@ const data=demoData(), today=todayISO(), before=addDays(today,-1);
 const sample={id:'review-event',title:'Занятие с Анной',typeId:'lesson',studentId:data.students[0].id,recordId:data.students[0].id,date:before,anchorDate:before,start:1020,duration:60,status:'planned',color:'violet',busy:true,fields:{topic:'Производные',rate:1500,call:'https://example.com/meeting'},history:[]};
 const pending=moveEvent({...sample,id:'review-pending'},null,sample.start,sample.duration);
 data.events=[sample,pending,moveEvent({...sample,id:'review-moved'},today,1080,60),{...sample,id:'review-done',title:'Разбор задач',start:900,status:'done'},{...sample,id:'review-cancelled',title:'Консультация',start:720,status:'cancelled'}];
+const statsDate = before.slice(0,7) === today.slice(0,7) ? before : today;
+const lessonFormat={id:'format',label:'Формат',type:'select',options:['Практика','Подготовка к ЕГЭ']};
+const classroom={lat:59.94,lng:30.30,label:'Учебный центр'};
+const statisticsData={...data,
+  types:data.types.map(type=>type.id==='lesson' ? {...type,fields:[...type.fields,lessonFormat]} : type),
+  events:[
+    {...sample,id:'statistics-lesson',title:'Разбор задач',date:statsDate,start:900,status:'done',fields:{rate:1500,format:'Практика'},location:classroom},
+    {...sample,id:'statistics-exam',title:'Подготовка к экзамену',date:statsDate,start:780,duration:90,status:'done',fields:{rate:2400,format:'Подготовка к ЕГЭ'},location:classroom},
+    {...sample,id:'statistics-trial',title:'Пробное занятие',date:statsDate,start:660,duration:30,status:'done',studentId:data.students[1].id,recordId:data.students[1].id,fields:{rate:0,format:'Практика'}},
+    {...sample,id:'statistics-walk',title:'Прогулка',typeId:'personal',studentId:'',recordId:'',date:statsDate,start:1020,duration:45,status:'done',fields:{},location:{lat:59.93,lng:30.31,label:'Набережная'}},
+  ],
+};
+const sections=['transfers','history','records','templates','appearance','cards','statistics','guide'];
+const initialView=new URLSearchParams(location.search).get('view');
 data.students[0].details=[{id:'board',label:'Доска',type:'url',value:'https://example.com/board'}];
 const noop=()=>{};
 function Review(){
  useWorkspaceTheme();
- const [view,setView]=useState('transfers'),[theme,setTheme]=useState(readColorTheme),[query,setQuery]=useState(''),[filter,setFilter]=useState('');
+ const [view,setView]=useState(()=>sections.includes(initialView)?initialView:'transfers'),[theme,setTheme]=useState(readColorTheme),[query,setQuery]=useState(''),[filter,setFilter]=useState('');
+ const [statisticsEvent,setStatisticsEvent]=useState(null);
  const [dialog,setDialog]=useState(()=>new URLSearchParams(location.search).get('dialog')==='card-style'?'card-style':'');const close=()=>setDialog('');
  const renderPending=event=><PendingEventCard key={event.id} data={data} event={event} onOpen={()=>setDialog('pending')} onMove={()=>setDialog('move')} onRemind={()=>setDialog('reminder')} onRestore={noop}/>;
  return <div class="layout sidebar-collapsed" data-workspace-view={view}><main class="main">
   <header style={{display:'flex',gap:'8px',flexWrap:'wrap',padding:'12px 0 24px'}}>
-   <select aria-label="Review section" value={view} onChange={event=>setView(event.currentTarget.value)}>{['transfers','history','records','templates','appearance','cards'].map(name=><option value={name}>{name}</option>)}</select>
+   <select aria-label="Review section" value={view} onChange={event=>setView(event.currentTarget.value)}>{sections.map(name=><option key={name} value={name}>{name}</option>)}</select>
    <select aria-label="Review theme" value={theme} onChange={event=>setTheme(setColorTheme(event.currentTarget.value))}>{['light','dark'].map(name=><option value={name}>{name}</option>)}</select>
    <select aria-label="Review dialog" value={dialog} onChange={event=>setDialog(event.currentTarget.value)}>{['','event','pending','event-editor','student','student-editor','record-editor','type-editor','card-style','move','reminder'].map(name=><option value={name}>{name||'No dialog'}</option>)}</select>
   </header>
   {view==='transfers' && <TransfersView data={data} pending={[pending]} renderPending={renderPending} onOpen={()=>setDialog('event')}/>}
   {view==='history' && <HistoryView data={data} now={Date.now()} onOpen={()=>setDialog('event')} onStatus={noop}/>}
+  {view==='statistics' && <StatisticsView data={statisticsData} now={Date.now()} onOpen={setStatisticsEvent} onGuide={()=>setView('guide')}/>}
+  {view==='guide' && <GuideView initialChapter={initialView==='statistics'?4:0}/>}
+  {statisticsEvent && <EventDetails key={statisticsEvent.id} data={statisticsData} event={statisticsEvent} onClose={()=>setStatisticsEvent(null)} onEdit={noop} onMove={noop} onStatus={noop}/>}
   {view==='records' && <RecordsDirectory data={data} today={today} query={query} onQuery={setQuery} filter={filter} onFilter={setFilter} onOpen={()=>setDialog('student')} onAdd={()=>setDialog('record-editor')}/>}
   {view==='templates' && <TemplateBrowser data={data} onEdit={()=>setDialog('type-editor')} onAppearance={()=>setDialog('card-style')} onCopy={noop} onArchive={noop} onDelete={noop} onAdd={()=>setDialog('type-editor')} onArchived={noop}/>}
   {view==='appearance' && <AppearanceSettings/>}

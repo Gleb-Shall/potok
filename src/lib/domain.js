@@ -44,9 +44,12 @@ export function minutesToTime(value) {
 
 export function validateStudent(value) {
   const student = { ...value, name: value.name?.trim(), subject: (value.subject || '').trim(),
-    contact: (value.contact || '').trim(), notes: (value.notes || '').trim(), rate: Number(value.rate) };
+    contact: (value.contact || '').trim(), notes: (value.notes || '').trim() };
   if (!student.name || student.name.length > 100) throw new Error('Укажи имя ученика, не длиннее 100 символов.');
-  if (!Number.isFinite(student.rate) || student.rate < 0 || student.rate > 1_000_000) throw new Error('Укажи стоимость от 0 до 1 000 000 ₽.');
+  if (value.rate != null) {
+    student.rate = Number(value.rate);
+    if (!Number.isFinite(student.rate) || student.rate < 0 || student.rate > 1_000_000) throw new Error('Укажи стоимость от 0 до 1 000 000 ₽.');
+  }
   if (student.subject.length > 100 || student.contact.length > 500 || student.notes.length > 5000) throw new Error('Слишком длинное описание.');
   if (!COLORS.includes(student.color)) student.color = 'violet';
   return student;

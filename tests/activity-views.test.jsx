@@ -5,6 +5,9 @@ import { MonthSelector } from '../src/components/MonthSelector.jsx';
 import { PendingEventCard } from '../src/components/PendingEvents.jsx';
 import { TransfersView } from '../src/components/TransfersView.jsx';
 import { HistoryView } from '../src/components/HistoryView.jsx';
+import { JournalView } from '../src/components/JournalView.jsx';
+import { StatisticsView } from '../src/components/StatisticsView.jsx';
+import { GuideView } from '../src/components/GuideView.jsx';
 import { defaultTypes, moveEvent } from '../src/lib/events.js';
 
 let root;
@@ -37,6 +40,15 @@ it('pending rows keep open, remind, move and restore as separate actions',async 
   expect(open).toHaveBeenCalledTimes(1);
 });
 
+it('journal pending rows show the last scheduled slot before deferral',async () => {
+  const rescheduled=moveEvent(event(),'2026-11-06',1020,45);
+  const pending=moveEvent(rescheduled,null,1020,45);
+  await mount(<PendingEventCard journal data={data()} event={pending} onOpen={vi.fn()} onRemind={vi.fn()} onMove={vi.fn()}/>);
+  const time=root.querySelector('.activity-time');
+  expect(time.querySelector('small').textContent).toBe('6 нояб.');
+  expect(time.querySelector('span').textContent).toBe('17:00–17:45');
+});
+
 it('transfer history opens the stored event by id',async () => {
   const workspace=data(), open=vi.fn();
   workspace.events=[moveEvent(event(),'2026-11-01',660,60)];
@@ -57,4 +69,95 @@ it('history keeps named links clickable and confirms the exact occurrence',async
   await click('[aria-label="Отметить проведённым: Консультация"]');
   expect(status).toHaveBeenCalledWith(expect.objectContaining({id:entry.id,date:entry.date}),'done');
   expect(open).not.toHaveBeenCalled();
+});
+
+it('journal keeps the confirmation queue above both archive views',async () => {
+  const workspace=data(), old=event(), newest={...old,id:'new',date:'2026-11-05',title:'Последняя встреча'};
+  const status=vi.fn();
+  const pending=moveEvent({...old,id:'pending'},null,600,60);
+  workspace.events=[old,pending,newest];
+  await mount(<JournalView data={workspace} now={Date.parse('2026-11-07T12:00:00Z')} pending={[pending]}
+    renderPending={item=><span key={item.id}>Ожидает новой даты</span>} onOpenEvent={vi.fn()} onOpenTransfer={vi.fn()} onStatus={status}/>);
+  const queue=root.querySelector('.journal-view > section');
+  expect([...queue.querySelectorAll('.activity-identity strong')].map(item=>item.textContent)).toEqual([newest.title,old.title]);
+  await click('[aria-label="Отменить событие: Последняя встреча"]');
+  expect(status).toHaveBeenCalledWith(newest,'cancelled');
+  expect(root.querySelector('.history-view .activity-row')).toBeNull();
+  await click('.journal-archive .week-layout-switch button:last-child');
+  expect(queue.querySelectorAll('.activity-row')).toHaveLength(2);
+  expect(root.textContent).toContain('Последние изменения');
+  expect(root.textContent).toContain('Ожидает новой даты');
+});
+
+it('statistics facets follow one another and a selected group narrows the event list',async () => {
+  const workspace=data();
+  workspace.students=[{id:'anna',name:'Анна'},{id:'pavel',name:'Павел'}];
+  workspace.events=[
+    {...event(),id:'anna-lesson',typeId:'lesson',recordId:'anna',status:'done',fields:{rate:1000}},
+    {...event(),id:'pavel-lesson',typeId:'lesson',recordId:'pavel',status:'done',fields:{rate:0}},
+    {...event(),id:'anna-class',recordId:'anna',status:'done'},
+  ];
+  await mount(<StatisticsView data={workspace} now={Date.parse('2026-10-31T12:00:00Z')} onOpen={vi.fn()}/>);
+  const choose=async (select,value)=>act(()=>{select.value=value;select.dispatchEvent(new Event('change',{bubbles:true}));});
+  const record=root.querySelector('[aria-label="Запись для статистики"]');
+  const findSelect=label=>[...root.querySelectorAll('.statistics-view label')].find(item=>item.firstElementChild?.textContent===label).querySelector('select');
+  const type=findSelect('Тип события');
+  await choose(record,'pavel');
+  expect([...type.options].map(option=>option.value)).toEqual(['','lesson']);
+  await choose(record,'');
+  await choose(type,'lesson');
+  const measure=findSelect('Что считать');
+  await choose(measure,[...measure.options].find(option=>option.textContent.includes('Стоимость')).value);
+  await choose(findSelect('Разбить по'),'record');
+  expect(root.querySelector('.statistics-result strong').textContent).toMatch(/1\s000 ₽/);
+  const group=[...root.querySelectorAll('.statistics-groups button')].find(button=>button.textContent.includes('Павел'));
+  await act(()=>group.click());
+  expect(root.querySelectorAll('.statistics-events .activity-open')).toHaveLength(1);
+  expect(root.querySelector('.statistics-events .statistics-amount').textContent).toBe('0 ₽');
+});
+
+it('the guide opens a requested chapter and navigates through the contents',async () => {
+  await mount(<GuideView initialChapter={4}/>);
+  expect(root.querySelector('[aria-current="page"]').textContent).toBe('Статистика');
+  await click('.user-guide nav button');
+  expect(root.querySelector('.user-guide-article h3').textContent).toBe('Расписание');
+  expect(root.querySelector('.user-guide-article').textContent).toContain('Создать событие');
+});
+
+it('guide keywords expand a journal example with reversible sample actions',async () => {
+  await mount(<GuideView initialChapter={3}/>);
+  const byText=text=>[...root.querySelectorAll('button')].find(button=>button.textContent===text);
+  const press=button=>act(()=>button.click());
+  const keyword=byText('«Ждут подтверждения»');
+  await press(keyword);
+  expect(keyword.getAttribute('aria-expanded')).toBe('true');
+  const panel=document.getElementById(keyword.getAttribute('aria-controls'));
+  await press(byText('Проведено'));
+  expect(panel.textContent).toContain('Архив');
+  expect(panel.querySelector('[data-event-state]').dataset.eventState).toBe('confirmed');
+  await press(byText('Сначала'));
+  await press(byText('Отменено'));
+  expect(panel.querySelector('[data-event-state]').dataset.eventState).toBe('cancelled');
+  await press(byText('«Отложить перенос»'));
+  expect(panel.hidden).toBe(true);
+  await press(byText('Отложить перенос'));
+  expect(root.querySelector('.guide-example-slots').textContent).toContain('Ждут новой даты');
+  await press(byText('Вернуть на место'));
+  expect(root.querySelector('.guide-example-slots').textContent).toContain('Эта неделя');
+});
+
+it('guide shows the chosen contact and compares live and copied contact fields',async () => {
+  await mount(<GuideView initialChapter={1}/>);
+  const byText=(selector,text)=>[...root.querySelectorAll(selector)].find(element=>element.textContent===text);
+  const press=element=>act(()=>element.click());
+  await press(byText('.guide-keyword','«Связанная запись»'));
+  await press(root.querySelector('input[value="ivan"]'));
+  expect(root.querySelector('.guide-object-event').textContent).toContain('ivan@example.com');
+  await press(byText('.guide-chapter-button','Шаблоны'));
+  await press(byText('.guide-keyword','«Источник значения»'));
+  const input=root.querySelector('.guide-object input');
+  await act(()=>{input.value='new@example.com';input.dispatchEvent(new Event('input',{bubbles:true}));});
+  expect(root.querySelector('.guide-object-event').textContent).toContain('new@example.com');
+  await press(root.querySelector('input[value="copy"]'));
+  expect(root.querySelector('.guide-object-event').textContent).toContain('anna@example.com');
 });

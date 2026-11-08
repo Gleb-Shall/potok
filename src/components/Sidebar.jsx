@@ -7,9 +7,10 @@ const SECTIONS = [
   ['schedule', 'calendar', 'Расписание'],
   ['students', 'users', 'Записи'],
   ['types', 'sliders', 'Шаблоны'],
-  ['transfers', 'arrows', 'Переносы'],
-  ['history', 'history', 'История'],
+  ['history', 'history', 'Журнал'],
+  ['statistics', 'chart', 'Статистика'],
   ['appearance', 'sun', 'Внешний вид'],
+  ['guide', 'info', 'Руководство'],
 ];
 
 export function Sidebar({ cloudConfigured = false, provider, collapsed, onToggle, view, onChange, pending, account, onSignIn, onHome }) {
@@ -30,7 +31,7 @@ export function Sidebar({ cloudConfigured = false, provider, collapsed, onToggle
       <button type="button" class="sidebar-toggle" title={toggleLabel} aria-label={toggleLabel} aria-expanded={!collapsed} aria-controls="workspace-navigation" data-tooltip={toggleLabel} onClick={onToggle}><Icon name={collapsed?'sections':'close'}/></button>
     </div>
     <nav id="workspace-navigation" aria-label="Разделы">{SECTIONS.map(([id, icon, label]) => <button type="button" key={id} class={`nav-item ${view === id ? 'active' : ''}`} aria-label={label} data-tooltip={label} aria-current={view === id ? 'page' : undefined} onClick={() => onChange(id)}>
-      <Icon name={icon}/><span class="sidebar-label">{label}</span>{id === 'transfers' && pending > 0 && <span class="nav-count amber" aria-hidden="true">{pending}</span>}
+      <Icon name={icon}/><span class="sidebar-label">{label}</span>{id === 'history' && pending > 0 && <span class="nav-count amber" aria-hidden="true">{pending}</span>}
     </button>)}</nav>
     <div class="sidebar-bottom">
       <button type="button" class={`nav-item ${view === 'settings' ? 'active' : ''}`} aria-label="Настройки" aria-current={view === 'settings' ? 'page' : undefined} data-tooltip="Настройки" onClick={() => onChange('settings')}><Icon name="settings"/><span class="sidebar-label">Настройки</span></button>

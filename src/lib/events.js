@@ -1,4 +1,5 @@
 import { linkHref } from './links.js';
+import { resolveRecordFields } from './record-field-links.js';
 import { readCardStyle } from './card-style.js';
 import { saveCardBackground } from './card-backgrounds.js';
 import { activeReminders } from './reminder-model.js';
@@ -9,7 +10,7 @@ export const RECORD_KINDS = { student: 'Ученик', person: 'Человек',
 export const recordKind = type => type.recordKind ?? (type.linkStudent ? 'student' : type.id === 'class' ? 'course' : type.id === 'personal' ? 'any' : '');
 export const allRecords = data => [...data.students.map(item => ({ ...item, kind: 'student' })), ...(data.records || [])];
 export function getRecord(data,event) {
-  if(event.snapshot?.record) return event.snapshot.record;
+  if(event.snapshot) return event.snapshot.record || undefined;
   const id=event.recordId || event.studentId;
   const student=data.students.find(item=>item.id===id);
   return student ? {...student,kind:'student'} : data.records?.find(item=>item.id===id);
@@ -25,6 +26,7 @@ export function defaultTypes() {
 }
 export function getType(data, id) { return data.types.find(type => type.id === id) || { id, name: 'Архивный тип', titleLabel: 'Название', icon: '◇', color: 'violet', fields: [] }; }
 export const eventType = (data, event) => event.snapshot?.type?.id === event.typeId ? event.snapshot.type : getType(data, event.typeId);
+export const eventFields = (data,event) => resolveRecordFields(eventType(data,event).fields,event.fields,getRecord(data,event));
 export function snapshotEvent(data, event) {
   const record = getRecord(data, event);
   return { ...structuredClone(event), title: eventTitle(data, event), snapshot: event.snapshot || { type: structuredClone(eventType(data, event)), record: record ? structuredClone(record) : null } };
@@ -33,7 +35,7 @@ export function getStudent(data, id) { return data.students.find(student => stud
 export function eventTitle(data, event) { return event.title || getStudent(data, event.studentId)?.name || 'Событие'; }
 export function eventColor(data, event) { return event.color || getType(data, event.typeId).color || 'violet'; }
 export function eventMatches(data, event, query, typeId = '') {
-  const text = [eventTitle(data, event), eventType(data, event).name, getRecord(data, event)?.name, event.location?.label, ...Object.values(event.fields || {})].join(' ').toLocaleLowerCase('ru');
+  const text = [eventTitle(data, event), eventType(data, event).name, getRecord(data, event)?.name, event.location?.label, ...Object.values(eventFields(data,event))].join(' ').toLocaleLowerCase('ru');
   return (!typeId || event.typeId === typeId) && text.includes(query.toLocaleLowerCase('ru'));
 }
 export const daysBetween = (from, to) => Math.round((Date.parse(to + 'T00:00:00Z') - Date.parse(from + 'T00:00:00Z')) / 86400000);
@@ -59,6 +61,19 @@ export function seriesOccurs(series, date) {
 function occurrence(series, date) {
   const { from, until, weekday, intervalWeeks, archived, excludedDates, id, ...details } = series;
   return { ...details, id: `${id}:${date}`, seriesId: id, anchorDate: date, date, status: 'planned', history: [] };
+}
+export function* recurringEventsThrough(series, end) {
+  for (const item of series) {
+    if (item.archived || item.from > end) continue;
+    const first = (item.weekday - weekdayOf(item.from) + 7) % 7;
+    const last = item.until && item.until < end ? item.until : end;
+    const step = Math.abs(item.intervalWeeks || 1) * 7;
+    if (!Number.isInteger(first) || !Number.isInteger(step) || step < 1) continue;
+    const excluded = new Set(item.excludedDates);
+    for (let date = addDays(item.from, first); date <= last; date = addDays(date, step)) {
+      if (!excluded.has(date)) yield occurrence(item, date);
+    }
+  }
 }
 export function projectWeek(data, start, dayCount = 7) {
   const end = addDays(start, dayCount - 1);
@@ -118,8 +133,9 @@ export function validateEvent(data, input) {
   if (linked && kind && kind !== 'any' && linked.kind !== kind) throw new Error('Связанная запись не подходит этому типу события.');
   if (input.location && (!Number.isFinite(input.location.lat) || !Number.isFinite(input.location.lng) || Math.abs(input.location.lat) > 90 || Math.abs(input.location.lng) > 180)) throw new Error('Выбери корректную точку на карте.');
   if ((input.notes || '').length > 5000) throw new Error('Заметка слишком длинная.');
+  const effectiveFields = resolveRecordFields(type.fields,input.fields,linked);
   for (const field of type.fields.filter(item => !item.archived)) {
-    const value = input.fields[field.id];
+    const value = effectiveFields[field.id];
     if (field.required && (value == null || value === '' || Array.isArray(value) && !value.length || (field.type === 'checkbox' && value !== true))) throw new Error(`Заполни поле «${field.label}».`);
     if (value !== '' && value != null && field.type === 'number' && !Number.isFinite(Number(value))) throw new Error(`В поле «${field.label}» нужно число.`);
     if (value && field.type === 'url' && !linkHref(value)) throw new Error(`В поле «${field.label}» нужна ссылка http:// или https://.`);
@@ -157,7 +173,12 @@ function makeSeries(event, repeat, id = crypto.randomUUID()) {
   return { ...details, id, from: date, until: repeat.until, intervalWeeks: repeat.intervalWeeks, weekday: weekdayOf(date) };
 }
 export function saveEvent(data, { values, original = null, repeat = null, scope = 'one' }) {
-  const event = validateEvent(data, values);
+  const type = getType(data,values.typeId);
+  const fields = original ? values.fields : resolveRecordFields(type.fields,values.fields,getRecord(data,values),'copy');
+  const input = {...values,fields};
+  if (input.snapshot && original && (original.typeId !== input.typeId || (original.recordId || original.studentId || '') !== (input.recordId || input.studentId || ''))) delete input.snapshot;
+  const validated = validateEvent(data,input);
+  const event = validated.status === 'done' && !validated.snapshot ? snapshotEvent(data,validated) : validated;
   const next = structuredClone(data);
   if (repeat) {
     if (!Number.isInteger(repeat.intervalWeeks) || repeat.intervalWeeks < 1 || repeat.intervalWeeks > 12) throw new Error('Повтор — каждые 1–12 недель.');
@@ -203,9 +224,10 @@ export function saveEvent(data, { values, original = null, repeat = null, scope 
   return next;
 }
 export function validateRecordDetails(details = []) {
-  const kept = details.filter(item => String(item.label || '').trim() || String(item.value || '').trim());
+  const kept = details.filter(item => String(item.label || '').trim() || String(item.value ?? '').trim());
   for (const item of kept) {
     if (!item.label?.trim()) throw new Error('Дай название каждому сведению.');
+    if (item.type === 'number' && item.value != null && item.value !== '' && !Number.isFinite(Number(item.value))) throw new Error(`В поле «${item.label}» нужно число.`);
     if (item.type === 'url' && item.value && !linkHref(item.value)) throw new Error(`В поле «${item.label}» нужна ссылка http:// или https://.`);
   }
   return kept;
@@ -277,7 +299,7 @@ export function deleteRecord(data, record, removeEvents = false) {
     next.series = next.series.filter(item => !seriesIds.has(item.id));
     next.events = next.events.filter(item => !linked(item) && !seriesIds.has(item.seriesId));
   } else {
-    const detach = item => linked(item) ? { ...item, title: item.title || record.name, recordId: '', studentId: '', recordDetached: true } : item;
+    const detach = item => linked(item) ? { ...item, title: item.title || record.name, recordId: '', studentId: '', recordDetached: true, fields:eventFields(next,item) } : item;
     next.series = next.series.map(detach); next.events = next.events.map(detach);
   }
   next.students = next.students.filter(item => item.id !== record.id);

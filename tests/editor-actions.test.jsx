@@ -43,12 +43,13 @@ it('keeps menu commands keyboard accessible and returns focus without closing th
  await act(() => document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true})));
  expect(document.activeElement).toBe(trigger); expect(trigger.getAttribute('aria-expanded')).toBe('false'); expect(remove).not.toHaveBeenCalled();
 });
-it('changes status as a property and keeps destructive commands inside the action menu', async () => {
+it('shows the shared state and offers status changes through actions', async () => {
  const onStatus=vi.fn(); const data={students:[],records:[],types:defaultTypes(),events:[],series:[]};
- await mount(<EventDetails data={data} event={{id:'e',title:'Встреча',typeId:'personal',date:todayISO(),start:600,duration:60,status:'planned',fields:{}}} onStatus={onStatus} onClose={()=>{}} onEdit={()=>{}} onMove={()=>{}} onDelete={vi.fn()}/>);
+ await mount(<EventDetails data={data} event={{id:'e',title:'Встреча',typeId:'personal',date:todayISO(),start:600,duration:60,status:'planned',fields:{}}} now={Date.parse(todayISO()+'T08:00:00+03:00')} onStatus={onStatus} onClose={()=>{}} onEdit={()=>{}} onMove={()=>{}} onDelete={vi.fn()}/>);
  expect(root.querySelector('.lesson-secondary-actions')).toBeNull();
- const status=root.querySelector('[aria-label="Статус события"]');
- await act(() => {status.value='done';status.dispatchEvent(new Event('change',{bubbles:true}));});
+ expect(root.querySelector('.activity-status').textContent).toBe('Запланировано');
+ await click(root.querySelector('.action-menu-trigger'));
+ await click([...root.querySelectorAll('[role="menuitem"]')].find(item=>item.textContent==='Отметить проведённым'));
  expect(onStatus).toHaveBeenCalledWith('done');
  await click(root.querySelector('.action-menu-trigger'));
  expect(root.querySelector('.ui-action-menu[data-open=true]').textContent).toContain('Удалить событие');

@@ -1,5 +1,5 @@
 import { addDays, todayISO } from './domain.js';
-import { snapshotEvent, projectWeek } from './events.js';
+import { snapshotEvent, projectWeek, recurringEventsThrough } from './events.js';
 export { snapshotEvent } from './events.js';
 
 export function eventHasEnded(event, now = Date.now()) {
@@ -7,8 +7,32 @@ export function eventHasEnded(event, now = Date.now()) {
   const end = Date.parse(`${event.date}T00:00:00+03:00`) + (Number(event.start) + Number(event.duration)) * 60000;
   return Number.isFinite(end) && end <= Number(now);
 }
+export const awaitsConfirmation = (event, now) => event.status === 'planned' && eventHasEnded(event, now);
+export function eventState(event, now) {
+  if (event.status === 'done') return 'confirmed';
+  if (event.status === 'cancelled' || event.status === 'pending') return event.status;
+  return awaitsConfirmation(event, now) ? 'elapsed' : 'planned';
+}
+
+export function previousEventSlot(event) {
+  const last = event.history?.at(-1);
+  if (last?.toDate === null && last.fromDate) return {date:last.fromDate,start:last.fromStart,duration:event.duration};
+  const date = event.originalDate || event.anchorDate;
+  return date ? {date,start:event.originalStart ?? event.start,duration:event.originalDuration ?? event.duration} : null;
+}
+const newestFirst = (a,b) => b.date.localeCompare(a.date) || b.start - a.start;
+
+export function unconfirmedEvents(data, now = Date.now()) {
+  const saved = new Set(data.events.map(event => event.id));
+  const result = data.events.filter(event => awaitsConfirmation(event, now));
+  for (const event of recurringEventsThrough(data.series, todayISO(new Date(now)))) {
+    if (!saved.has(event.id) && awaitsConfirmation(event, now)) result.push(event);
+  }
+  return result.sort(newestFirst);
+}
 export function setEventStatus(data, event, status, now = Date.now()) {
   let next = { ...event, status };
+  if (status === 'cancelled' && !event.date) next = { ...next, ...previousEventSlot(event) };
   if (status === 'done') next = { ...snapshotEvent(data, next), completedAt: new Date(now).toISOString() };
   else if (event.status === 'done') { delete next.completedAt; delete next.snapshot; }
   return { ...data, events: [...data.events.filter(item => item.id !== event.id), next] };
@@ -34,7 +58,7 @@ export function stopSeries(data, event, cutoff = todayISO(), now = Date.now()) {
   const excluded = new Set(series.excludedDates || []);
   for (const item of next.events) {
     if (item.seriesId !== original.id) { kept.push(item); continue; }
-    const historical = item.status === 'done' || eventHasEnded(item, now);
+    const historical = ['done','cancelled'].includes(item.status) || eventHasEnded(item, now);
     const beforeCutoff = (item.date || item.anchorDate) < cutoff;
     if (historical || beforeCutoff) kept.push(historical ? snapshotEvent(data, item) : item);
     else if (item.anchorDate) excluded.add(item.anchorDate);
@@ -51,8 +75,13 @@ export function historyEvents(data, month, status = 'all', now = Date.now()) {
   const count = Math.round((end - Date.parse(start + 'T00:00:00Z')) / 86400000);
   const projection = projectWeek(data, start, count);
   // Cancelled exceptions are not live calendar cards, but still belong in history.
-  const candidates = [...projection.events, ...data.events.filter(item => item.status === 'cancelled' && item.date >= start && item.date < end.toISOString().slice(0, 10))];
-  return candidates.filter(item => (item.status === 'done' || eventHasEnded(item, now)) &&
-    (status === 'all' || status === 'done' && item.status === 'done' || status === 'unconfirmed' && item.status === 'planned' || status === 'cancelled' && item.status === 'cancelled'))
-    .sort((a, b) => b.date.localeCompare(a.date) || b.start - a.start);
+  const endDate = end.toISOString().slice(0, 10);
+  const cancelled = data.events.filter(item => item.status === 'cancelled').map(item => item.date ? item : {...item,...previousEventSlot(item)})
+    .filter(item => item.date >= start && item.date < endDate);
+  const stateFilter = {done:'confirmed',unconfirmed:'elapsed',cancelled:'cancelled'}[status];
+  return [...projection.events, ...cancelled].filter(item => {
+    const state = eventState(item, now);
+    return stateFilter ? state === stateFilter : status === 'all' && ['confirmed','cancelled','elapsed'].includes(state);
+  })
+    .sort(newestFirst);
 }

@@ -64,6 +64,10 @@
 .layout .week-event.is-short .card-open { padding:2px 6px; }
 .layout .week-event.is-short .card-time { display:none; }
 .layout .week-event.is-short .card-name { font-size:12px; line-height:16px; -webkit-line-clamp:1; }
+.layout .week-event .event-state-mark.is-short-status { position:absolute; top:1px; right:4px; width:16px; height:16px; }
+.layout .week-event .event-card.has-place .event-state-mark.is-short-status { right:24px; }
+.layout .week-event.is-short .card-open:has(.is-short-status) .card-name { padding-right:18px; }
+.layout .week-event.is-short .event-card.has-place .card-open:has(.is-short-status) .card-name { padding-right:38px; }
 .layout .week-event.is-short :is(.event-type-label,.card-record-links,.compact-fields) { display:none; }
 .week-ghost { z-index:1; opacity:.65; }
 .layout .week-ghost .ghost-card { width:100%; height:100%; padding:5px 7px; min-height:0; overflow:hidden; border-radius:5px; font-size:11px; display:flex; flex-direction:column; gap:2px; background:var(--surface-soft); }

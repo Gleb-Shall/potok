@@ -31,10 +31,10 @@ export function linkParts(value) {
   return parts;
 }
 
-export function recordLinks(record) {
+export function recordLinks(record, excluded = new Set()) {
   if (!record) return [];
-  const entries = [...(record.details || []).filter(item => item.showOnCard !== false).map(item => ({ label: item.label, value: item.value })),
-    ...(record.showContactOnCard !== false ? [{ label: 'Контакт', value: record.contact }] : [])];
+  const entries = [...(record.details || []).filter(item => item.showOnCard !== false && !excluded.has(`detail:${item.id}`)).map(item => ({ label: item.label, value: item.value })),
+    ...(record.showContactOnCard !== false && !excluded.has('record:contact') ? [{ label: 'Контакт', value: record.contact }] : [])];
   const links = entries.flatMap(entry => {
     const whole = linkHref(entry.value);
     return whole ? [{ label: entry.label, href: whole }] : linkParts(entry.value).filter(part => part.href).map(part => ({ label: part.text === part.href || /^https?:\/\//.test(part.text) ? entry.label : part.text, href: part.href }));
@@ -44,13 +44,15 @@ export function recordLinks(record) {
 
 // Event-specific labels/URLs override the reusable record's links in every view.
 export function eventLinks(fields, values = {}, record) {
+  const usedSources = new Set();
   const own = fields.flatMap(field => {
     const href = field.type === 'url' ? linkHref(values[field.id]) : '';
+    if (href && field.source?.fieldId) usedSources.add(field.source.fieldId);
     return href ? [{ id:field.id, label:field.linkLabel?.trim() || field.label, fieldLabel:field.label, href }] : [];
   });
   const hrefs = new Set(own.map(link => link.href));
   const labels = new Set(own.map(link => link.fieldLabel.trim().toLocaleLowerCase('ru')));
-  const inherited = recordLinks(record)
+  const inherited = recordLinks(record,usedSources)
     .filter(link => !hrefs.has(link.href) && !labels.has(link.label.trim().toLocaleLowerCase('ru')))
     .map(link => ({ ...link, id:`record:${link.href}` }));
   return [...own, ...inherited];
