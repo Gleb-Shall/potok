@@ -31,7 +31,7 @@
     "vitest": "^5.0.5",
     "firebase": "^12.19.0"
   },
-  "version": "0.3.0-alpha.1",
+  "version": "0.4.0-alpha.1",
   "engines": {
     "node": ">=24.12.0"
   },
