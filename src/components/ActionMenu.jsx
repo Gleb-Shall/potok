@@ -20,24 +20,45 @@ export function ActionMenu({ items, label = 'Ещё', compact = false }) {
     document.addEventListener('pointerdown', outside); document.addEventListener('scroll', scrolled, true); window.addEventListener('resize', reposition);
     return () => { document.removeEventListener('pointerdown', outside); document.removeEventListener('scroll', scrolled, true); window.removeEventListener('resize', reposition); };
   }, [open]);
-  const toggle = () => {
-    if (open) { close(true); return; }
-    const node = panel.current, rect = trigger.current.getBoundingClientRect();
+  const show = (focusItem = '') => {
+    const node = panel.current;
+    const rect = trigger.current.getBoundingClientRect();
+    const margin = 12;
+    const gap = 6;
+    const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
     node.dataset.open = 'true';
-    node.style.left = `${Math.max(12, Math.min(rect.right - 272, innerWidth - 284))}px`;
-    node.style.top = `${rect.bottom + 8}px`;
     node.showPopover?.();
-    const height = node.getBoundingClientRect().height;
-    if (rect.bottom + height + 20 > innerHeight) node.style.top = `${Math.max(12, rect.top - height - 8)}px`;
+    const { width, height } = node.getBoundingClientRect();
+    const below = viewportHeight - rect.bottom;
+    const above = rect.top;
+    const y = below >= height + gap + margin || below >= above
+      ? rect.bottom + gap
+      : rect.top - height - gap;
+    node.style.left = `${Math.max(margin, Math.min(rect.right - width, viewportWidth - width - margin))}px`;
+    node.style.top = `${Math.max(margin, Math.min(y, viewportHeight - height - margin))}px`;
     setOpen(true);
-    node.querySelector('button:not(:disabled)')?.focus({ preventScroll:true });
+    const buttons = focusItem ? node.querySelectorAll('button:not(:disabled)') : [];
+    const focusTarget = buttons[focusItem === 'last' ? buttons.length - 1 : 0] ?? node;
+    focusTarget.focus({ preventScroll:true });
   };
-  return <><button ref={trigger} type="button" class={`action-menu-trigger ${compact ? 'icon-button' : 'button secondary'}`} aria-label={label} aria-haspopup="menu" aria-controls={id} aria-expanded={open} onClick={toggle}><Icon name="more"/>{!compact && <span>{label}</span>}</button><div id={id} ref={panel} popover="auto" class="ui-action-menu" data-open={open} role="menu" aria-label={label} onToggle={event => { if (event.newState === 'closed') setOpen(false); }} onKeyDown={event => {
+  const toggle = event => open ? close(event.detail === 0) : show(event.detail === 0 ? 'first' : '');
+  const openByArrow = event => {
+    if (open || !['ArrowDown', 'ArrowUp'].includes(event.key)) return;
+    event.preventDefault();
+    show(event.key === 'ArrowUp' ? 'last' : 'first');
+  };
+  return <><button ref={trigger} type="button" class={`action-menu-trigger ${compact ? 'icon-button' : 'button secondary'}`} aria-label={label} aria-haspopup="menu" aria-controls={id} aria-expanded={open} onClick={toggle} onKeyDown={openByArrow}><Icon name="more"/>{!compact && <span>{label}</span>}</button><div id={id} ref={panel} popover="auto" class="ui-action-menu" data-open={open} role="menu" aria-label={label} tabIndex={-1} onToggle={event => { if (event.newState === 'closed') setOpen(false); }} onKeyDown={event => {
     const buttons = [...panel.current.querySelectorAll('button:not(:disabled)')];
     const index = buttons.indexOf(document.activeElement);
     if (['ArrowDown','ArrowUp','Home','End'].includes(event.key)) {
       event.preventDefault();
-      const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length;
+      const down = event.key === 'ArrowDown';
+      const next = event.key === 'Home' ? 0
+        : event.key === 'End' ? buttons.length - 1
+        : index < 0 ? (down ? 0 : buttons.length - 1)
+        : (index + (down ? 1 : -1) + buttons.length) % buttons.length;
       buttons[next]?.focus();
     } else if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(true); }
     else if (event.key === 'Tab') close(true);

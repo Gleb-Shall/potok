@@ -32,7 +32,7 @@ export function attachPressDrag(root, options) {
     if (!gesture.active) {
       if (distance(next, gesture.origin) <= 9) return;
       const horizontal = Math.abs(next.x-gesture.origin.x) > Math.abs(next.y-gesture.origin.y);
-      if (read().quickDrag && (gesture.kind === 'mouse' || horizontal || gesture.quickHandle)) activate(gesture.quickMode);
+      if (gesture.quickAllowed && (gesture.kind === 'mouse' || horizontal || gesture.quickHandle)) activate(gesture.quickMode);
       else { stop(); return; }
     }
     if (event.cancelable) event.preventDefault();
@@ -73,10 +73,14 @@ export function attachPressDrag(root, options) {
     const target = event.target;
     const node = target.closest?.(config.selector);
     if (!node || !root.current?.contains(node) || node.closest('[inert]')) return;
-    if (target.closest('a,input,select,textarea,[contenteditable=true],.card-controls') || target.closest('button:not(.card-open)')) return;
+    const button = target.closest('button');
+    if (target.closest('a,input,select,textarea,[contenteditable=true],.card-controls') ||
+        (button && !button.matches(config.dragButton || '.card-open'))) return;
     const item = config.getItem(node,point(input));
     if (!item) return;
-    gesture = { node, item, kind, id:input.identifier, origin:point(input), last:point(input), active:false, moved:false, quickMode:config.quickDragMode || 'board', quickHandle:Boolean(target.closest('.card-grip')) };
+    const quickHandle = Boolean(target.closest('.card-grip') || node.classList.contains('timeline-card'));
+    const quickAllowed = config.quickDrag && (config.canQuickDrag?.(node) ?? true);
+    gesture = { node, item, kind, id:input.identifier, origin:point(input), last:point(input), active:false, moved:false, quickMode:config.quickDragMode || 'board', quickHandle, quickAllowed };
     if (kind === 'touch') {
       document.addEventListener('touchmove', move, { passive:false });
       document.addEventListener('touchend', end, { passive:false });
@@ -87,7 +91,7 @@ export function attachPressDrag(root, options) {
     }
     timer = setTimeout(() => {
       if (!gesture) return;
-      activate('calendar');
+      activate(config.holdDragMode || 'calendar');
     }, 360);
   };
   const start = event => {
@@ -96,7 +100,7 @@ export function attachPressDrag(root, options) {
     begin(event, event.touches[0], 'touch');
   };
   const startMouse = event => {
-    if (event.button !== 0 || Date.now() - lastTouchAt < 800) return;
+    if (read().touchOnly || event.button !== 0 || Date.now() - lastTouchAt < 800) return;
     begin(event, event, 'mouse');
   };
   const click = event => { if (Date.now() < suppressUntil && event.detail !== 0) { event.preventDefault(); event.stopImmediatePropagation(); } };

@@ -197,6 +197,9 @@
 @media(max-width:760px) {
  .layout .week-event .card-grip { display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:22px; cursor:grab; touch-action:none; user-select:none; }
 }
+@media (min-width:761px) and (any-pointer:coarse) {
+ .layout .week-event.can-touch-move .card-open { touch-action:none; }
+}
 
 .touch-move-picker { max-height:calc(100dvh - 32px); overflow-y:auto; overscroll-behavior:contain; }
 .touch-move-days button { aspect-ratio:auto; min-height:44px; }

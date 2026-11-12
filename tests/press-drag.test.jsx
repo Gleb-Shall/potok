@@ -6,6 +6,7 @@ import { App } from '../src/App.jsx';
 import { calendarRange } from '../src/lib/events.js';
 import { todayISO } from '../src/lib/domain.js';
 import { TouchMovePicker } from '../src/components/TouchMovePicker.jsx';
+import { TaskBoard } from '../src/components/TaskBoard.jsx';
 
 let root, dispose;
 const touch = (target, type, x = 20, y = 20, count = 1) => {
@@ -30,6 +31,45 @@ it('leaves short taps and pre-hold scrolling untouched', () => {
   touch(button,'touchstart'); const swipe = touch(button,'touchmove',20,45); vi.advanceTimersByTime(400);
   expect(swipe.defaultPrevented).toBe(false);
   expect(options.onStart).not.toHaveBeenCalled();
+});
+it('opens status choices on a phone hold and drops on the highlighted choice', async () => {
+  const task = { id:'note', title:'Отправить материалы', status:'todo' };
+  const onStatus = vi.fn(), onEdit = vi.fn();
+  await act(() => render(<TaskBoard mobile data={{tasks:[task]}} pending={[]} onStatus={onStatus} onEdit={onEdit}/>, root));
+  const title = root.querySelector('.task-title');
+  expect(root.querySelectorAll('.task-column-tabs button')).toHaveLength(4);
+  expect(root.querySelectorAll('.task-lane')).toHaveLength(1);
+  expect(title.closest('article').draggable).toBe(false);
+  const previous = Object.getOwnPropertyDescriptor(document, 'elementFromPoint');
+  Object.defineProperty(document, 'elementFromPoint', {
+    configurable:true, value:(x) => x === 120 ? document.querySelector('[data-task-drop="doing"] > span') : null,
+  });
+  try {
+    await act(() => { touch(title,'touchstart'); vi.advanceTimersByTime(360); });
+    expect(document.querySelector('.task-drag-ghost')?.textContent).toBe(task.title);
+    expect(document.querySelectorAll('[data-task-drop]')).toHaveLength(3);
+    await act(() => touch(title,'touchmove',120,20));
+    expect(document.querySelector('[data-task-drop="doing"]').classList.contains('is-target')).toBe(true);
+    await act(() => {
+      touch(title,'touchend',120,20);
+      title.dispatchEvent(new MouseEvent('click',{ bubbles:true, cancelable:true, detail:1 }));
+    });
+    expect(onStatus).toHaveBeenCalledExactlyOnceWith(task.id,'doing');
+    expect(onEdit).not.toHaveBeenCalled();
+    expect(document.querySelector('.task-move-picker')).toBeNull();
+
+    await act(() => { touch(title,'touchstart'); vi.advanceTimersByTime(360); });
+    await act(() => { touch(title,'touchmove',200,20); touch(title,'touchend',200,20); });
+    expect(onStatus).toHaveBeenCalledTimes(1);
+    expect(document.querySelector('.task-move-picker')).toBeNull();
+
+    await act(() => [...root.querySelectorAll('.task-column-tabs button')].find(button => button.textContent === 'В работе').click());
+    expect(root.querySelectorAll('.task-lane')).toHaveLength(1);
+    expect(root.querySelector('.task-lane-doing')).not.toBeNull();
+  } finally {
+    if (previous) Object.defineProperty(document, 'elementFromPoint', previous);
+    else delete document.elementFromPoint;
+  }
 });
 it('holds, follows the finger, drops once and suppresses the trailing click', () => {
   const {options,button,card} = setup();
@@ -168,6 +208,22 @@ it('quick horizontal touch movement starts a board gesture while vertical moveme
  expect(horizontal.defaultPrevented).toBe(true);expect(options.onStart.mock.calls[0][0].mode).toBe('board');
  vi.advanceTimersByTime(400);expect(options.onStart).toHaveBeenCalledTimes(1);
  touch(button,'touchend',60,22);expect(options.onDrop).toHaveBeenCalledWith({id:'one'},'2026-11-06','board');
+});
+
+it('starts a time-grid drag from the card title on a vertical touch move', () => {
+  const {options,card,button} = setup();
+  options.quickDrag = true;
+  options.quickDragMode = 'timeline';
+  card.classList.add('timeline-card');
+
+  touch(button,'touchstart');
+  const vertical = touch(button,'touchmove',20,55);
+  expect(vertical.defaultPrevented).toBe(true);
+  expect(options.onStart).toHaveBeenCalledWith(expect.objectContaining({mode:'timeline'}));
+  vi.advanceTimersByTime(400);
+  expect(options.onStart).toHaveBeenCalledOnce();
+  touch(button,'touchend',20,55);
+  expect(options.onDrop).toHaveBeenCalledWith({id:'one'},'2026-11-06','timeline');
 });
 it('drops a quick finger drag onto a visible week day without opening the date picker',async()=>{
  localStorage.clear();localStorage.setItem('potok:week-layout','board');await act(()=>render(<App initialMode="demo" demoOnly/>,root));

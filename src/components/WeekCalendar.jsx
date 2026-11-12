@@ -11,10 +11,10 @@ import { DEFAULT_STATE_EFFECTS } from '../lib/state-appearance.js';
 import { eventTitle } from '../lib/events.js';
 import { HOUR_HEIGHT, layoutDay, minuteAt, readTimeTarget, timeTarget, weekBounds } from '../lib/week-layout.js';
 
-export function WeekCalendar({selectedEventId,motionPaused,onSelectEvent,days,events,ghosts,data,now,today,selectedDate,onSelectDate,onOpen,onCreate,onDragStart,onDragEnd,onDrop,onHover,onResize,onResizeActive,canEdit=true,draggingId,draggedEvent,dropTarget,grabOffset=0,fromHour=0,toHour=24,mobileDays=3,focusKey=0,panEnabled=true,onShift}) {
+export function WeekCalendar({selectedEventId,motionPaused,onSelectEvent,days,events,ghosts,data,now,today,selectedDate,onSelectDate,onOpen,onCreate,onDragStart,onDragEnd,onDrop,onHover,onResize,onResizeActive,canEdit=true,draggingId,draggedEvent,dropTarget,grabOffset=0,fromHour=0,toHour=24,mobileDays=3,focusKey=0,panEnabled=true,onShift,mobileDay=false}) {
   const scroller = useRef(null);
   useTimelineScroll(scroller,draggingId,draggedEvent?.duration,onHover,grabOffset);
-  useCalendarPan(scroller,{anchor:days[0],selectedDate,dayCount:days.length,mobileDays,focusKey,enabled:panEnabled,onShift});
+  useCalendarPan(scroller,{anchor:days[0],selectedDate,dayCount:days.length,mobileDays,focusKey,enabled:panEnabled,lockTouchAxis:mobileDay,onShift});
   const strip = useMemo(()=>Array.from({length:days.length+2*CALENDAR_BUFFER_DAYS},(_,i)=>addDays(days[0],i-CALENDAR_BUFFER_DAYS)),[days[0],days.length]);
   const bounds = useMemo(()=>weekBounds([...events,...ghosts],fromHour,toHour),[events,ghosts,fromHour,toHour]);
   const resize=useEventResize({scroller,bounds,onResize:canEdit?onResize:null,onActiveChange:onResizeActive});
@@ -27,7 +27,8 @@ export function WeekCalendar({selectedEventId,motionPaused,onSelectEvent,days,ev
   const currentMinute = moscowNow.getUTCHours()*60+moscowNow.getUTCMinutes();
   const showNow = days.includes(today) && currentMinute>=bounds.start && currentMinute<bounds.end;
   useEffect(()=>{
-    const first = events.length ? Math.min(...events.map(event=>event.start)) : 9*60;
+    const visible = mobileDay ? events.filter(event => event.date === selectedDate) : events;
+    const first = visible.length ? Math.min(...visible.map(event=>event.start)) : 9*60;
     const minute = days.includes(today) ? currentMinute-60 : first-30;
     scroller.current.scrollTop = Math.max(0,(minute-bounds.start)/60*HOUR_HEIGHT);
   },[bounds.start,bounds.end,focusKey]);
@@ -36,7 +37,7 @@ export function WeekCalendar({selectedEventId,motionPaused,onSelectEvent,days,ev
     return timeTarget(date,minuteAt(input.clientY-offset/60*HOUR_HEIGHT,rect.top,rect.height,bounds.start,bounds.end,draggedEvent?.duration));
   };
   const position = ({event,column,columns}) => ({top:`${(event.start-bounds.start)/60*HOUR_HEIGHT}px`,height:`${Math.max(18,event.duration/60*HOUR_HEIGHT)}px`,left:`calc(${column/columns*100}% + 3px)`,width:`calc(${100/columns}% - 6px)`});
-  return <div class={`week-timeline ${days.length === 1 ? 'is-day-view' : ''}`} style={{'--hour-height':`${HOUR_HEIGHT}px`,'--mobile-day-count':mobileDays,'--week-day-count':days.length,'--rendered-day-count':strip.length}}>
+  return <div class={`week-timeline ${days.length === 1 ? 'is-day-view' : ''} ${mobileDay ? 'is-mobile-day' : ''}`} style={{'--hour-height':`${HOUR_HEIGHT}px`,'--mobile-day-count':mobileDay ? 1 : mobileDays,'--week-day-count':days.length,'--rendered-day-count':strip.length}}>
     <div class="week-scroller" ref={scroller} tabIndex="0" aria-label={days.length === 1 ? 'Расписание дня по часам' : 'Недельное расписание по часам'}>
       <div class="week-table">
         <div class="week-axis-heading"><span>МСК</span></div>
@@ -50,7 +51,7 @@ export function WeekCalendar({selectedEventId,motionPaused,onSelectEvent,days,ev
           if(input.target.closest('.week-event'))return;onCreate(date,readTimeTarget(slot(date,input,0)).start);
         }}>
           {old.map(item=><div key={`ghost:${item.event.id}`} class="week-event week-ghost" style={position(item)}><EventCard event={item.event} data={data} onOpen={onOpen} timeline/></div>)}
-          {items.map(item=><div key={item.event.id} class={`week-event ${resize.preview?.id===item.event.id?'is-resizing':''} ${item.event.duration<25?'is-tiny':''} ${item.event.duration<35?'is-short':item.event.duration<75?'is-medium':''}`} style={position(item)}><EventCard event={item.event} data={data} now={now} onOpen={onOpen} onSelect={onSelectEvent} selected={item.event.id===selectedEventId} motionPaused={motionPaused} onDragStart={onDragStart} onDragEnd={onDragEnd} isDragging={draggingId===item.event.id} timeline/>{onResize && canEdit && item.event.id===selectedEventId && !draggingId && item.event.status!=='done' && ['start','end'].map(edge=><button key={edge} type="button" class={`week-resize-handle is-${edge}`} aria-label={`Изменить ${edge==='start'?'начало':'конец'} события «${eventTitle(data,item.event)}»`} onPointerDown={input=>resize.begin(item.event,edge,input)} onKeyDown={input=>resize.keyboard(item.event,edge,input)}/>)}</div>)}
+          {items.map(item=><div key={item.event.id} class={`week-event ${canEdit && item.event.status !== 'done' ? 'can-touch-move' : ''} ${resize.preview?.id===item.event.id?'is-resizing':''} ${item.event.duration<25?'is-tiny':''} ${item.event.duration<35?'is-short':item.event.duration<75?'is-medium':''}`} style={position(item)}><EventCard event={item.event} data={data} now={now} onOpen={onOpen} onSelect={onSelectEvent} selectBeforeOpen={mobileDay} selected={item.event.id===selectedEventId} motionPaused={motionPaused} onDragStart={onDragStart} onDragEnd={onDragEnd} isDragging={draggingId===item.event.id} timeline/>{onResize && canEdit && item.event.id===selectedEventId && !draggingId && item.event.status!=='done' && ['start','end'].map(edge=><button key={edge} type="button" class={`week-resize-handle is-${edge}`} aria-label={`Изменить ${edge==='start'?'начало':'конец'} события «${eventTitle(data,item.event)}»`} onPointerDown={input=>resize.begin(item.event,edge,input)} onKeyDown={input=>resize.keyboard(item.event,edge,input)}/>)}</div>)}
           {target?.date===date && target.start!==null && draggingId && <div class="week-drop-slot" style={{top:`${(target.start-bounds.start)/60*HOUR_HEIGHT}px`,height:`${(draggedEvent?.duration||60)/60*HOUR_HEIGHT}px`}}><span>{minutesToTime(target.start)}–{minutesToTime(target.start+(draggedEvent?.duration||60))}</span>{draggedEvent && <strong>{eventTitle(data,draggedEvent)}</strong>}</div>}
           {date===today && currentMinute>=bounds.start && currentMinute<bounds.end && <div class="week-now-line" style={{top:`${(currentMinute-bounds.start)/60*HOUR_HEIGHT}px`}} aria-label={`Сейчас ${minutesToTime(currentMinute)}`}><span/></div>}
         </section>)}

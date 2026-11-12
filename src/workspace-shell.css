@@ -8,7 +8,7 @@
 }
 .layout[data-workspace-view] .mobile-workspace-header,
 .layout[data-workspace-view] .page-footer { display:none; }
-.layout[data-workspace-view] .sidebar { top:8px; left:12px; }
+.layout[data-workspace-view]:not(.is-calendar-workspace) .sidebar { top:8px; left:12px; }
 .layout[data-workspace-view]:not(.is-calendar-workspace) .page-header {
   min-height:60px; padding:8px 0 8px 56px; margin:0 0 16px; align-items:center;
 }
@@ -40,7 +40,7 @@
 .layout .empty-state p { color:var(--muted); font-size:14px; }
 
 /* Shared portable dialogs use the same controls as the workbench panels. */
-:root[data-theme-scope=workspace] dialog > .modal-close { border:0; background:var(--control-surface); color:var(--muted); border-radius:8px; }
+:root[data-theme-scope=workspace] dialog > .modal-close { border:0; background:var(--control-surface); color:var(--muted); border-radius:50%; }
 :root[data-theme-scope=workspace] dialog .external-link { color:var(--link-ink); }
 .link-open-error { color:var(--danger); font-size:12px; line-height:1.5; overflow-wrap:anywhere; }
 :root[data-theme-scope=workspace] dialog :is(.notes-text,.profile-slot) { color:var(--muted); font-size:14px; }

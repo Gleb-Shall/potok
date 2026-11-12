@@ -44,9 +44,6 @@
 .card-style-options .builder-heading { min-height:40px; border:0; margin:0; padding:0; }
 .card-style-fields { list-style:none; padding:0; margin:0; }
 .card-style-field { position:relative; display:grid; grid-template-columns:40px minmax(0,1fr); gap:8px; align-items:center; padding:6px 0; border-bottom:1px solid var(--line); }
-.card-style-field[data-drop=before] { box-shadow:inset 0 2px var(--accent); }
-.card-style-field[data-drop=after] { box-shadow:inset 0 -2px var(--accent); }
-.card-style-field[data-dragging] { background:var(--surface-soft); }
 .card-style-field .field { min-width:0; margin:0; }
 .card-style-field > .field:nth-child(2) { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.25fr); align-items:center; gap:8px; }
 .card-style-field > .field:nth-child(3) { grid-column:2; }

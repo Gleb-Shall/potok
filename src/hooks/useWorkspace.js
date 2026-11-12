@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { explainWorkspaceError, saveWithFreshData } from '../lib/workspace-provider.js';
 import { loadData, persistData, emptyData } from '../lib/storage.js';
 
+const WORKSPACE_LOAD_TIMEOUT = 10000;
+
 export function useWorkspace(editing, { initialMode, demoOnly = false, provider = null } = {}) {
   const cloudEnabled = Boolean(provider);
   const cached = demoOnly || !cloudEnabled ? null : provider.getSession?.();
@@ -33,13 +35,21 @@ export function useWorkspace(editing, { initialMode, demoOnly = false, provider 
       if (latest.current.session.mode === 'cloud') setSession({mode:'personal',data:loadData('personal')});
       setAccount(state => ({ ...state, user:null, loading:false, authResolved:true, hasData:false, ready:false, error:'' })); return;
     }
-    let active = true, unsubscribeAuth, unsubscribeData;
+    let active = true, unsubscribeAuth, unsubscribeData, firstSnapshotTimeout;
     const fail = error => { if (active) setAccount(state => ({ ...state, loading: false, ready: false, hasData: error.code === 'permission-denied' ? false : state.hasData, error: explainError(error) })); };
+    const authTimeout = setTimeout(() => {
+      if (!active) return;
+      setAccount(state => state.authResolved || state.error ? state : {
+        ...state, loading: false, error: 'Не удалось проверить вход. Проверь интернет и повтори подключение.',
+      });
+    }, WORKSPACE_LOAD_TIMEOUT);
     provider.connect().then(connection => {
       if (!active) return;
       client.current = connection;
       unsubscribeAuth = connection.onAuth(user => {
         if (!active) return;
+        clearTimeout(authTimeout);
+        clearTimeout(firstSnapshotTimeout);
         unsubscribeData?.(); remote.current = null; currentUserId.current = user?.id || null; authEpoch.current++;
         setStale(false);
         saving.current = false;syncing.current=null;
@@ -56,8 +66,15 @@ export function useWorkspace(editing, { initialMode, demoOnly = false, provider 
         }
         dataOwner.current={provider,userId:user.id};
         const epoch = authEpoch.current;
+        firstSnapshotTimeout = setTimeout(() => {
+          if (!active || authEpoch.current !== epoch) return;
+          setAccount(state => state.hasData || state.error ? state : {
+            ...state, error: 'Не удалось загрузить расписание. Проверь интернет и повтори подключение.',
+          });
+        }, WORKSPACE_LOAD_TIMEOUT);
         unsubscribeData = connection.subscribe(user.id, (data, fromServer, syncedAt) => {
           if (!active || currentUserId.current !== user.id || authEpoch.current !== epoch) return;
+          clearTimeout(firstSnapshotTimeout);
           // Late cache events must not replace a newer server-confirmed revision.
           if (remote.current && data.revision < remote.current.revision) return;
           remote.current = data;
@@ -66,16 +83,22 @@ export function useWorkspace(editing, { initialMode, demoOnly = false, provider 
           if (current.session.mode !== 'cloud') return;
           if (saving.current?.userId !== user.id && current.editing && data.revision !== (current.session.data.revision || 0)) setStale(true);
           else if (saving.current?.userId !== user.id) { setSession({ mode: 'cloud', data }); setStale(false); }
-        }, error => { if (active && currentUserId.current===user.id && authEpoch.current===epoch) fail(error); });
+        }, error => {
+          if (!active || currentUserId.current !== user.id || authEpoch.current !== epoch) return;
+          clearTimeout(firstSnapshotTimeout);
+          fail(error);
+        });
       }, error => {
         if (!active) return;
+        clearTimeout(authTimeout);
+        clearTimeout(firstSnapshotTimeout);
         currentUserId.current = null; authEpoch.current++;
         dataOwner.current=null;
         if (latest.current.session.mode==='cloud') setSession({mode:'personal',data:loadData('personal')});
         setAccount(state => ({ ...state, user: null, hasData: false, authResolved: false, loading: false, ready: false, error: explainError(error) }));
       });
-    }).catch(fail);
-    return () => { active = false; unsubscribeAuth?.(); unsubscribeData?.(); currentUserId.current = null; authEpoch.current++; syncing.current=null; saving.current=false; client.current=null; };
+    }).catch(error => { clearTimeout(authTimeout); fail(error); });
+    return () => { active = false; clearTimeout(authTimeout); clearTimeout(firstSnapshotTimeout); unsubscribeAuth?.(); unsubscribeData?.(); currentUserId.current = null; authEpoch.current++; syncing.current=null; saving.current=false; client.current=null; };
   }, [retry, demoOnly, provider]);
 
   useEffect(() => {
@@ -182,5 +205,9 @@ export function useWorkspace(editing, { initialMode, demoOnly = false, provider 
     if (saving.current) throw new Error('Дождись сохранения изменений.');
     await client.current.signOut();
   }
-  return { session, account, stale, save, switchMode, refresh, sync, signIn, signOut, reconnect: () => setRetry(value => value + 1) };
+  function reconnect() {
+    setAccount(state => ({ ...state, error: '', loading: !state.authResolved }));
+    setRetry(value => value + 1);
+  }
+  return { session, account, stale, save, switchMode, refresh, sync, signIn, signOut, reconnect };
 }

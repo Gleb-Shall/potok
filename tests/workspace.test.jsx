@@ -64,6 +64,40 @@ it('opens cached data before the server responds but blocks writes until confirm
  await click('save');expect(connection.save).toHaveBeenCalledWith('bob',expect.anything(),3);
  expect(status()).toBe('cloud:4:false:false');
 });
+it('reports a stalled initial load and recovers on the first snapshot', async () => {
+ vi.useFakeTimers();
+ try {
+  await act(() => auth({id:'bob'}));
+  await act(() => vi.advanceTimersByTime(10000));
+  expect(renderedWorkspace.account.error).toContain('Не удалось загрузить расписание');
+  expect(renderedWorkspace.account.hasData).toBe(false);
+
+  await act(() => snapshot(data(4),true));
+  expect(renderedWorkspace.account.error).toBe('');
+  expect(renderedWorkspace.account.ready).toBe(true);
+  expect(status()).toBe('cloud:4:false:false');
+ } finally {
+  vi.useRealTimers();
+ }
+});
+it('reports a stalled account check and can retry the saved session', async () => {
+ vi.useFakeTimers();
+ try {
+  await act(()=>render(null,root));
+  connection.onAuth.mockImplementation(callback => {auth=callback;return vi.fn();});
+  await act(()=>render(<Harness/>,root));
+  await act(()=>vi.advanceTimersByTime(10000));
+  expect(renderedWorkspace.account.error).toContain('Не удалось проверить вход');
+
+  await act(()=>renderedWorkspace.reconnect());
+  await act(()=>auth({id:'alice'}));
+  await act(()=>snapshot(data(4),true));
+  expect(renderedWorkspace.account.error).toBe('');
+  expect(renderedWorkspace.account.ready).toBe(true);
+ } finally {
+  vi.useRealTimers();
+ }
+});
 it('ignores older cache data delivered after a newer server snapshot', async () => {
  await act(()=>snapshot(data(2),false));
  expect(status()).toBe('cloud:3:false:false');

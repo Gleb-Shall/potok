@@ -2,9 +2,9 @@ import { useEffect, useLayoutEffect, useRef } from 'preact/hooks';
 
 export const CALENDAR_BUFFER_DAYS = 7;
 
-// Let the browser own drag, trackpad momentum and snapping. Rebase only after
-// scrolling settles, keeping a bounded strip of dates on either side of the view.
-export function useCalendarPan(scroller, { anchor, selectedDate, dayCount, mobileDays, focusKey, enabled, onShift }) {
+// Desktop scrolling stays native. The phone keeps native vertical scrolling
+// and moves the date strip only after a horizontal touch gesture is recognized.
+export function useCalendarPan(scroller, { anchor, selectedDate, dayCount, mobileDays, focusKey, enabled, lockTouchAxis = false, onShift }) {
   const latest = useRef(onShift);
   latest.current = onShift;
   const position = useRef({ column: 0, base: 0, lastX: 0, committing: false });
@@ -42,6 +42,7 @@ export function useCalendarPan(scroller, { anchor, selectedDate, dayCount, mobil
     const node = scroller.current;
     if (!enabled || !node) return;
     let touching = false;
+    let swipe = null;
     const nativeEnd = 'onscrollend' in node;
     const settle = () => {
       clearTimeout(idleTimer.current);
@@ -62,20 +63,74 @@ export function useCalendarPan(scroller, { anchor, selectedDate, dayCount, mobil
       position.current.lastX = node.scrollLeft;
       schedule();
     };
-    const start = () => { touching = true; clearTimeout(idleTimer.current); };
-    const end = event => { touching = Boolean(event.touches?.length); if (!touching) schedule(); };
+    const resetSwipe = () => {
+      if (swipe?.axis === 'x') node.scrollLeft = swipe.left;
+      swipe = null;
+      node.removeAttribute('data-horizontal-swipe');
+    };
+    const start = event => {
+      touching = true;
+      clearTimeout(idleTimer.current);
+      if (!lockTouchAxis) return;
+      resetSwipe();
+      if (event.touches?.length !== 1 ||
+          event.target.closest?.('.week-resize-handle,.timeline-card.is-card-selected,a,button:not(.card-open)')) return;
+      const { identifier, clientX, clientY } = event.touches[0];
+      swipe = { identifier, x:clientX, y:clientY, left:node.scrollLeft, axis:null };
+    };
+    const move = event => {
+      if (!swipe || swipe.axis === 'y') return;
+      if (event.touches.length !== 1 || event.touches[0].identifier !== swipe.identifier ||
+          event.target.closest?.('[data-press-dragging]')) {
+        resetSwipe();
+        return;
+      }
+      const dx = event.touches[0].clientX - swipe.x;
+      const dy = event.touches[0].clientY - swipe.y;
+      if (!swipe.axis) {
+        if (Math.hypot(dx, dy) < 9) return;
+        swipe.axis = event.cancelable && Math.abs(dx) > Math.abs(dy) * 1.25 ? 'x' : 'y';
+        if (swipe.axis === 'y') return;
+        node.setAttribute('data-horizontal-swipe', '');
+      }
+      if (!event.cancelable) { resetSwipe(); return; }
+      event.preventDefault();
+      const column = position.current.column;
+      node.scrollLeft = swipe.left - Math.max(-column, Math.min(column, dx));
+    };
+    const end = event => {
+      touching = Boolean(event.touches?.length);
+      if (touching) return;
+      if (swipe?.axis === 'x') {
+        if (event.type === 'touchend' && event.cancelable) event.preventDefault();
+        const threshold = Math.max(36, position.current.column * .16);
+        const distance = node.scrollLeft - swipe.left;
+        if (event.type === 'touchend' && Math.abs(distance) >= threshold) {
+          swipe = null;
+          node.removeAttribute('data-horizontal-swipe');
+          position.current.committing = true;
+          latest.current(Math.sign(distance));
+          return;
+        }
+      }
+      resetSwipe();
+      schedule();
+    };
     node.addEventListener('scroll', scroll, { passive: true });
     node.addEventListener('scrollend', settle);
     node.addEventListener('touchstart', start, { passive: true });
-    node.addEventListener('touchend', end, { passive: true });
+    if (lockTouchAxis) node.addEventListener('touchmove', move, { passive: false });
+    node.addEventListener('touchend', end, { passive: !lockTouchAxis });
     node.addEventListener('touchcancel', end, { passive: true });
     return () => {
       clearTimeout(idleTimer.current);
+      resetSwipe();
       node.removeEventListener('scroll', scroll);
       node.removeEventListener('scrollend', settle);
       node.removeEventListener('touchstart', start);
+      node.removeEventListener('touchmove', move);
       node.removeEventListener('touchend', end);
       node.removeEventListener('touchcancel', end);
     };
-  }, [scroller, enabled]);
+  }, [scroller, enabled, lockTouchAxis]);
 }

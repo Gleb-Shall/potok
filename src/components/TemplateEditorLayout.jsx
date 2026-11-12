@@ -25,12 +25,12 @@ export function TemplateEditorSettings({ description, open, onToggle, children }
 }
 
 export function TemplateEditorFields({ fields, renderField, onMove, emptyMessage, onAdd, children }) {
-  const {list,rowProps,gripProps} = useFieldReorder(fields.length, onMove);
+  const {list,gripProps} = useFieldReorder(fields.length, onMove);
   return <>
     <div class="builder-heading"><h3>Дополнительные поля</h3><Button icon="plus" onClick={onAdd}>Добавить поле</Button></div>
     {emptyMessage && <p class="builder-empty">{emptyMessage}</p>}
     <ul class="builder-fields" ref={list}>
-      {fields.map((field,index) => <li class="builder-field-row" key={field.id} {...rowProps(index)}>
+      {fields.map((field,index) => <li class="builder-field-row" key={field.id}>
         <button type="button" class="card-style-grip builder-field-grip" {...gripProps(index,field.label || 'Новое поле')}>
           <span aria-hidden="true">⠿</span>
         </button>

@@ -14,3 +14,4 @@ Enable “Показать выделение” and move the pointer over the p
 smoke and letter displacement without touching saved templates.
 
 Open `/tests/ui/?view=statistics` for sample reports or `/tests/ui/?view=guide` for the user guide.
+In the guide, open “Доска” → “Перемещать и архивировать задачи” and select “В работе” to try the task board with sample data.

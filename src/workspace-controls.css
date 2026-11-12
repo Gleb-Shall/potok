@@ -1,0 +1,69 @@
+/* Shared workspace buttons and segmented controls. */
+:is(.layout, .workspace-entry, dialog) :is(.button, .icon-button),
+.layout .header-actions > .button.primary {
+  border-radius:999px;
+}
+
+:is(.layout, .workspace-entry, dialog) .button.primary {
+  font-weight:600;
+}
+
+@media (hover:hover) {
+  :is(.layout, .workspace-entry, dialog) .button.primary:hover:not(:disabled) {
+    background:var(--primary-hover);
+    border-color:var(--primary-hover);
+    color:var(--surface);
+  }
+}
+
+:is(.layout, .workspace-entry, dialog) :is(.button, .icon-button):active:not(:disabled) {
+  filter:brightness(.91);
+}
+
+:is(.layout, dialog) :is(.range-switch, .week-layout-switch, .place-tabs, .map-source-switch),
+:is(.layout, dialog) :is(.range-switch, .week-layout-switch, .place-tabs, .map-source-switch, .directory-filters) > button {
+  border-radius:999px;
+}
+
+:is(.layout, dialog) :is(.range-switch, .week-layout-switch, .place-tabs, .map-source-switch) > :is([aria-pressed=true], .active) {
+  background:var(--surface-raised);
+  color:var(--ink);
+  box-shadow:0 1px 3px #11171024;
+}
+
+.event-inspector .inspector-toolbar > .action-menu-trigger.icon-button,
+.event-inspector .inspector-alert > .icon-button {
+  width:40px;
+  height:40px;
+  padding:0;
+  border-color:transparent;
+  background:var(--control-surface);
+}
+
+.event-inspector .inspector-toolbar > .action-menu-trigger.icon-button[aria-expanded=true] {
+  background:var(--surface-selected);
+}
+
+.event-inspector .inspector-alert {
+  border-radius:14px;
+}
+
+.event-inspector .inspector-alert > .icon-button {
+  flex:none;
+  background:var(--surface);
+  color:var(--text-secondary);
+}
+
+.event-inspector .inspector-footer > .button.secondary {
+  background:var(--control-surface);
+  border-color:transparent;
+}
+
+@media (max-width:760px) {
+  .product-dialog > .modal-close,
+  .event-inspector :is(.inspector-toolbar, .inspector-alert) > .icon-button {
+    width:44px;
+    height:44px;
+    min-height:44px;
+  }
+}

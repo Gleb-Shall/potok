@@ -2,7 +2,7 @@ import { linkHref } from './links.js';
 import { choiceOptions, declaredRecordFields, isChoiceField, RECORD_FIELD_FORMATS, recordTypeFields, resolveRecordFields } from './record-field-links.js';
 import { readCardStyle } from './card-style.js';
 import { referencedCardBackgrounds, saveCardBackground } from './card-backgrounds.js';
-import { activeReminders } from './reminder-model.js';
+import { activeReminders, eventAlerts } from './reminder-model.js';
 import { addDays, mondayOf, weekdayOf, validateStudent } from './domain.js';
 
 export const FIELD_TYPES = { text: 'Текст', url: 'Ссылка', textarea: 'Длинный текст', number: 'Число', date: 'Дата', select: 'Один вариант', multiselect: 'Несколько вариантов', checkbox: 'Флажок' };
@@ -21,6 +21,34 @@ export function getRecord(data,event) {
 }
 export const COLOR_NAMES = { violet: 'Сиреневый', blue: 'Голубой', green: 'Зелёный', peach: 'Персиковый', pink: 'Розовый' };
 const field = (id, label, type = 'text', extra = {}) => ({ id, label, type, required: false, showOnCard: true, archived: false, options: [], ...extra });
+
+export function starterTemplates() {
+  return {
+    recordTypes: [{
+      kind: 'student',
+      nameOnly: true,
+      fields: [field('subject', 'Предмет'), field('telegram', 'Telegram ученика', 'url')],
+    }],
+    types: [{
+      id: 'lesson',
+      name: 'Урок',
+      icon: '✎',
+      color: 'violet',
+      recordKind: 'student',
+      linkStudent: true,
+      requireStudent: true,
+      requireRecord: true,
+      archived: false,
+      fields: [
+        field('subject', 'Предмет', 'text', { source: { fieldId: 'detail:subject', mode: 'live' }, showCompact: true }),
+        field('call', 'Ссылка на созвон в Telegram', 'url', { linkLabel: 'Созвон' }),
+        field('materials', 'Ссылка на урок', 'url', { linkLabel: 'Урок' }),
+        field('rate', 'Стоимость занятия', 'number', { metric: true, metricUnit: '₽' }),
+      ],
+    }],
+  };
+}
+
 export function defaultTypes() {
   return [
     { id: 'lesson', name: 'Урок', icon: '✎', color: 'violet', linkStudent: true, requireStudent: true, archived: false, fields: [field('topic', 'Тема'), field('rate', 'Стоимость, ₽', 'number')] },
@@ -59,12 +87,16 @@ export function normalizeData(source) {
   if (source?.version === 2) {
     if (!['students', 'types', 'series', 'events'].every(key => Array.isArray(source[key]))) throw new Error('Неизвестный формат данных. Исходная копия сохранена.');
     if (source.records !== undefined && !Array.isArray(source.records)) throw new Error('Не удалось прочитать общие записи. Исходная копия сохранена.');
+    if (source.tasks !== undefined && (!Array.isArray(source.tasks) || source.tasks.some(task =>
+      typeof task?.id !== 'string' || typeof task.title !== 'string' || typeof task.eventId !== 'string' ||
+      !['todo','doing','done'].includes(task.status)))) throw new Error('Не удалось прочитать задачи. Исходная копия сохранена.');
     if (source.eventArchive !== undefined && !Array.isArray(source.eventArchive)) throw new Error('Не удалось прочитать архив событий. Исходная копия сохранена.');
     if (source.archivedRecordKinds !== undefined && !Array.isArray(source.archivedRecordKinds)) throw new Error('Не удалось прочитать архив шаблонов. Исходная копия сохранена.');
     if (source.recordTypes !== undefined && (!Array.isArray(source.recordTypes) || source.recordTypes.some(type=>!type || typeof type.kind!=='string' || !Array.isArray(type.fields))))
       throw new Error('Не удалось прочитать шаблоны записей. Исходная копия сохранена.');
     const normalized = { ...structuredClone(source), records: structuredClone(source.records || []) };
     if (normalized.reminders) normalized.reminders = activeReminders(normalized);
+    if (normalized.eventAlerts) normalized.eventAlerts = validEventAlerts(normalized);
     normalized.events = normalized.events.map(event => event.status === 'done' && !event.snapshot ? snapshotEvent(normalized, event) : event);
     normalized.types = normalized.types.map(liveTypeSources);
     return normalized;
@@ -81,6 +113,23 @@ export function seriesOccurs(series, date) {
 function occurrence(series, date) {
   const { from, until, weekday, intervalWeeks, archived, excludedDates, id, ...details } = series;
   return { ...details, id: `${id}:${date}`, seriesId: id, anchorDate: date, date, status: 'planned', history: [] };
+}
+export function findOccurrence(data, id) {
+  if (typeof id !== 'string' || !id) return;
+  const stored = data.events.find(event => event.id === id);
+  if (stored) return stored;
+  const separator = id.lastIndexOf(':');
+  const date = id.slice(separator + 1);
+  if (separator < 0 || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+  try { addDays(date, 0); } catch { return; }
+  const series = data.series.find(item => item.id === id.slice(0, separator));
+  return series && seriesOccurs(series, date) ? occurrence(series, date) : undefined;
+}
+export function validEventAlerts(data) {
+  return eventAlerts(data).filter(alert => {
+    const event = findOccurrence(data, alert.eventId);
+    return event?.status === 'planned' && event.date === alert.date && event.start === alert.start;
+  });
 }
 export function* recurringEventsThrough(series, end) {
   for (const item of series) {

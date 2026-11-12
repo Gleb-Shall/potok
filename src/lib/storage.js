@@ -1,4 +1,4 @@
-import { normalizeData, defaultTypes } from './events.js';
+import { normalizeData, starterTemplates } from './events.js';
 import { createDemo } from './legacy-demo.js';
 import { todayISO, mondayOf, addDays } from './domain.js';
 
@@ -9,7 +9,7 @@ export function demoData() {
   data.events.push({ id: 'demo-personal', typeId: 'personal', title: 'Время для себя', studentId: '', color: 'green', busy: false, date: addDays(monday, 4), anchorDate: addDays(monday, 4), start: 1200, duration: 60, seriesId: '', status: 'planned', history: [], fields: {}, location: { lat: 59.94, lng: 30.3, label: 'Прогулка у воды', address: 'Санкт-Петербург' }, notes: '' });
   return data;
 }
-export const emptyData = () => ({ version: 2, students: [], types: defaultTypes(), series: [], events: [] });
+export const emptyData = () => ({ version: 2, students: [], series: [], events: [], ...starterTemplates() });
 export function loadData(mode) {
   const key = `tutor-schedule:${mode}:v2`;
   const raw = localStorage.getItem(key);

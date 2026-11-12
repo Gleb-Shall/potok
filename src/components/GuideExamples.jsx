@@ -9,6 +9,7 @@ import { Button, Field, money } from './UI.jsx';
 
 import { Icon } from './Icon.jsx';
 import { GuideTransferExample } from './GuideTransferExample.jsx';
+import { GuideBoardExample } from './GuideBoardExample.jsx';
 
 const lesson = {id:'guide-lesson',title:'Занятие с Анной',typeId:'lesson',date:'2026-11-10',anchorDate:'2026-11-10',start:900,duration:60,status:'planned',fields:{},history:[]};
 const workspace = {types:defaultTypes(),students:[],records:[],series:[],events:[lesson]};
@@ -178,6 +179,7 @@ const examples = {
   confirm:ConfirmationExample,
   defer:DeferredTransferExample,
   report:ReportExample,
+  board:GuideBoardExample,
 };
 
 export function GuideExample({name}) {

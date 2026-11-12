@@ -6,9 +6,9 @@ import { useCalendarPan } from '../src/hooks/useCalendarPan.js';
 import { addDays } from '../src/lib/domain.js';
 
 let root;
-function Calendar({ onShift, enabled = true }) {
+function Calendar({ onShift, enabled = true, lockTouchAxis = false }) {
   const ref = useRef(null), [anchor, setAnchor] = useState('2026-11-02');
-  useCalendarPan(ref, { anchor, selectedDate: anchor, dayCount: 7, mobileDays: 3, focusKey: 0, enabled,
+  useCalendarPan(ref, { anchor, selectedDate: anchor, dayCount: 7, mobileDays: 3, focusKey: 0, enabled, lockTouchAxis,
     onShift: delta => { onShift(delta); setAnchor(value => addDays(value, delta)); } });
   return <div ref={ref} class="week-scroller" data-anchor={anchor}><div class="week-axis-heading"/></div>;
 }
@@ -17,6 +17,36 @@ beforeEach(() => {
   vi.spyOn(Element.prototype, 'clientWidth', 'get').mockReturnValue(752);
   vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue({width:52});
   root = document.createElement('div'); document.body.append(root);
+});
+
+it('locks a phone gesture to its initial axis and only a horizontal swipe changes the date', async () => {
+  const onShift = vi.fn();
+  await act(() => render(<Calendar onShift={onShift} lockTouchAxis/>, root));
+  const node = root.firstElementChild;
+  const touch = (type, x, y) => {
+    const event = new Event(type, { bubbles:true, cancelable:true });
+    Object.defineProperty(event, 'touches', { value:type === 'touchend' ? [] : [{identifier:1,clientX:x,clientY:y}] });
+    node.dispatchEvent(event);
+    return event;
+  };
+
+  touch('touchstart',100,100);
+  expect(touch('touchmove',96,82).defaultPrevented).toBe(false);
+  expect(touch('touchmove',25,72).defaultPrevented).toBe(false);
+  await act(() => touch('touchend',25,72));
+  expect(node.scrollLeft).toBe(700);
+  expect(onShift).not.toHaveBeenCalled();
+
+  node.scrollTop = 280;
+  touch('touchstart',100,100);
+  expect(touch('touchmove',85,96).defaultPrevented).toBe(true);
+  expect(touch('touchmove',40,30).defaultPrevented).toBe(true);
+  expect(node.scrollLeft).toBe(760);
+  expect(node.scrollTop).toBe(280);
+  await act(() => touch('touchend',40,30));
+  expect(onShift).toHaveBeenCalledExactlyOnceWith(1);
+  expect(node.scrollLeft).toBe(700);
+  expect(node.hasAttribute('data-horizontal-swipe')).toBe(false);
 });
 afterEach(async () => { await act(() => render(null, root)); root.remove(); vi.restoreAllMocks(); vi.useRealTimers(); });
 

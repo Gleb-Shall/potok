@@ -5,6 +5,7 @@ import { initials } from './UI.jsx';
 
 const SECTIONS = [
   ['schedule', 'calendar', 'Расписание'],
+  ['board', 'sections', 'Доска'],
   ['students', 'users', 'Записи'],
   ['types', 'sliders', 'Редактор шаблонов'],
   ['history', 'history', 'Журнал'],

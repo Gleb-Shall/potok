@@ -20,9 +20,9 @@ function previewValue(field) {
 }
 
 function CardStyleFields({rows, applyRows, onLinkLabel}) {
-  const {list,rowProps,gripProps} = useFieldReorder(rows.length, (from, to) => applyRows(moveField(rows, from, to)));
+  const {list,gripProps} = useFieldReorder(rows.length, (from, to) => applyRows(moveField(rows, from, to)));
   return <ol class="card-style-fields" ref={list}>
-    {rows.map(({field,slot}, index) => <li class="card-style-field" key={field.id} {...rowProps(index)}>
+    {rows.map(({field,slot}, index) => <li class="card-style-field" key={field.id}>
       <button type="button" class="card-style-grip" {...gripProps(index, field.label)}><span aria-hidden="true">⠿</span></button>
       <Select label={field.label} value={slot} onChange={next => applyRows(rows.map(row => row.field.id === field.id ? {...row,slot:next} : row))}>
         <option value="hidden">Не показывать</option>

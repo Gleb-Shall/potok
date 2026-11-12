@@ -17,7 +17,7 @@ const segmenter = typeof Intl.Segmenter === 'function' ? new Intl.Segmenter('ru'
 const animatedTitle = title => title.split(/(\s+)/u).map((word,index) =>
   /^\s+$/u.test(word) ? word : <span class="card-motion-word" key={index}>{(segmenter ? Array.from(segmenter.segment(word),part=>part.segment) : Array.from(word)).map((letter,i)=><span key={i} data-motion-letter>{letter}</span>)}</span>);
 
-export function EventCard({ event, data, onOpen, onSelect, selected = false, motionPaused = false, onDragStart, onDragEnd, preview = false, timeline = false, onDelete, onMove, onDefer, expanded = preview, onToggle, now = Date.now(), stateEffects, isDragging = false, canRestore = false, onRestoreDrop }) {
+export function EventCard({ event, data, onOpen, onSelect, selected = false, selectBeforeOpen = false, motionPaused = false, onDragStart, onDragEnd, preview = false, timeline = false, onDelete, onMove, onDefer, expanded = preview, onToggle, now = Date.now(), stateEffects, isDragging = false, canRestore = false, onRestoreDrop }) {
   const nativePreview=useRef(null), cardRef=useRef(null);
   const releasePreview=()=>{
     if(!nativePreview.current) return;
@@ -47,8 +47,21 @@ export function EventCard({ event, data, onOpen, onSelect, selected = false, mot
   const moved = isEventMoved(event);
   const shortStatus = timeline && event.duration < 35 && appearance.icon;
   const stateMark = appearance.icon && <span class={`event-state-mark${shortStatus ? ' is-short-status' : ''}`} role="img" aria-label={appearance.label} title={appearance.label}><Icon name={appearance.icon}/></span>;
+  const activateCard = input => {
+    const control = input.target.closest('a,button');
+    if (control && !control.classList.contains('card-open')) return;
+    const fromPointer = input.detail > 0 || Boolean(input.pointerType);
+    if (onSelect && selectBeforeOpen && (fromPointer || !control)) {
+      if (selected) onOpen(event.id);
+      else onSelect(event.id);
+      return;
+    }
+    const touch = input.pointerType === 'touch' || window.matchMedia?.('(pointer: coarse)').matches;
+    if (onSelect && fromPointer && !touch) onSelect(event.id);
+    else onOpen(event.id);
+  };
   const summary = <><span class="card-time">{minutesToTime(event.start)}–{minutesToTime(event.start + event.duration)}<span class="card-time-icons">{preview && event.location && <span class="event-place-mark" role="img" aria-label={`Место: ${event.location.label || event.location.address || 'указано на карте'}`} title={event.location.label || event.location.address || 'Место указано'}><Icon name="pin"/></span>}{!shortStatus && stateMark}<span class="card-grip" aria-hidden="true">⠿</span></span></span><strong class="card-name">{activeMotion && style.liveText ? animatedTitle(title) : title}</strong>{shortStatus && stateMark}{!customized && <span class="event-type-label">{timeline && record?.name && record.name!==eventTitle(data,event)?record.name:type.name}{moved ? <span title="Перенесено"> · ↔</span> : event.seriesId ? ' · ↻' : ''}</span>}</>;
-  return <article ref={cardRef} style={{'--card-tint':style.tint ? `color-mix(in srgb, ${style.tint} 55%, var(--surface) 45%)` : `var(--card-${eventColor(data,event)}, var(--surface-soft))`,'--card-opacity':`${style.opacity}%`}} class={`lesson-card event-card ${timeline?'timeline-card':''} ${selected?'is-card-selected':''} ${type.cardStyle?'has-card-style':''} ${customized?'has-composition':''} ${event.location && !preview ? 'has-place' : ''} color-${eventColor(data, event)} ${expanded ? 'is-expanded' : 'is-compact'} ${isDragging ? 'is-being-dragged' : ''} ${appearance.state === 'confirmed' ? 'is-done' : appearance.state === 'elapsed' ? 'is-past' : ''}`} data-event-id={!preview ? event.id : undefined} data-event-state={appearance.state} data-state-effect={appearance.effect} draggable={!preview && !timeline && event.status !== 'done' && Boolean(onDragStart)} onDragStart={eventObject => {
+  return <article ref={cardRef} onClick={!preview && selectBeforeOpen ? activateCard : undefined} style={{'--card-tint':style.tint ? `color-mix(in srgb, ${style.tint} 55%, var(--surface) 45%)` : `var(--card-${eventColor(data,event)}, var(--surface-soft))`,'--card-opacity':`${style.opacity}%`}} class={`lesson-card event-card ${timeline?'timeline-card':''} ${selected?'is-card-selected':''} ${type.cardStyle?'has-card-style':''} ${customized?'has-composition':''} ${event.location && !preview ? 'has-place' : ''} color-${eventColor(data, event)} ${expanded ? 'is-expanded' : 'is-compact'} ${isDragging ? 'is-being-dragged' : ''} ${appearance.state === 'confirmed' ? 'is-done' : appearance.state === 'elapsed' ? 'is-past' : ''}`} data-event-id={!preview ? event.id : undefined} data-event-state={appearance.state} data-state-effect={appearance.effect} draggable={!preview && !timeline && event.status !== 'done' && Boolean(onDragStart)} onDragStart={eventObject => {
     if (eventObject.target.closest?.('a,button:not(.card-open)')) { eventObject.preventDefault(); return; }
     const source = eventObject.currentTarget;
     releasePreview();
@@ -65,11 +78,7 @@ export function EventCard({ event, data, onOpen, onSelect, selected = false, mot
     {background && <img class="card-background-image" src={background} alt="" aria-hidden="true" draggable={false} decoding="async" style={{opacity: Math.min(50, Math.max(0, type.cardBackgroundStrength ?? 20)) / 100}}/>}
     {activeMotion && <Suspense fallback={null}><SelectedCardMotion cardRef={cardRef} smoke={style.smoke} liveText={style.liveText} paused={motionPaused || isDragging} title={title}/></Suspense>}
     {appearance.effect === 'marker' && ['elapsed', 'confirmed'].includes(appearance.state) && <MarkerPaint key={appearance.state}/>}
-    {preview ? <div class="card-open">{summary}</div> : <button type="button" class="card-open" aria-pressed={onSelect ? selected : undefined} onClick={input => {
-      const touch = input.pointerType === 'touch' || window.matchMedia?.('(pointer: coarse)').matches;
-      if (onSelect && input.detail > 0 && !touch) onSelect(event.id);
-      else onOpen(event.id);
-    }} onDblClick={onSelect ? input => { if (!window.matchMedia?.('(pointer: coarse)').matches) {input.stopPropagation();onOpen(event.id, {anchor:cardRef.current});} } : undefined} aria-label={`${eventTitle(data, event)}, ${dateLabel(event.date)}, ${minutesToTime(event.start)}${appearance.icon ? `, ${appearance.label}` : ''}`}>{summary}</button>}
+    {preview ? <div class="card-open">{summary}</div> : <button type="button" class="card-open" aria-pressed={onSelect ? selected : undefined} onClick={selectBeforeOpen ? undefined : activateCard} onDblClick={onSelect && !selectBeforeOpen ? input => { if (!window.matchMedia?.('(pointer: coarse)').matches) {input.stopPropagation();onOpen(event.id, {anchor:cardRef.current});} } : undefined} aria-label={`${eventTitle(data, event)}, ${dateLabel(event.date)}, ${minutesToTime(event.start)}${appearance.icon ? `, ${appearance.label}` : ''}`}>{summary}</button>}
     {customized && details.length > 0 && <div class="card-composition">{details.map(({field,slot})=><span class={slot==='badge'?'composition-badge':'composition-line'} key={field.id} title={field.label}><LinkedValue field={field} value={values[field.id]}/></span>)}</div>}
     {!customized && !expanded && compact.some(isPlainField) && <dl class="card-fields compact-fields">{compact.filter(isPlainField).map(field => <div key={field.id}><dt>{field.label}</dt><dd><LinkedValue field={field} value={values[field.id]}/></dd></div>)}</dl>}
     {links.length > 0 && <div class="card-record-links" aria-label="Ссылки события">{links.map(link=><ExternalLink key={link.id} href={link.href} className="card-link-chip">{link.label}</ExternalLink>)}</div>}

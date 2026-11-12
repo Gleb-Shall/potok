@@ -40,6 +40,10 @@
 .guide-example > header > .button:hover { color:var(--ink); }
 .guide-demo { display:grid; gap:14px; justify-items:start; padding:18px; border:1px solid var(--line); border-radius:7px; background:var(--surface-soft); }
 .guide-demo > p { font-size:14px; }
+.guide-demo > .task-board { width:100%; min-width:0; }
+.guide-demo .task-board-columns { grid-template-columns:repeat(4,minmax(132px,1fr)); overflow-x:auto; }
+.guide-demo .task-lane { min-height:160px; padding:8px; }
+.guide-demo .task-board-bar { margin-bottom:12px; }
 @media(max-width:740px) {
   .user-guide-layout { grid-template-columns:minmax(0,1fr); gap:26px; }
   .guide-masthead { margin-bottom:12px; }

@@ -7,6 +7,7 @@ import { EventDetails } from '../src/components/EventDetails.jsx';
 import { TypeEditor } from '../src/components/TypeEditor.jsx';
 import { RecordsDirectory } from '../src/components/RecordsDirectory.jsx';
 import { RecordFields } from '../src/components/RecordFields.jsx';
+import { TemplateWorkspace } from '../src/components/TemplateWorkspace.jsx';
 import { App } from '../src/App.jsx';
 import { defaultTypes, moveEvent } from '../src/lib/events.js';
 import { todayISO } from '../src/lib/domain.js';
@@ -45,6 +46,15 @@ it('keeps menu commands keyboard accessible and returns focus without closing th
  expect(document.activeElement.textContent).toBe('Удалить');
  await act(() => document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true})));
  expect(document.activeElement).toBe(trigger); expect(trigger.getAttribute('aria-expanded')).toBe('false'); expect(remove).not.toHaveBeenCalled();
+});
+it('opens a pointer-activated menu without highlighting the first command', async () => {
+ await mount(<ActionMenu items={[{id:'move',label:'Перенести',onSelect:vi.fn()},{id:'delete',label:'Удалить',onSelect:vi.fn()}]}/>);
+ const trigger=root.querySelector('.action-menu-trigger');
+ await act(()=>trigger.dispatchEvent(new MouseEvent('click',{detail:1,bubbles:true})));
+ const menu=root.querySelector('[role="menu"]');
+ expect(document.activeElement).toBe(menu);
+ await act(()=>menu.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowUp',bubbles:true,cancelable:true})));
+ expect(document.activeElement.textContent).toBe('Удалить');
 });
 it('shows the shared state and offers status changes through actions', async () => {
  const onStatus=vi.fn(); const data={students:[],records:[],types:defaultTypes(),events:[],series:[]};
@@ -149,14 +159,29 @@ it('locks populated lesson fields and keeps empty ones editable', async () => {
  expect(rows[1].querySelector('.builder-format-fixed').textContent).toContain('сохранённых событиях');
 });
 
+it('opens mobile template lists before showing the selected editor', async () => {
+ const data={students:[],records:[],events:[],series:[],types:defaultTypes(),recordTypes:[{kind:'student',fields:[]}]};
+ await mount(<TemplateWorkspace data={data} mobile/>);
+ expect(root.querySelector('.template-workspace-editor')).toBeNull();
+ await click(root.querySelector('.template-list-select'));
+ expect(root.querySelector('.template-browser-list')).toBeNull();
+ expect(root.querySelector('.template-inline-editor')).not.toBeNull();
+ await click(root.querySelector('.template-back'));
+ await click(root.querySelector('.template-family-switch button:last-child'));
+ expect(root.querySelector('.template-list-select').textContent).toBe('Ученик');
+ expect(root.querySelector('.template-workspace-editor')).toBeNull();
+ await click(root.querySelector('.template-create'));
+ expect(root.querySelector('.template-workspace-editor .template-draft-row input')).not.toBeNull();
+});
+
 it('opens record templates in the shared template editor and saves a choice field', async () => {
  localStorage.setItem('tutor-schedule:mode','personal');
  await mount(<App/>);
  await click(root.querySelector('.sidebar-toggle'));
  await click([...root.querySelectorAll('.nav-item')].find(node=>node.textContent.includes('Редактор шаблонов')));
  await click(root.querySelector('.template-family-switch button:last-child'));
- expect([...root.querySelectorAll('.template-list-select')].map(button=>button.textContent)).toEqual(['Ученик','Предмет']);
- expect(root.querySelector('.record-template-fields').textContent).toContain('Контакт');
+ expect([...root.querySelectorAll('.template-list-select')].map(button=>button.textContent)).toEqual(['Ученик']);
+ expect(root.querySelector('.builder-fields').textContent).toContain('Telegram ученика');
  await click(root.querySelector('.template-create'));
  expect([...root.querySelectorAll('.record-template-fields dt')].map(item=>item.textContent)).toEqual(['Имя или название']);
  await input(root.querySelector('.template-draft-row input'),'Группа');
@@ -179,14 +204,16 @@ it('opens record templates in the shared template editor and saves a choice fiel
  const [first,second]=list.children;
  const grip=first.querySelector('.builder-field-grip');
  list.getBoundingClientRect=()=>({top:0,bottom:96});
- first.getBoundingClientRect=()=>({bottom:48});
- second.getBoundingClientRect=()=>({bottom:96});
+ first.getBoundingClientRect=()=>({top:0,bottom:48,height:48});
+ second.getBoundingClientRect=()=>({top:48,bottom:96,height:48});
  grip.setPointerCapture=vi.fn();
  const pointer=(type,clientY)=>act(()=>grip.dispatchEvent(new PointerEvent(type,{bubbles:true,pointerId:1,isPrimary:true,clientY})));
  await pointer('pointerdown',24);
- await pointer('pointermove',72);
- expect(second.dataset.drop).toBe('after');
- await pointer('pointerup',72);
+ await pointer('pointermove',76);
+ expect(first.style.getPropertyValue('--field-reorder-y')).toBe('52px');
+ expect(second.style.getPropertyValue('--field-reorder-y')).toBe('-48px');
+ await pointer('pointerup',76);
+ expect(list.hasAttribute('data-field-reordering')).toBe(false);
  await click(root.querySelector('.template-inline-editor button[type="submit"]'));
  expect(root.querySelector('.template-list-select[aria-pressed="true"]').textContent).toBe('Группа');
  expect([...root.querySelectorAll('.record-template-fields dt')].map(item=>item.textContent)).toEqual(['Имя или название']);
@@ -204,7 +231,7 @@ it('saves a new event template with its field definitions and appearance in one 
  await input(root.querySelector('.template-draft-row input'),'Семинар');
  expect(root.querySelector('.builder-heading')).toBeNull();
  const recordTemplate=root.querySelector('.builder-settings select');
- await act(()=>{recordTemplate.value='course';recordTemplate.dispatchEvent(new Event('change',{bubbles:true}));});
+ await act(()=>{recordTemplate.value='student';recordTemplate.dispatchEvent(new Event('change',{bubbles:true}));});
  await click(root.querySelector('.template-inline-editor .builder-heading button'));
  await input(root.querySelector('.builder-field[open] input'),'Материалы');
  await click(root.querySelector('.template-editor-tabs button:last-child'));
@@ -214,7 +241,7 @@ it('saves a new event template with its field definitions and appearance in one 
  expect(root.querySelector('.builder-field[open] input').value).toBe('Материалы');
  await click(root.querySelector('.template-inline-editor button[type="submit"]'));
  const workspace=JSON.parse(localStorage.getItem('tutor-schedule:personal:v2'));
- expect(workspace.types.find(type=>type.name==='Семинар')).toMatchObject({recordKind:'course',cardStyle:{tint:'#224488'},fields:[{label:'Материалы'}]});
+ expect(workspace.types.find(type=>type.name==='Семинар')).toMatchObject({recordKind:'student',cardStyle:{tint:'#224488'},fields:[{label:'Материалы'}]});
 });
 
 it('combines record search, template and active repetition filters', async () => {

@@ -1,4 +1,5 @@
-import { activeReminders, nextReminderAt, reminderMessage } from './reminder-model.js';
+import { activeReminders, eventAlertDeadline, isAlarmId, nextReminderAt, reminderMessage } from './reminder-model.js';
+import { findOccurrence, validEventAlerts } from './events.js';
 export { activeReminders, nextReminderAt, reminderMessage };
 export const REMINDER_ZONE = 'Europe/Moscow';
 export function reminderDateTime(value) {
@@ -27,3 +28,21 @@ export function saveReminder(data, eventId, value, now = Date.now()) {
 }
 export const removeReminder = (data, eventId) => ({...data, reminders:activeReminders(data).filter(item => item.eventId !== eventId)});
 export const reminderLabel = value => new Intl.DateTimeFormat('ru-RU', {timeZone:REMINDER_ZONE, day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'}).format(new Date(value));
+
+export function saveEventAlert(data, eventId, { id, title, value, alarmDevice }, now = Date.now()) {
+  const event = findOccurrence(data, eventId);
+  if (event?.status !== 'planned' || !event.date) throw new Error('У события должна быть назначена дата.');
+  const at = parseReminderTime(value, now);
+  if (Date.parse(at) >= eventAlertDeadline(event)) throw new Error('Выбери время до начала события.');
+  const name = title.trim();
+  if (!name || name.length > 200) throw new Error('Введи название до 200 символов.');
+  if (alarmDevice !== undefined && !isAlarmId(alarmDevice)) throw new Error('Не удалось определить устройство для будильника.');
+  const alerts = validEventAlerts(data).filter(item=>eventAlertDeadline(item) > now);
+  if (id && !alerts.some(item=>item.id === id && item.eventId === eventId)) throw new Error('Напоминание уже отменено.');
+  if (!id && alerts.length >= 200) throw new Error('Сначала убери одно из существующих напоминаний.');
+  const remaining = alerts.filter(item=>item.id !== id);
+  const alert = { id:crypto.randomUUID(), eventId, title:name, at, date:event.date, start:event.start };
+  if (alarmDevice) alert.alarmDevice = alarmDevice;
+  return { ...data, eventAlerts:[...remaining, alert] };
+}
+export const removeEventAlert = (data, id) => ({ ...data, eventAlerts:validEventAlerts(data).filter(alert=>alert.id !== id) });

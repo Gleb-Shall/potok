@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { activeReminders, nextReminderAt, reminderMessage, parseReminderTime, tomorrowReminder, saveReminder, removeReminder } from '../src/lib/reminders.js';
-import { normalizeData, moveEvent } from '../src/lib/events.js';
+import { activeReminders, nextReminderAt, reminderMessage, parseReminderTime, tomorrowReminder, saveReminder, removeReminder, saveEventAlert } from '../src/lib/reminders.js';
+import { normalizeData, moveEvent, findOccurrence, saveMove, deleteEvent } from '../src/lib/events.js';
 import { emptyData } from '../src/lib/storage.js';
 import { prepareWorkspace } from '../src/lib/cloud-workspace.js';
 const now=Date.parse('2026-11-05T20:30:00Z');
@@ -40,4 +40,33 @@ test('delivery index selects earliest eligible reminder and excludes settled ids
  assert.equal(prepareWorkspace(scheduled,0).nextReminderAt,undefined);
  assert.equal(prepareWorkspace(scheduled,0,null,{publishReminders:true}).nextReminderAt,Date.parse(first.at));
  assert.equal(nextReminderAt({events:{},reminders:[null]}),0);
+});
+
+test('moving one occurrence cancels its named alerts and preserves alerts for other occurrences',()=>{
+ const series = { id:'weekly', from:'2026-11-06', weekday:5, start:900, duration:60, title:'Встреча', typeId:'lesson', busy:false };
+ const first = 'weekly:2026-11-06', second = 'weekly:2026-11-13';
+ let workspace = {...emptyData(),series:[series]};
+ for (const [eventId,title,value] of [
+  [first,'Подготовиться','2026-11-06T09:00'],
+  [first,'Выйти','2026-11-06T14:45'],
+  [second,'Подготовиться','2026-11-13T09:00'],
+ ]) workspace = saveEventAlert(workspace,eventId,{title,value},now);
+ assert.equal(workspace.eventAlerts.length,3);
+ assert.equal(prepareWorkspace(workspace,0,null,{publishReminders:true}).nextReminderAt,Date.parse('2026-11-06T06:00Z'));
+ assert.throws(()=>saveEventAlert(workspace,first,{title:'Поздно',value:'2026-11-06T15:00'},now),/до начала/);
+ const event = findOccurrence(workspace,first);
+ const deferred = normalizeData({...workspace,events:[moveEvent(event,null,event.start,event.duration)]});
+ const moved = normalizeData(saveMove(workspace,event,event.date,960));
+ const removed = normalizeData(deleteEvent(workspace,event));
+ for (const result of [deferred,moved,removed]) assert.deepEqual(result.eventAlerts.map(alert=>alert.eventId),[second]);
+});
+
+test('an iPhone alarm survives workspace serialization and stays out of the push queue',()=>{
+ const planned = { ...data(), events:[{ ...data().events[0], status:'planned', date:'2026-11-06' }] };
+ const alarmDevice = '0982581a-e9b3-4775-8a36-b23b61c3f960';
+ const scheduled = saveEventAlert(planned,'e',{ title:'Выйти', value:'2026-11-06T14:30', alarmDevice },now);
+ const saved = prepareWorkspace(scheduled,0,null,{publishReminders:true});
+ assert.equal(JSON.parse(saved.payload).eventAlerts[0].alarmDevice,alarmDevice);
+ assert.equal(saved.nextReminderAt,0);
+ assert.deepEqual(normalizeData(saveMove(scheduled,planned.events[0],'2026-11-07',900)).eventAlerts,[]);
 });

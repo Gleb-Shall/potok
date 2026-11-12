@@ -1,5 +1,6 @@
 const paths = {
   sections:'<rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/>',
+  inbox:'<path d="M3 13 6.5 6h11l3.5 7v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-5h5l2 3h4l2-3h5"/>',
   refresh:'<path d="M20 7a8 8 0 0 0-14-2L3 8m0-5v5h5M4 17a8 8 0 0 0 14 2l3-3m0 5v-5h-5"/>',
   moon: '<path d="M20.8 13.1A8.7 8.7 0 0 1 10.9 3.2 8.7 8.7 0 1 0 20.8 13.1Z"/>',
   monitor: '<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/>',

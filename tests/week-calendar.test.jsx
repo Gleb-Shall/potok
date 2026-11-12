@@ -27,6 +27,47 @@ const dragTo=async(date,minute)=>{
 };
 beforeEach(()=>{localStorage.clear();maps.created=maps.destroyed=0;root=document.createElement('div');document.body.append(root);HTMLDialogElement.prototype.showModal=function(){this.open=true;};HTMLDialogElement.prototype.close=function(){this.open=false;};});
 afterEach(async()=>{await act(()=>render(null,root));root.remove();vi.restoreAllMocks();});
+function usePhoneViewport() {
+ vi.spyOn(window,'matchMedia').mockImplementation(query=>({
+   matches:query === '(max-width: 760px)' || query === '(pointer: coarse)',
+   addEventListener(){},removeEventListener(){},
+ }));
+}
+it('opens today on a phone and drills down from year to month to a single day',async()=>{
+ usePhoneViewport();
+ await mount();
+ const visibleDates=()=>[...root.querySelectorAll('[data-visible-date]')].map(node=>node.dataset.visibleDate);
+ expect(visibleDates()).toEqual([todayISO()]);
+ expect(root.querySelectorAll('.mobile-calendar-week button')).toHaveLength(7);
+
+ await click(root.querySelector('.mobile-calendar-back'));
+ expect(root.querySelector('.week-scroller')).toBeNull();
+ expect(root.querySelector('.mobile-calendar-month-grid')).not.toBeNull();
+ await click(root.querySelector('.mobile-calendar-back'));
+ expect(root.querySelector('.week-scroller')).toBeNull();
+ expect(root.querySelectorAll('.mobile-calendar-year-grid button')).toHaveLength(12);
+ await click(root.querySelector('.mobile-calendar-year-grid button'));
+ expect(root.querySelector('.mobile-calendar-overview h2').textContent).toBe('Январь');
+ await click(root.querySelector('.mobile-calendar-month-grid button'));
+ expect(visibleDates()).toEqual([`${todayISO().slice(0,4)}-01-01`]);
+ await click(root.querySelector('.mobile-calendar-today'));
+ expect(visibleDates()).toEqual([todayISO()]);
+});
+
+it('selects a phone event before exposing resize handles or opening its details',async()=>{
+ usePhoneViewport();
+ await mount();
+ const card=()=>root.querySelector('[data-event-id="one"]');
+ const tap=target=>act(()=>target.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,detail:1})));
+ expect(root.querySelectorAll('.week-resize-handle')).toHaveLength(0);
+ await tap(card());
+ expect(card().querySelector('.card-open').getAttribute('aria-pressed')).toBe('true');
+ expect(root.querySelectorAll('.week-resize-handle')).toHaveLength(2);
+ expect(document.querySelector('.event-inspector')).toBeNull();
+ await tap(card().querySelector('.card-name'));
+ expect(document.querySelector('.event-inspector')).not.toBeNull();
+});
+
 it('keeps a rolling week and returns to today through the selected view tab',async()=>{
  await mount();
  const tabs=root.querySelector('.calendar-topbar [aria-label="Период расписания"]');
@@ -71,14 +112,36 @@ it('moves in time on the same day, then restores the original slot and keeps the
  await dragTo(todayISO(),600);
  saved=JSON.parse(localStorage.getItem(key)).events[0];expect(saved.start).toBe(600);expect(root.querySelectorAll('.week-ghost')).toHaveLength(0);expect(saved.history.length).toBeGreaterThan(1);
 });
-it('keeps board selection available in both day and week views',async()=>{
+it('keeps the day card layout available alongside the timeline',async()=>{
  await mount();
  const tabs=root.querySelector('.calendar-topbar [aria-label="Период расписания"]');
  await click(tabs.querySelector('button'));
- const board=()=>[...root.querySelectorAll('.week-layout-switch button')].find(button=>button.textContent==='Доска');
+ const board=()=>[...root.querySelectorAll('.week-layout-switch button')].find(button=>button.textContent==='По дням');
  await click(board());expect(root.querySelector('.calendar-day')).toBeTruthy();expect(root.querySelector('.week-timeline')).toBeNull();
  await click([...root.querySelectorAll('.week-layout-switch button')].find(button=>button.textContent==='По времени'));
  expect(root.querySelector('.week-timeline.is-day-view')).toBeTruthy();
+});
+it('shows the transfer queue alongside linked tasks and archives completed tasks',async()=>{
+ const data = sample();
+ data.events.push(moveEvent({...data.events[0],id:'pending',title:'Жду новую дату'},null,600,60));
+ await mount(data);
+ await click(root.querySelector('[data-event-id="one"] .card-open'));
+ const button = (selector,label) => [...root.querySelectorAll(selector)].find(node=>node.textContent.includes(label));
+ await click(button('.inspector-tasks button','Добавить стикер'));
+ const form = root.querySelector('.task-form');
+ const name = form.querySelector('.task-note-input');
+ await act(()=>{name.value='Проверить материалы';name.dispatchEvent(new Event('input',{bubbles:true}));});
+ await act(()=>form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+ expect(JSON.parse(localStorage.getItem(key)).tasks[0]).toMatchObject({eventId:'one',status:'todo'});
+ await click(root.querySelector('nav [aria-label="Доска"]'));
+ expect(root.querySelector('.task-lane-pending').textContent).toContain('Жду новую дату');
+ expect(root.querySelector('.task-lane-todo').textContent).toContain('Проверить материалы');
+ await click(root.querySelector('.task-lane-todo .action-menu-trigger'));
+ await click(button('.task-lane-todo [role="menuitem"]','Готово'));
+ await click(button('.task-lane-done button','Архивировать выполненные'));
+ expect(root.querySelector('.task-lane-done').textContent).not.toContain('Проверить материалы');
+ await click(button('.task-board-bar button','Архив'));
+ expect(root.querySelector('.task-archive').textContent).toContain('Проверить материалы');
 });
 it('uses a time-slot preview for mouse movement and never falls back to a board header',async()=>{
  await mount();

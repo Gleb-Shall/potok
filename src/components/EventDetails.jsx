@@ -11,7 +11,7 @@ import { eventAppearance, EVENT_STATES } from '../lib/state-appearance.js';
 import { ActivityStatus } from './EventListRow.jsx';
 import { Icon } from './Icon.jsx';
 
-export function EventDetails({ data, event, onEdit, onMove, onRestore, onRemind, onStatus, onStudent, onRecord, onClose, onDelete, onStop, anchor, initialMapExpanded = false, readOnly = false, now = Date.now() }) {
+export function EventDetails({ data, event, onEdit, onMove, onRestore, onRemind, onStatus, onStudent, onRecord, onClose, onDelete, onStop, tasksSection, alertsSection, anchor, initialMapExpanded = false, readOnly = false, now = Date.now() }) {
   const [mapExpanded,setMapExpanded]=useState(Boolean(initialMapExpanded && event.location));
   const type = eventType(data, event);
   const values = eventFields(data,event);
@@ -33,7 +33,7 @@ export function EventDetails({ data, event, onEdit, onMove, onRestore, onRemind,
       can('reopen') && {id:'reopen',icon:'refresh',label:appearance.state==='confirmed'?'Снять отметку о проведении':'Восстановить событие',onSelect:()=>onStatus('planned')},
       event.seriesId && onStop && {id:'stop',icon:'repeat',label:'Завершить повторы',description:'История проведённых событий сохранится',onSelect:onStop},
       !elapsed && can('cancel') && {id:'cancel',icon:'close',label:'Отменить событие',danger:true,onSelect:()=>onStatus('cancelled'),separate:true},
-      onDelete && {id:'delete',icon:'trash',label:'Удалить событие',danger:true,separate:true,onSelect:onDelete},
+      onDelete && {id:'delete',icon:'trash',label:'Удалить событие',danger:true,separate:elapsed || !can('cancel'),onSelect:onDelete},
     ]}/>}</div><div class="lesson-detail-time"><Icon name="calendar"/><strong>{event.date ? dateLabel(event.date, { weekday: 'long', year: 'numeric' }) : 'Новое время ещё не выбрано'}</strong>{event.date && <span>{minutesToTime(event.start)}–{minutesToTime(event.start + event.duration)}</span>}</div>
     {event.archiveKind === 'series' && <p class="quiet-note">Серия с {dateLabel(event.from)}{event.until && ` по ${dateLabel(event.until)}`} · раз в {event.intervalWeeks || 1} нед.</p>}
     {event.seriesId && <span class="inspector-recurrence"><Icon name="repeat"/>Повторяется по расписанию</span>}
@@ -41,10 +41,12 @@ export function EventDetails({ data, event, onEdit, onMove, onRestore, onRemind,
     <dl class="detail-fields">{type.fields.filter(field => fieldDisplay(field, values[field.id]) !== '').map(field => <div key={field.id}><dt>{field.label}{field.archived ? ' · скрыто в форме' : ''}</dt><dd><LinkedValue field={field} value={values[field.id]}/></dd></div>)}</dl>
     {recordLinks(record).length > 0 && <div class="detail-record-links"><h3 class="detail-section-title">Ссылки записи · {record?.name}</h3>{recordLinks(record).map(link => <ExternalLink key={link.href} href={link.href} className="card-link-chip">{link.label}</ExternalLink>)}</div>}
     {event.notes && <p class="notes-text"><LinkedText value={event.notes}/></p>}
-    <EventPlacePreview location={event.location} expanded={mapExpanded} onExpand={setMapExpanded}/>
     {!anchor && history && <><h3 class="detail-section-title">История переносов</h3>{history}</>}
     {!readOnly && <div class="inspector-record">{student ? <Button onClick={() => onStudent(student)} icon="users">Открыть запись ученика</Button> : record && allRecords(data).some(item => item.id === record.id) && <Button onClick={() => onRecord(record)} icon="users">Открыть запись · {RECORD_KINDS[record.kind] || 'Запись'}</Button>}</div>}
-    {anchor && history && <details class="inspector-history"><summary>История переносов</summary>{history}</details>}</div>
+    {anchor && history && <details class="inspector-history"><summary>История переносов</summary>{history}</details>}
+    {alertsSection}
+    <EventPlacePreview location={event.location} expanded={mapExpanded} onExpand={setMapExpanded}/>
+    {tasksSection}</div>
     {!readOnly && <div class="inspector-footer">
       {pending ? <><Button onClick={onMove} kind="primary" icon="calendar">Выбрать дату</Button>{can('restoreSlot') && onRestore && (event.originalDate || event.anchorDate) && <Button onClick={onRestore} icon="refresh">Вернуть на место</Button>}</> :
        elapsed ? <><Button kind="primary" icon="check" onClick={()=>onStatus('done')}>Проведён</Button><Button icon="close" onClick={()=>onStatus('cancelled')}>Отменён</Button></> :

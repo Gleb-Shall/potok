@@ -7,7 +7,7 @@ const databases=import.meta.hot?.data.databases || new WeakMap();
 if (import.meta.hot) import.meta.hot.dispose(data=>{data.databases=databases;});
 
 // Optional SDK adapter. The local application never imports this module.
-export function createFirebaseProvider({ config = getFirebaseConfig, appName = '[DEFAULT]', signIn } = {}) {
+export function createFirebaseProvider({ config = getFirebaseConfig, appName = '[DEFAULT]', browserPopup = true, signIn } = {}) {
   let runtime;
   const notifications=createFirebaseNotifications(()=>runtime,()=>provider.connect());
   const provider=createWorkspaceProvider({
@@ -20,7 +20,12 @@ export function createFirebaseProvider({ config = getFirebaseConfig, appName = '
       const [appSDK,authSDK,dbSDK]=await Promise.all([import('firebase/app'),import('firebase/auth'),import('firebase/firestore')]);
       // Preserve the existing Firebase Auth/Firestore cache names during migration.
       const app=appSDK.initializeApp(firebaseConfig,appName);
-      const auth=authSDK.getAuth(app);auth.languageCode='ru';
+      // Native sign-in returns credentials from the system browser. Starting the
+      // SDK's own sign-in iframe can delay session restoration inside WebKit.
+      const auth = browserPopup ? authSDK.getAuth(app) : authSDK.initializeAuth(app, {
+        persistence: [authSDK.indexedDBLocalPersistence, authSDK.browserLocalPersistence, authSDK.browserSessionPersistence],
+      });
+      auth.languageCode = 'ru';
       let db=databases.get(app);
       if (!db) {
         db=dbSDK.initializeFirestore(app,{localCache:typeof indexedDB==='undefined' ? dbSDK.memoryLocalCache() : dbSDK.persistentLocalCache({tabManager:dbSDK.persistentMultipleTabManager()})});

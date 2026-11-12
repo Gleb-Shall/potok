@@ -126,6 +126,21 @@ it('the guide opens a requested chapter and navigates through the contents',asyn
   expect(root.querySelector('.guide-mobile-contents select[aria-label="Тема"]').value).toBe('1');
 });
 
+it('the guide board exercise moves and archives a sample task and resets it',async () => {
+  await mount(<GuideView/>);
+  const press = (selector,text) => act(()=>[...root.querySelectorAll(selector)].find(button=>button.textContent===text).click());
+  await press('.guide-chapter-button','Доска');
+  await press('.guide-chapter-topics button','Перемещать и архивировать задачи');
+  await click('.guide-keyword');
+  await click('.task-lane-todo .action-menu-trigger');
+  await press('.task-lane-todo [role="menuitem"]','Переместить в «Готово»');
+  await press('.task-lane-done button','Архивировать выполненные');
+  await press('.task-board-bar button','Архив · 1');
+  expect(root.querySelector('.task-archive').textContent).toContain('Проверить макет');
+  await press('.guide-example > header button','Сначала');
+  expect(root.querySelector('.task-lane-todo').textContent).toContain('Проверить макет');
+});
+
 it('guide keywords expand a journal example with reversible sample actions',async () => {
   await mount(<GuideView initialChapter={3}/>);
   const byText=text=>[...root.querySelectorAll('button')].find(button=>button.textContent===text);
