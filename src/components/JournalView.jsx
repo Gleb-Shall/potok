@@ -13,7 +13,7 @@ export function JournalView({data, now, pending, renderPending, onOpenEvent, onO
   const visibleWaiting = query ? waiting.filter(event => eventMatches(data,event,query)) : waiting;
   return <section class="journal-view" aria-label="Журнал">
     <section class="activity-section">
-      <header class="activity-section-heading journal-queue-heading"><h2>Ждут подтверждения</h2><span class="section-count">{waiting.length}</span>{waiting.length > 0 && <Search value={query} onChange={setQuery} placeholder="Поиск ожидающих"/>}</header>
+      <header class="activity-section-heading journal-queue-heading"><div class="journal-queue-title"><h2>Ждут подтверждения</h2><span class="section-count">{waiting.length}</span></div>{waiting.length > 0 && <Search value={query} onChange={setQuery} placeholder="Поиск" label="Поиск ожидающих"/>}</header>
       {visibleWaiting.length ? <div class="activity-list">{visibleWaiting.map(event => <HistoryRow key={event.id} data={data} event={event} now={now} onOpen={onOpenEvent} onStatus={onStatus} showDate allowCancellation/>)}</div> :
         <p class="activity-empty">{waiting.length ? 'События не найдены.' : 'Все прошедшие события отмечены.'}</p>}
     </section>
@@ -22,9 +22,9 @@ export function JournalView({data, now, pending, renderPending, onOpenEvent, onO
       <header class="activity-section-heading journal-archive-heading">
         <h2>Архив</h2>
         <div class="week-layout-switch" role="group" aria-label="Раздел архива">
-          <button type="button" aria-pressed={archive==='events'} onClick={()=>setArchive('events')}>Проведённые и отменённые</button>
-          <button type="button" aria-pressed={archive==='moves'} onClick={()=>setArchive('moves')}>История переносов</button>
-          {onOpenArchived && <button type="button" aria-pressed={archive==='deleted'} onClick={()=>setArchive('deleted')}>Из удалённых шаблонов</button>}
+          <button type="button" aria-label="Проведённые и отменённые" aria-pressed={archive==='events'} onClick={()=>setArchive('events')}><span class="journal-archive-full">Проведённые и отменённые</span><span class="journal-archive-short" aria-hidden="true">События</span></button>
+          <button type="button" aria-label="История переносов" aria-pressed={archive==='moves'} onClick={()=>setArchive('moves')}><span class="journal-archive-full">История переносов</span><span class="journal-archive-short" aria-hidden="true">Переносы</span></button>
+          {onOpenArchived && <button type="button" aria-label="Из удалённых шаблонов" aria-pressed={archive==='deleted'} onClick={()=>setArchive('deleted')}><span class="journal-archive-full">Из удалённых шаблонов</span><span class="journal-archive-short" aria-hidden="true">Удалённые</span></button>}
         </div>
       </header>
       <div hidden={archive!=='events'}><HistoryView data={data} now={now} onOpen={onOpenEvent} onStatus={onStatus} archiveOnly/></div>

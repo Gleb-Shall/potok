@@ -174,6 +174,21 @@ it('supports an unchanged drop and opens the editor with the clicked time',async
  await act(()=>lane.dispatchEvent(new MouseEvent('dblclick',{bubbles:true,clientY:1102})));
  expect(root.querySelector('dialog input[type=time]').value).toBe('14:30');
 });
+it('opens creation after two nearby taps on an empty phone time slot', async () => {
+ usePhoneViewport();
+ await mount();
+ const lane = root.querySelector(`[data-visible-date="${todayISO()}"]`);
+ lane.getBoundingClientRect = () => ({top:0,height:1824});
+ const tap = async (target, y) => act(() => {
+   target.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true, pointerType:'touch', isPrimary:true, clientY:y}));
+   target.dispatchEvent(new PointerEvent('pointerup', {bubbles:true, pointerType:'touch', isPrimary:true, clientY:y}));
+ });
+ await tap(lane, 1102);
+ expect(root.querySelector('.event-editor-dialog')).toBeNull();
+ await tap(lane, 1104);
+ expect(root.querySelector('.event-editor-dialog input[type=time]').value).toBe('14:30');
+});
+
 it('selects on click, resizes only the selected card and opens on double click',async()=>{
  const data=sample();data.types.find(type=>type.id==='personal').cardStyle={smoke:false,liveText:false};
  await mount(data);

@@ -13,6 +13,7 @@ import { HOUR_HEIGHT, layoutDay, minuteAt, readTimeTarget, timeTarget, weekBound
 
 export function WeekCalendar({selectedEventId,motionPaused,onSelectEvent,days,events,ghosts,data,now,today,selectedDate,onSelectDate,onOpen,onCreate,onDragStart,onDragEnd,onDrop,onHover,onResize,onResizeActive,canEdit=true,draggingId,draggedEvent,dropTarget,grabOffset=0,fromHour=0,toHour=24,mobileDays=3,focusKey=0,panEnabled=true,onShift,mobileDay=false}) {
   const scroller = useRef(null);
+  const touchStart = useRef(null), lastTap = useRef(null);
   useTimelineScroll(scroller,draggingId,draggedEvent?.duration,onHover,grabOffset);
   useCalendarPan(scroller,{anchor:days[0],selectedDate,dayCount:days.length,mobileDays,focusKey,enabled:panEnabled,lockTouchAxis:mobileDay,onShift});
   const strip = useMemo(()=>Array.from({length:days.length+2*CALENDAR_BUFFER_DAYS},(_,i)=>addDays(days[0],i-CALENDAR_BUFFER_DAYS)),[days[0],days.length]);
@@ -36,6 +37,37 @@ export function WeekCalendar({selectedEventId,motionPaused,onSelectEvent,days,ev
     const rect=input.currentTarget.getBoundingClientRect();
     return timeTarget(date,minuteAt(input.clientY-offset/60*HOUR_HEIGHT,rect.top,rect.height,bounds.start,bounds.end,draggedEvent?.duration));
   };
+  const createAt = (date, input) => {
+    if (!canEdit || draggingId || resize.preview || input.target.closest('.week-event')) return;
+    onCreate(date, readTimeTarget(slot(date, input, 0))?.start);
+  };
+  const cancelTap = () => { touchStart.current = null; lastTap.current = null; };
+  const touchDown = input => {
+    if (input.pointerType !== 'touch' || input.isPrimary === false || input.target.closest('.week-event')) {
+      cancelTap();
+      return;
+    }
+    touchStart.current = { id: input.pointerId, x: input.clientX, y: input.clientY, time: Date.now() };
+  };
+  const movedTooFar = (start, input) => Math.hypot(start.x - input.clientX, start.y - input.clientY) > 20;
+  const touchMove = input => {
+    if (touchStart.current?.id === input.pointerId && movedTooFar(touchStart.current, input)) cancelTap();
+  };
+  const touchUp = (date, input) => {
+    const start = touchStart.current;
+    if (!start || start.id !== input.pointerId) return;
+    touchStart.current = null;
+    const time = Date.now();
+    if (movedTooFar(start, input) || time - start.time > 400) { cancelTap(); return; }
+    const previous = lastTap.current;
+    const tap = { date, x: input.clientX, y: input.clientY, time };
+    lastTap.current = tap;
+    if (previous && !previous.handled && previous.date === date && time - previous.time <= 400 &&
+        Math.hypot(previous.x - tap.x, previous.y - tap.y) <= 24) {
+      tap.handled = true;
+      createAt(date, input);
+    }
+  };
   const position = ({event,column,columns}) => ({top:`${(event.start-bounds.start)/60*HOUR_HEIGHT}px`,height:`${Math.max(18,event.duration/60*HOUR_HEIGHT)}px`,left:`calc(${column/columns*100}% + 3px)`,width:`calc(${100/columns}% - 6px)`});
   return <div class={`week-timeline ${days.length === 1 ? 'is-day-view' : ''} ${mobileDay ? 'is-mobile-day' : ''}`} style={{'--hour-height':`${HOUR_HEIGHT}px`,'--mobile-day-count':mobileDay ? 1 : mobileDays,'--week-day-count':days.length,'--rendered-day-count':strip.length}}>
     <div class="week-scroller" ref={scroller} tabIndex="0" aria-label={days.length === 1 ? 'Расписание дня по часам' : 'Недельное расписание по часам'}>
@@ -47,8 +79,9 @@ export function WeekCalendar({selectedEventId,motionPaused,onSelectEvent,days,ev
         <div class="week-time-axis" style={{height:`${height}px`}} aria-hidden="true">{hours.map(minute=><span key={minute} hidden={showNow && Math.abs(minute-currentMinute)<14} style={{top:`${(minute-bounds.start)/60*HOUR_HEIGHT}px`}}>{minutesToTime(minute)}</span>)}{showNow && <time class="week-now-time" dateTime={`${today}T${minutesToTime(currentMinute)}:00+03:00`} style={{top:`${(currentMinute-bounds.start)/60*HOUR_HEIGHT}px`}}>{minutesToTime(currentMinute)}</time>}</div>
         {lanes.map(({date,items,ghosts:old})=><section key={date} class={`week-day-lane ${date===today?'is-today':''}`} style={{height:`${height}px`}} data-time-date={date} data-visible-date={days.includes(date)?date:undefined} data-time-start={bounds.start} data-time-end={bounds.end} data-board-drop={date} aria-label={longDays[weekdayOf(date)]} onDragOver={input=>{
           if(!draggingId) return;input.preventDefault();input.dataTransfer.dropEffect='move';onHover(slot(date,input));
-        }} onDragLeave={input=>{if(!input.currentTarget.contains(input.relatedTarget))onHover('');}} onDrop={input=>{input.preventDefault();input.stopPropagation();onDrop(input,slot(date,input));}} onDoubleClick={input=>{
-          if(input.target.closest('.week-event'))return;onCreate(date,readTimeTarget(slot(date,input,0)).start);
+        }} onDragLeave={input=>{if(!input.currentTarget.contains(input.relatedTarget))onHover('');}} onDrop={input=>{input.preventDefault();input.stopPropagation();onDrop(input,slot(date,input));}} onPointerDown={touchDown} onPointerMove={touchMove} onPointerCancel={cancelTap} onPointerUp={input=>touchUp(date,input)}
+        onDblClick={input=>{
+          if (!lastTap.current || Date.now()-lastTap.current.time>450) createAt(date,input);
         }}>
           {old.map(item=><div key={`ghost:${item.event.id}`} class="week-event week-ghost" style={position(item)}><EventCard event={item.event} data={data} onOpen={onOpen} timeline/></div>)}
           {items.map(item=><div key={item.event.id} class={`week-event ${canEdit && item.event.status !== 'done' ? 'can-touch-move' : ''} ${resize.preview?.id===item.event.id?'is-resizing':''} ${item.event.duration<25?'is-tiny':''} ${item.event.duration<35?'is-short':item.event.duration<75?'is-medium':''}`} style={position(item)}><EventCard event={item.event} data={data} now={now} onOpen={onOpen} onSelect={onSelectEvent} selectBeforeOpen={mobileDay} selected={item.event.id===selectedEventId} motionPaused={motionPaused} onDragStart={onDragStart} onDragEnd={onDragEnd} isDragging={draggingId===item.event.id} timeline/>{onResize && canEdit && item.event.id===selectedEventId && !draggingId && item.event.status!=='done' && ['start','end'].map(edge=><button key={edge} type="button" class={`week-resize-handle is-${edge}`} aria-label={`Изменить ${edge==='start'?'начало':'конец'} события «${eventTitle(data,item.event)}»`} onPointerDown={input=>resize.begin(item.event,edge,input)} onKeyDown={input=>resize.keyboard(item.event,edge,input)}/>)}</div>)}

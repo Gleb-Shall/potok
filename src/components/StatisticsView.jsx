@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'preact/hooks';
+import { useMemo, useRef, useState } from 'preact/hooks';
 import { lazy, Suspense } from 'preact/compat';
 import { getRecord } from '../lib/events.js';
-import { matchesReportFilter, recordStatisticsOptions, reportFields, reportGroups, reportMeasure, reportRows, reportValue, summarizeEvents } from '../lib/statistics.js';
+import { matchesReportFilter, recordStatisticsOptions, reportFields, reportFilterFields, reportGroups, reportMeasure, reportRows, reportValue, summarizeEvents } from '../lib/statistics.js';
 import { addDays, monthStart, todayISO } from '../lib/domain.js';
 import { ActivityTime, EventListRow } from './EventListRow.jsx';
 import { MonthSelector } from './MonthSelector.jsx';
@@ -23,7 +23,9 @@ function isActiveRule({key,operator,first,last}) {
 
 function ReportFilter({rule,field,fields,rows,onChange,onRemove}) {
   const [operator,label] = filterTypes[field?.type] || ['equals','Равно'];
-  const options = field && ['select','multiselect'].includes(field.type) ? [...new Set(rows.flatMap(row=>reportValue(row,field) ?? []).filter(Boolean))] : [];
+  const options = field && ['select','multiselect'].includes(field.type)
+    ? [...new Set([...(field.options || []), ...rows.flatMap(row => reportValue(row, field) ?? [])].filter(Boolean))]
+    : [];
   return <div class="statistics-filter-row">
     <Select label="Поле для фильтра" value={rule.key} onChange={key=>onChange({...blankRule(rule.id),key})}>
       <option value="">Выбери поле</option>
@@ -54,6 +56,7 @@ export function StatisticsView({data, now, onOpen, onGuide}) {
   const [recordId,setRecordId] = useState('');
   const [typeId,setTypeId] = useState('');
   const [rules,setRules] = useState([]);
+  const nextRule = useRef(0);
   const [metric,setMetric] = useState('duration');
   const [operation,setOperation] = useState('sum');
   const [extra,setExtra] = useState([]);
@@ -76,10 +79,12 @@ export function StatisticsView({data, now, onOpen, onGuide}) {
   const scope = useMemo(()=>period.filter(row=>(!recordId || row.recordId===recordId) && (!typeId || row.type.id===typeId)),[period,recordId,typeId]);
   const fields = useMemo(()=>reportFields(scope),[scope]);
   const byKey = useMemo(()=>new Map(fields.map(field=>[field.key,field])),[fields]);
+  const filterFields = useMemo(() => reportFilterFields(scope, data.types.filter(type => !type.archived && (!typeId || type.id === typeId))), [scope, data.types, typeId]);
+  const filterByKey = useMemo(() => new Map(filterFields.map(field => [field.key, field])), [filterFields]);
   const activeRules = rules.filter(isActiveRule);
   const filtered = activeRules.length ? scope.filter(row=>activeRules.every(rule=>{
-    const field = byKey.get(rule.key);
-    return field && matchesReportFilter(row,field,rule);
+    const field = filterByKey.get(rule.key);
+    return field && matchesReportFilter(row,field,rule,data);
   })) : scope;
   const entries = filtered.map(row=>row.event);
   const {minutes,metrics,contributions} = summarizeEvents(data,entries);
@@ -118,8 +123,8 @@ export function StatisticsView({data, now, onOpen, onGuide}) {
         </Select>
       </div>
       <details class="statistics-advanced"><summary>Уточнить выборку {activeRules.length>0 && <span class="section-count">{activeRules.length}</span>}</summary>
-        {rules.map(rule=><ReportFilter key={rule.id} rule={rule} field={byKey.get(rule.key)} fields={fields} rows={scope} onChange={next=>{setRules(rules.map(item=>item.id===next.id?next:item));setSelectedGroup(null);}} onRemove={()=>{setRules(rules.filter(item=>item.id!==rule.id));setSelectedGroup(null);}}/>)}
-        <Button icon="plus" disabled={!fields.length} onClick={()=>setRules([...rules,blankRule(crypto.randomUUID())])}>Добавить условие</Button>
+        {rules.map(rule=><ReportFilter key={rule.id} rule={rule} field={filterByKey.get(rule.key)} fields={filterFields} rows={scope} onChange={next=>{setRules(rules.map(item=>item.id===next.id?next:item));setSelectedGroup(null);}} onRemove={()=>{setRules(rules.filter(item=>item.id!==rule.id));setSelectedGroup(null);}}/>)}
+        <Button icon="plus" onClick={()=>setRules(current=>[...current,blankRule(++nextRule.current)])}>Добавить условие</Button>
       </details>
     </section>
     <dl class="statistics-totals">

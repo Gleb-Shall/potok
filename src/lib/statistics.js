@@ -1,4 +1,4 @@
-import { allRecords, eventFields, eventType } from './events.js';
+import { allRecords, eventFields, eventTitle, eventType } from './events.js';
 
 const reportableEvents = data => [...data.events, ...(data.eventArchive || []).filter(item=>item.archiveKind==='event' && item.status==='done')];
 
@@ -87,13 +87,30 @@ export function reportFields(rows) {
   return [...fields.values()].sort((a,b)=>a.typeName.localeCompare(b.typeName,'ru')||a.label.localeCompare(b.label,'ru'));
 }
 
+const eventFilterFields = [
+  { key: 'event:title', label: 'Название', typeName: 'Событие', type: 'text', read: (row, data) => eventTitle(data, row.event) },
+  { key: 'event:duration', label: 'Длительность', typeName: 'Событие', type: 'number', unit: 'мин', read: row => row.event.duration },
+];
+
+export function reportFilterFields(rows, templates) {
+  const fields = new Map(reportFields(rows).map(field => [field.key, field]));
+  for (const type of templates) {
+    for (const field of type.fields) {
+      if (field.archived) continue;
+      const descriptor = reportField(type, field, type);
+      if (!fields.has(descriptor.key)) fields.set(descriptor.key, descriptor);
+    }
+  }
+  return [...eventFilterFields, ...fields.values()];
+}
+
 const isFilled = value => value != null && (Array.isArray(value) ? value.length>0 : typeof value!=='string' || value.trim()!=='');
 const fieldValue = (row,field) => row.values[field.id];
 const applies = (row,field) => row.fields.has(field.key);
 
-export function matchesReportFilter(row, field, filter) {
-  if (!applies(row,field)) return false;
-  const value = fieldValue(row,field), filled = isFilled(value);
+export function matchesReportFilter(row, field, filter, data) {
+  if (!field.read && !applies(row,field)) return false;
+  const value = field.read ? field.read(row, data) : fieldValue(row,field), filled = isFilled(value);
   if (filter.operator==='filled') return filled;
   if (filter.operator==='empty') return !filled;
   if (!filled) return false;

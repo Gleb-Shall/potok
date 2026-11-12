@@ -116,6 +116,16 @@ it('statistics facets follow one another and a selected group narrows the event 
   expect(root.querySelector('.statistics-events .statistics-amount').textContent).toBe('0 ₽');
 });
 
+it('lets the user add a statistics condition before there are completed events', async () => {
+  const workspace = data();
+  workspace.types = [];
+  await mount(<StatisticsView data={workspace} now={Date.parse('2026-10-31T12:00:00Z')} onOpen={vi.fn()}/>);
+  await click('.statistics-advanced summary');
+  await click('.statistics-advanced > button');
+  const fields = root.querySelector('.statistics-filter-row select');
+  expect([...fields.options].map(option=>option.value)).toEqual(['','event:title','event:duration']);
+});
+
 it('the guide opens a requested chapter and navigates through the contents',async () => {
   await mount(<GuideView initialChapter={4}/>);
   expect(root.querySelector('[aria-current="page"]').textContent).toBe('Выбрать период и события');

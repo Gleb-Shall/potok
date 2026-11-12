@@ -4,150 +4,200 @@ import { useState } from 'preact/hooks';
 import { act } from 'preact/test-utils';
 import { useWorkspace } from '../src/hooks/useWorkspace.js';
 import { emptyData } from '../src/lib/storage.js';
-const connection = vi.hoisted(() => ({ onAuth: vi.fn(), subscribe: vi.fn(), save: vi.fn(), fetch:vi.fn() }));
-const provider={id:'own-server',name:'Own server',connect:async()=>connection,getSession:()=>undefined};
-let root, auth, snapshot, renderedWorkspace;
-const data = revision => ({ ...emptyData(), records: [], revision });
+import { workspaceCacheKey } from '../src/lib/offline-workspace.js';
+
+const connection = { onAuth: vi.fn(), subscribe: vi.fn(), save: vi.fn(), fetch: vi.fn() };
+const provider = { id:'own-server', connect:async()=>connection };
+const key = workspaceCacheKey(provider.id, 'alice');
+const record = (id, name=id) => ({ id, name, kind:'student' });
+const data = (revision, records=[record('existing')]) => ({ ...emptyData(), records, revision });
+let root, auth, snapshot, workspace, signedIn;
+
 function Harness() {
- const [editing, setEditing] = useState(false), [error, setError] = useState('');
- const workspace = useWorkspace(editing,{provider});
- renderedWorkspace=workspace;
- return <><output>{`${workspace.session.mode}:${workspace.session.data.revision || 0}:${workspace.account.saving}:${workspace.stale}`}</output><time data-sync-time>{workspace.account.lastSyncedAt || 'none'}</time><span data-sync-state>{String(workspace.account.syncing)}</span><span role="alert">{error || workspace.account.syncError}</span><button onClick={async()=>{try{await workspace.sync();}catch(e){setError(e.message);}}}>sync</button><button onClick={() => setEditing(true)}>edit</button><button onClick={() => { setEditing(false); workspace.refresh(); }}>refresh</button><button onClick={async () => { try { await workspace.save(data(0)); } catch(e) {setError(e.message);} }}>save</button></>;
+  const [editing, setEditing] = useState(false);
+  workspace = useWorkspace(editing, { provider });
+  return <button onClick={()=>setEditing(true)}>Редактировать</button>;
 }
-const settle = () => new Promise(resolve => setTimeout(resolve, 0));
-const click = async text => act(async () => { [...root.querySelectorAll('button')].find(b=>b.textContent===text).click(); await settle(); });
-const status = () => root.querySelector('output').textContent;
+
+const tick = () => new Promise(resolve=>setTimeout(resolve,0));
+const records = () => workspace.session.data.records.map(item=>item.name);
+const edit = async () => act(()=>root.querySelector('button').click());
+const save = async next => act(()=>workspace.save(next));
+const sync = async preference => act(()=>workspace.sync(preference));
+const changeNetwork = async online => {
+  vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(online);
+  await act(()=>window.dispatchEvent(new Event(online ? 'online' : 'offline')));
+};
+const signIn = user => act(()=>{signedIn=user;auth(user);});
+
 beforeEach(async () => {
- vi.clearAllMocks(); localStorage.clear();
- connection.fetch.mockReset().mockResolvedValue(data(3)); connection.save.mockReset();
- connection.onAuth.mockImplementation(callback => {auth=callback;callback(null);return vi.fn();});
- connection.subscribe.mockImplementation((_uid, callback) => {snapshot=callback;return vi.fn();});
- root=document.createElement('div'); document.body.append(root);
- await act(() => render(<Harness/>,root));
- await act(() => auth({id:'alice'})); await act(() => snapshot(data(3),true));
-});
-afterEach(async () => {await act(()=>render(null,root));root.remove();vi.unstubAllGlobals();vi.restoreAllMocks();});
-it('freezes remote changes while editing and uses old revision for conflict detection',async () => {
- await click('edit');await act(()=>snapshot(data(4),true));
- expect(status()).toBe('cloud:3:false:true');
- connection.fetch.mockResolvedValue(data(4));
- await click('save');expect(connection.fetch).toHaveBeenCalledWith('alice');expect(connection.save).not.toHaveBeenCalled();
- expect(status()).toBe('cloud:3:false:true');expect(root.textContent).toContain('изменилось на другом устройстве');
- await click('refresh');expect(status()).toBe('cloud:4:false:false');
-});
-it('only reports saved after acknowledgement and ignores repeated clicks in flight',async () => {
- let finish;connection.save.mockImplementation(()=>new Promise(resolve=>{finish=resolve;}));
- await click('save');expect(status()).toBe('cloud:3:true:false');
- await click('save');expect(connection.save).toHaveBeenCalledOnce();
- await act(async ()=>{ finish(data(4)); await settle(); });expect(status()).toBe('cloud:4:false:false');
-});
-it('never applies an in-flight save to a different account',async () => {
- let finish;connection.save.mockImplementation(()=>new Promise(resolve=>{finish=resolve;}));
- await click('save');await act(()=>auth({id:'bob'}));await act(()=>snapshot(data(8),true));
- expect(status()).toBe('cloud:8:false:false');
- await act(async ()=>{ finish(data(4)); await settle(); });expect(status()).toBe('cloud:8:false:false');
-});
-it('blocks cloud writes offline and keeps visible data',async () => {
- vi.spyOn(navigator,'onLine','get').mockReturnValue(false);
- await act(()=>window.dispatchEvent(new Event('offline')));
- await click('save');expect(connection.save).not.toHaveBeenCalled();expect(status()).toBe('cloud:3:false:false');
- expect(root.textContent).toContain('Нет интернета');
-});
-it('opens cached data before the server responds but blocks writes until confirmed', async () => {
- await act(()=>auth({id:'bob'}));
- await act(()=>snapshot(data(2),false));
- expect(status()).toBe('cloud:2:false:false');
- await click('save');expect(connection.save).not.toHaveBeenCalled();
- expect(root.textContent).toContain('Дождись загрузки');
- await act(()=>snapshot(data(3),true));
- connection.save.mockResolvedValue(data(4));
- await click('save');expect(connection.save).toHaveBeenCalledWith('bob',expect.anything(),3);
- expect(status()).toBe('cloud:4:false:false');
-});
-it('reports a stalled initial load and recovers on the first snapshot', async () => {
- vi.useFakeTimers();
- try {
-  await act(() => auth({id:'bob'}));
-  await act(() => vi.advanceTimersByTime(10000));
-  expect(renderedWorkspace.account.error).toContain('Не удалось загрузить расписание');
-  expect(renderedWorkspace.account.hasData).toBe(false);
-
-  await act(() => snapshot(data(4),true));
-  expect(renderedWorkspace.account.error).toBe('');
-  expect(renderedWorkspace.account.ready).toBe(true);
-  expect(status()).toBe('cloud:4:false:false');
- } finally {
-  vi.useRealTimers();
- }
-});
-it('reports a stalled account check and can retry the saved session', async () => {
- vi.useFakeTimers();
- try {
-  await act(()=>render(null,root));
-  connection.onAuth.mockImplementation(callback => {auth=callback;return vi.fn();});
+  localStorage.clear();
+  signedIn = { id:'alice' };
+  connection.fetch.mockReset().mockResolvedValue(data(3));
+  connection.save.mockReset().mockImplementation(async (_user,next,revision)=>({ ...next, revision:revision+1 }));
+  connection.onAuth.mockReset().mockImplementation(callback=>{ auth=callback;callback(signedIn);return vi.fn(); });
+  connection.subscribe.mockReset().mockImplementation((_user,callback)=>{ snapshot=callback;return vi.fn(); });
+  root = document.createElement('div'); document.body.append(root);
+  await changeNetwork(false);
   await act(()=>render(<Harness/>,root));
-  await act(()=>vi.advanceTimersByTime(10000));
-  expect(renderedWorkspace.account.error).toContain('Не удалось проверить вход');
-
-  await act(()=>renderedWorkspace.reconnect());
-  await act(()=>auth({id:'alice'}));
-  await act(()=>snapshot(data(4),true));
-  expect(renderedWorkspace.account.error).toBe('');
-  expect(renderedWorkspace.account.ready).toBe(true);
- } finally {
-  vi.useRealTimers();
- }
-});
-it('ignores older cache data delivered after a newer server snapshot', async () => {
- await act(()=>snapshot(data(2),false));
- expect(status()).toBe('cloud:3:false:false');
+  await act(()=>snapshot(data(3), true));
 });
 
-it('manual refresh asks the server once and does not advance the time on failure',async()=>{
- await act(()=>snapshot(data(3),true,1000));
- let finish;connection.fetch.mockImplementation(()=>new Promise(resolve=>{finish=resolve;}));
- await click('sync');await click('sync');expect(connection.fetch).toHaveBeenCalledOnce();expect(root.querySelector('[data-sync-state]').textContent).toBe('true');
- await act(async()=>{snapshot(data(4),true,2000);finish(data(4));await settle();});
- expect(status()).toBe('cloud:4:false:false');expect(root.querySelector('[data-sync-time]').textContent).toBe('2000');
- connection.fetch.mockRejectedValue(new Error('No connection'));await click('sync');
- expect(root.querySelector('[data-sync-time]').textContent).toBe('2000');expect(root.textContent).toContain('No connection');
-});
-it('refresh on returning to a stale tab keeps an open draft and marks a remote change',async()=>{
- await click('edit');await act(()=>snapshot(data(3),true,1000));
- connection.fetch.mockImplementation(async()=>{snapshot(data(4),true,2000);return data(4);});
- await act(async()=>{window.dispatchEvent(new Event('focus'));window.dispatchEvent(new Event('focus'));await settle();});
- expect(connection.fetch).toHaveBeenCalledOnce();expect(status()).toBe('cloud:3:false:true');
- expect(root.querySelector('[data-sync-time]').textContent).toBe('2000');
+afterEach(async () => {
+  await act(()=>render(null,root));
+  root.remove();
+  vi.restoreAllMocks();
 });
 
-it('retains the revision used to compute an action even if a newer render arrives',async()=>{
- const oldSave=renderedWorkspace.save;
- await act(()=>snapshot(data(4),true));
- connection.fetch.mockResolvedValue(data(4));
- await act(async()=>{await expect(oldSave(data(3))).rejects.toThrow('изменилось на другом устройстве');});
- expect(connection.save).not.toHaveBeenCalled();
- expect(status()).toBe('cloud:4:false:true');
+it('reopens the offline edit after restart and uploads it automatically after reconnecting', async () => {
+  await save(data(3, [record('existing'),record('mine')]));
+  expect(records()).toEqual(['existing','mine']);
+  expect(workspace.account.pending).toBe(true);
+  expect(connection.fetch).not.toHaveBeenCalled();
+  await act(()=>render(null,root));
+  await act(()=>render(<Harness/>,root));
+  await act(tick);
+  expect(records()).toEqual(['existing','mine']);
+  expect(workspace.account.hasData).toBe(true);
+  expect(workspace.account.ready).toBe(false);
+  await changeNetwork(true);
+  await vi.waitFor(()=>expect(connection.save).toHaveBeenCalledWith('alice',expect.objectContaining({records:[record('existing'),record('mine')]}),3));
+  await act(tick);
+  expect(workspace.account.pending).toBe(false);
+  expect(JSON.parse(localStorage.getItem(key)).draft).toBeNull();
 });
 
-it('does not write after an A to B to A account change during preflight',async()=>{
- let finish;connection.fetch.mockImplementation(()=>new Promise(resolve=>{finish=resolve;}));
- await click('save');
- await act(()=>auth({id:'bob'}));await act(()=>auth({id:'alice'}));await act(()=>snapshot(data(8),true));
- await act(async()=>{finish(data(3));await settle();});
- expect(connection.save).not.toHaveBeenCalled();expect(status()).toBe('cloud:8:false:false');
+it('merges independent changes against the fresh cloud revision', async () => {
+  await save(data(3,[record('existing'),record('mine')]));
+  connection.fetch.mockResolvedValue(data(8,[record('existing'),record('theirs')]));
+  await changeNetwork(true);
+  await sync();
+  expect(connection.save).toHaveBeenCalledWith('alice',expect.objectContaining({records:[record('existing'),record('theirs'),record('mine')]}),8);
+  expect(records()).toEqual(['existing','theirs','mine']);
 });
 
-it('keeps the open draft and skips CAS when the preflight server read fails',async()=>{
- await click('edit');connection.fetch.mockRejectedValue(new Error('Server read failed'));
- await click('save');
- expect(connection.save).not.toHaveBeenCalled();expect(status()).toBe('cloud:3:false:false');
- expect(root.textContent).toContain('Server read failed');
+it.each(['local','cloud'])('asks which version to keep for a conflicting edit (%s)', async preference => {
+  await save(data(3,[record('existing','Локально'),record('mine')]));
+  connection.fetch.mockResolvedValue(data(4,[record('existing','В облаке'),record('theirs')]));
+  await changeNetwork(true);
+  await sync();
+  expect(connection.save).not.toHaveBeenCalled();
+  expect(workspace.account.conflict.items).toEqual([{label:'Локально'}]);
+  expect(records()).toEqual(['Локально','mine']);
+  await sync(preference);
+  expect(records()).toEqual([preference==='local'?'Локально':'В облаке','theirs','mine']);
+  expect(workspace.account.pending).toBe(false);
 });
 
-it('reconnecting the same identity preserves the draft base instead of replacing it with empty data',async()=>{
- await click('edit');
- connection.onAuth.mockImplementation(callback=>{auth=callback;callback({id:'alice'});return vi.fn();});
- await act(()=>renderedWorkspace.reconnect());
- await act(()=>snapshot(data(4),true));
- expect(status()).toBe('cloud:3:false:true');
+it('asks again if the cloud version changed since the conflict was shown', async () => {
+  await save(data(3,[record('existing','Локально')]));
+  connection.fetch.mockResolvedValue(data(4,[record('existing','В облаке')]));
+  await changeNetwork(true);
+  await sync();
+  connection.fetch.mockResolvedValue(data(5,[record('existing','Обновлено в облаке')]));
+  await sync('local');
+  expect(connection.save).not.toHaveBeenCalled();
+  expect(workspace.account.conflict.revision).toBe(5);
+});
+
+it('keeps changes queued on a failed read and keeps the next local edit', async () => {
+  await save(data(3,[record('existing','Первое изменение')]));
+  connection.fetch.mockRejectedValue(new Error('Облако недоступно'));
+  await changeNetwork(true);
+  await act(async ()=>{await expect(workspace.sync()).rejects.toThrow('Облако недоступно');});
+  expect(connection.save).not.toHaveBeenCalled();
+  expect(workspace.account.pending).toBe(true);
+  await save(data(3,[record('existing','Второе изменение')]));
+  expect(records()).toEqual(['Второе изменение']);
+});
+
+it('keeps a subsequent edit made during an upload for the next upload', async () => {
+  await save(data(3,[record('existing','Первое изменение')]));
+  let acknowledge;
+  connection.save.mockImplementationOnce((_user,next)=>new Promise(resolve=>{acknowledge=()=>resolve({...next,revision:4});}));
+  await changeNetwork(true);
+  let upload;
+  await act(async ()=>{upload=workspace.sync();await tick();});
+  await save(data(3,[record('existing','Второе изменение')]));
+  await act(async ()=>{acknowledge();await upload;});
+  expect(records()).toEqual(['Второе изменение']);
+  expect(workspace.account.pending).toBe(true);
+  expect(JSON.parse(localStorage.getItem(key)).base.revision).toBe(4);
+});
+
+it('freezes the visible snapshot during editing and guards a stale save', async () => {
+  const oldSave=workspace.save;
+  await edit();
+  await act(()=>snapshot(data(4,[record('existing','Новое значение')]),true));
+  expect(records()).toEqual(['existing']);
+  expect(workspace.stale).toBe(true);
+  await act(async()=>{await expect(oldSave(data(3,[record('existing','Устарело')]))).rejects.toThrow('Расписание изменилось');});
+  await act(()=>workspace.refresh());
+  expect(records()).toEqual(['Новое значение']);
+});
+
+it('does not show another account its offline copy or write after an account switch', async () => {
+  await save(data(3,[record('mine')]));
+  let finishRead;
+  connection.fetch.mockImplementation(()=>new Promise(resolve=>{finishRead=resolve;}));
+  await changeNetwork(true);
+  let upload;
+  await act(async()=>{upload=workspace.sync().catch(error=>error);await tick();});
+  await signIn({id:'bob'});
+  expect(workspace.account.hasData).toBe(false);
+  await act(()=>snapshot(data(8,[record('bob')]),true));
+  await act(async()=>{finishRead(data(3));await upload;});
+  expect(connection.save).not.toHaveBeenCalled();
+  expect(records()).toEqual(['bob']);
+  await signIn({id:'alice'});
+  expect(records()).toEqual(['mine']);
+});
+
+it('times out the initial connection without making a blank cloud workspace editable', async () => {
+  vi.useFakeTimers();
+  try {
+    await signIn({id:'bob'});
+    await act(()=>vi.advanceTimersByTime(10000));
+    expect(workspace.account.error).toContain('Не удалось загрузить расписание');
+    expect(workspace.account.hasData).toBe(false);
+    await act(()=>snapshot(data(8,[record('bob')]),true));
+    expect(workspace.account.error).toBe('');
+    expect(records()).toEqual(['bob']);
+  } finally { vi.useRealTimers(); }
+});
+
+it('ignores older cache data and keeps local changes after a cloud CAS failure', async () => {
+  await act(()=>snapshot(data(2,[record('old')]),false));
+  expect(records()).toEqual(['existing']);
+  await save(data(3,[record('existing'),record('mine')]));
+  connection.save.mockRejectedValue(Object.assign(new Error('Версия изменилась'), {code:'workspace/conflict'}));
+  await changeNetwork(true);
+  await act(async()=>{await expect(workspace.sync()).rejects.toThrow('Версия изменилась');});
+  expect(workspace.account.pending).toBe(true);
+  expect(records()).toEqual(['existing','mine']);
+});
+
+it('pauses sync if independently created busy events overlap', async () => {
+  const event = id => ({id, typeId:'lesson', title:id, date:'2026-11-12', start:600, duration:60, status:'planned', busy:true});
+  await save({...data(3), events:[event('Локальное')]});
+  connection.fetch.mockResolvedValue({...data(4), events:[event('Из облака')]});
+  await changeNetwork(true);
+  await sync();
+  expect(workspace.account.conflict.reason).toBe('overlap');
+  expect(connection.save).not.toHaveBeenCalled();
+  expect(workspace.session.data.events[0].id).toBe('Локальное');
+});
+
+it('keeps a newer server snapshot delivered while an upload is awaiting confirmation', async () => {
+  await save(data(3,[record('existing'),record('mine')]));
+  let acknowledge;
+  connection.save.mockImplementationOnce((_user,next)=>new Promise(resolve=>{acknowledge=()=>resolve({...next,revision:4});}));
+  await changeNetwork(true);
+  let upload;
+  await act(async()=>{upload=workspace.sync();await tick();});
+  await act(()=>snapshot(data(5,[record('existing'),record('mine'),record('newer')]),true));
+  await act(async()=>{acknowledge();await upload;});
+  expect(records()).toEqual(['existing','mine','newer']);
+  expect(workspace.account.pending).toBe(false);
+  expect(JSON.parse(localStorage.getItem(key)).base.revision).toBe(5);
 });

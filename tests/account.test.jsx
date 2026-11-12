@@ -37,16 +37,17 @@ describe('account workspace', () => {
   await act(() => snapshot({ ...empty(), revision: 1 }, true));
   expect(root.querySelector('.sync-copy').textContent).toContain('Обновлено');
  });
- it('shows a preflight conflict inside the editor and preserves its draft',async()=>{
+ it('saves a new event on the device even when the cloud read fails',async()=>{
   await act(()=>auth({id:'alice',email:'alice@example.com'}));
   await act(()=>snapshot({...empty(),revision:3},true));
   await click('Добавить событие');
   const title=root.querySelector('.event-editor-dialog input[type=text]');
   await act(()=>{title.value='Мой черновик';title.dispatchEvent(new Event('input',{bubbles:true}));});
-  connection.fetch.mockResolvedValue({...empty(),revision:4});
+  connection.fetch.mockRejectedValue(new Error('Облако недоступно'));
   await act(async()=>{root.querySelector('.event-editor-dialog form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));await new Promise(resolve=>setTimeout(resolve,0));});
-  expect(root.querySelector('.event-editor-dialog input[type=text]').value).toBe('Мой черновик');
-  expect(root.querySelector('.event-editor-dialog [role=alert]').textContent).toContain('Расписание изменилось');
+  expect(root.querySelector('.event-editor-dialog')).toBeNull();
+  expect(root.textContent).toContain('Мой черновик');
+  expect(root.querySelector('.sync-copy').textContent).toContain('На устройстве');
   expect(connection.save).not.toHaveBeenCalled();
  });
 });

@@ -35,6 +35,7 @@ export function createFirebaseProvider({ config = getFirebaseConfig, appName = '
       const workspace=userId=>dbSDK.doc(db,'users',userId,'workspaces','main');
       const google=new authSDK.GoogleAuthProvider();google.setCustomParameters({prompt:'select_account'});
       return {
+        cacheScope: `firebase:${firebaseConfig.projectId}`,
         auth:{
           subscribe:(callback,onError)=>authSDK.onAuthStateChanged(auth,user=>callback(user ? {id:user.uid,displayName:user.displayName || '',email:user.email || '',photoURL:user.photoURL || ''} : null),onError),
           signIn:()=>signIn ? signIn({auth,google,authSDK}) : authSDK.signInWithPopup(auth,google),

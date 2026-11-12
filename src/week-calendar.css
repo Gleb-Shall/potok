@@ -41,7 +41,7 @@
 .week-time-axis { position:sticky; left:0; background:var(--surface); z-index:4; }
 .week-time-axis > span { position:absolute; right:8px; font-size:11px; color:var(--muted); transform:translateY(-50%); font-variant-numeric:tabular-nums; }
 .week-time-axis > span:first-child { transform:translateY(4px); }
-.week-day-lane { position:relative; min-width:0; border-left:1px solid var(--calendar-line); background:repeating-linear-gradient(to bottom,var(--calendar-line) 0 1px,transparent 1px calc(var(--hour-height)/2),var(--calendar-subline) calc(var(--hour-height)/2) calc(var(--hour-height)/2 + 1px),transparent calc(var(--hour-height)/2 + 1px) var(--hour-height)); }
+.week-day-lane { touch-action:manipulation; position:relative; min-width:0; border-left:1px solid var(--calendar-line); background:repeating-linear-gradient(to bottom,var(--calendar-line) 0 1px,transparent 1px calc(var(--hour-height)/2),var(--calendar-subline) calc(var(--hour-height)/2) calc(var(--hour-height)/2 + 1px),transparent calc(var(--hour-height)/2 + 1px) var(--hour-height)); }
 .week-day-lane.is-today { background-color:var(--calendar-today); }
 .week-event { position:absolute; z-index:2; min-width:0; padding-bottom:2px; }
 .layout .week-event .lesson-card { width:100%; height:100%; border-radius:5px; position:relative; display:flex; flex-direction:column; min-height:0; box-shadow:inset 0 0 0 1px #24292008; }

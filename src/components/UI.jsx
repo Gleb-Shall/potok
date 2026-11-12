@@ -64,4 +64,4 @@ export function Modal({ title, subtitle, eyebrow, onClose, children, wide = fals
 }
 export function FormFooter({ onClose, label = 'Сохранить', disabled, children }) { return <div class="modal-footer">{children}<Button onClick={onClose}>Отмена</Button><button type="submit" class="button primary" disabled={disabled}>{label}</button></div>; }
 export function ErrorMessage({ error }) { return error ? <p class="form-error" role="alert">{error}</p> : null; }
-export function Search({ value, onChange, placeholder = 'Поиск событий' }) { return <label class="search-field"><Icon name="search"/><input type="search" value={value} onInput={event => onChange(event.currentTarget.value)} placeholder={placeholder} aria-label={placeholder}/></label>; }
+export function Search({ value, onChange, placeholder = 'Поиск событий', label = placeholder }) { return <label class="search-field"><Icon name="search"/><input type="search" value={value} onInput={event => onChange(event.currentTarget.value)} placeholder={placeholder} aria-label={label}/></label>; }

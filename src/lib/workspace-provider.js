@@ -24,7 +24,7 @@ export function createWorkspaceProvider({ id, name, connect, signInLabel = 'Во
     connect() {
       if (pending) return pending;
       const expected=generation;
-      pending = Promise.resolve().then(connect).then(({ auth, storage, metadata, dispose }) => {
+      pending = Promise.resolve().then(connect).then(({ auth, storage, metadata, cacheScope = id, dispose }) => {
         if (generation!==expected) {dispose?.();throw new Error('Подключение закрыто.');}
         for (const [service, methods] of [[auth,['subscribe','signIn','signOut']],[storage,['subscribe','read','compareAndSwap']]]) {
           for (const method of methods) if (typeof service?.[method] !== 'function') {dispose?.();throw new Error(`Адаптер ${id}: не реализован ${method}.`);}
@@ -44,6 +44,7 @@ export function createWorkspaceProvider({ id, name, connect, signInLabel = 'Во
           readSync: userId => metadata?.readSync?.(userId),
           rememberSync: (userId,at) => metadata?.rememberSync?.(userId,at),
         });
+        session.cacheScope = cacheScope;
         const disposeSession=session.dispose;
         let closed=false;
         session.dispose=()=>{if(closed)return;closed=true;disposeSession();dispose?.();};
