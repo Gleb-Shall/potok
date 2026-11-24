@@ -32,9 +32,20 @@ export function persistData(mode, data, revision = 0) {
   catch { throw new Error('Не удалось сохранить изменения. Проверь свободное место и разрешение на хранение данных в браузере.'); }
   return next;
 }
-export function exportData(mode, data) {
-  const blob = new Blob([JSON.stringify({ version: 2, exportedAt: new Date().toISOString(), mode, data }, null, 2)], { type: 'application/json' });
+export function exportData(mode, data, saveFile) {
+  const name = `potok-${mode}-${todayISO()}.json`;
+  const contents = JSON.stringify({ version: 2, exportedAt: new Date().toISOString(), mode, data }, null, 2);
+  if (saveFile) return saveFile(name, contents);
+
+  const blob = new Blob([contents], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a'); anchor.href = url; anchor.download = `potok-${mode}-${todayISO()}.json`; anchor.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = name;
+  document.body.append(anchor);
+  try { anchor.click(); }
+  finally {
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
 }

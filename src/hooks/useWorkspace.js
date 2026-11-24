@@ -122,7 +122,7 @@ export function useWorkspace(editing, { initialMode, demoOnly = false, provider 
           return updateWorkspaceCache(identity.key, entry => {
             if (owner.current !== identity || identity.revoked || entry?.draft || (entry && data.revision <= entry.base.revision)) return entry;
             return { base: data, draft: null };
-          }).then(entry => {
+          }, { recoverFromServer: fromServer }).then(entry => {
             if (owner.current !== identity || identity.revoked) return;
             setAccount(state => ({ ...state, ready: fromServer || state.ready, error: '',
               ...(fromServer && { lastSyncedAt: Math.max(state.lastSyncedAt || 0, syncedAt || Date.now()) }),

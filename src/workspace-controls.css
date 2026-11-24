@@ -1,4 +1,11 @@
 /* Shared workspace buttons and segmented controls. */
+:is(.layout, .workspace-entry, dialog) :is(button, a, summary, [role=option]) {
+  -webkit-tap-highlight-color:transparent;
+}
+:is(.layout, .workspace-entry, dialog) :is(button, a, summary):focus-visible {
+  outline-color:var(--focus-color);
+}
+
 :is(.layout, .workspace-entry, dialog) :is(.button, .icon-button),
 .layout .header-actions > .button.primary {
   border-radius:999px;
@@ -8,24 +15,41 @@
   font-weight:600;
 }
 
+:is(.layout, .workspace-entry, dialog) .button.secondary {
+  background:var(--control-surface);
+  border-color:var(--control-border);
+  color:var(--ink);
+}
+
+:is(.layout, dialog) .button.accent {
+  background:var(--action-accent);
+  border-color:var(--action-accent);
+  color:var(--accent-ink);
+  font-weight:600;
+}
+
 @media (hover:hover) {
   :is(.layout, .workspace-entry, dialog) .button.primary:hover:not(:disabled) {
     background:var(--primary-hover);
     border-color:var(--primary-hover);
     color:var(--surface);
   }
+  :is(.layout, .workspace-entry, dialog) .button.secondary:hover:not(:disabled) {
+    background:var(--surface-selected);
+  }
+  :is(.layout, dialog) .button.accent:hover:not(:disabled) { filter:brightness(.92); }
 }
 
 :is(.layout, .workspace-entry, dialog) :is(.button, .icon-button):active:not(:disabled) {
   filter:brightness(.91);
 }
 
-:is(.layout, dialog) :is(.range-switch, .week-layout-switch, .place-tabs, .map-source-switch),
-:is(.layout, dialog) :is(.range-switch, .week-layout-switch, .place-tabs, .map-source-switch, .directory-filters) > button {
+:is(.layout, dialog) :is(.range-switch, .week-layout-switch),
+:is(.layout, dialog) :is(.range-switch, .week-layout-switch, .directory-filters) > button {
   border-radius:999px;
 }
 
-:is(.layout, dialog) :is(.range-switch, .week-layout-switch, .place-tabs, .map-source-switch) > :is([aria-pressed=true], .active) {
+:is(.layout, dialog) :is(.range-switch, .week-layout-switch) > :is([aria-pressed=true], .active) {
   background:var(--surface-raised);
   color:var(--ink);
   box-shadow:0 1px 3px #11171024;
@@ -69,3 +93,57 @@
 }
 
 .sync-conflict-actions { display:flex; align-items:center; flex-wrap:wrap; gap:6px; }
+
+.section-actions {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  gap:8px 12px;
+  margin-block-end:12px;
+}
+.section-actions h2 { margin:0; font-size:1.25rem; line-height:1.2; font-weight:650; }
+.section-actions-buttons { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+.section-switch {
+  display:grid;
+  grid-auto-flow:column;
+  grid-auto-columns:minmax(0,1fr);
+  gap:3px;
+  padding:3px;
+  border:1px solid var(--control-border);
+  border-radius:16px;
+  background:var(--control-surface);
+}
+.section-switch > button {
+  min-inline-size:0;
+  min-block-size:40px;
+  padding:5px 7px;
+  border:1px solid transparent;
+  border-radius:12px;
+  background:transparent;
+  color:var(--text-secondary);
+  font:inherit;
+  font-size:.875rem;
+  line-height:1.2;
+  overflow-wrap:anywhere;
+}
+.section-switch > button:is([aria-selected=true],[aria-pressed=true]) {
+  border-color:var(--control-border);
+  background:var(--surface-raised);
+  color:var(--ink);
+  font-weight:650;
+}
+.section-switch > button:focus-visible { outline:2px solid var(--focus-color); outline-offset:-2px; }
+.template-list-switch { margin-block-end:12px; }
+.layout :is(.record-filter-toolbar, .statistics-view, .guide-mobile-contents) :is(.search-field, .field select, .field input:not([type="checkbox"])) {
+  border-radius:14px;
+}
+
+@media (max-width:760px) {
+  .section-actions :is(.button, .text-button), .section-switch > button { min-block-size:44px; }
+  .section-actions :is(.button, .text-button) { padding-inline:12px; }
+  .layout :is(.record-filter-toolbar, .statistics-view, .guide-mobile-contents) :is(.search-field, .field select, .field input:not([type="checkbox"])) {
+    min-block-size:44px;
+  }
+  .task-board-bar .section-actions-buttons .button:not(.primary) { padding-inline:10px; }
+}

@@ -154,14 +154,14 @@ export function usePressDrag(config) {
     ...config,
     onStart: value => { setDrag(value); config.onActiveChange?.(true,value.mode,value.item); paint(value.point); },
     onMove: (point,mode) => { paint(point);const target=config.hitTest(point,mode);setHover(target);config.onHover?.(target,mode); },
-    onEnd: () => { setDrag(null); setHover(null); config.onActiveChange?.(false); cancelAnimationFrame(frame.current); frame.current = 0; },
+    onEnd: () => { setDrag(null); setHover(null); last.current=null; config.onActiveChange?.(false); cancelAnimationFrame(frame.current); frame.current = 0; },
   };
   useEffect(() => {
     const dispose = attachPressDrag(config.root, options);
     cancelRef.current = dispose.cancel;
     return () => { dispose(); cancelAnimationFrame(frame.current); };
   }, [config.root, config.enabled]);
-  return { drag, hover, ghostRef, cancel: () => { cancelRef.current?.(); setDrag(null); setHover(null); } };
+  return { drag, hover, ghostRef, pointRef:last, cancel: () => { cancelRef.current?.(); setDrag(null); setHover(null); } };
 }
 
 export const touchDropTarget = (point, selector, attribute) => document.elementFromPoint(point.x, point.y)?.closest(selector)?.getAttribute(attribute) || null;

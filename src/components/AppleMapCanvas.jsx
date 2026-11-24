@@ -4,7 +4,7 @@ import { validLocation } from '../lib/places.js';
 import { useMapTheme } from '../hooks/useMapTheme.js';
 
 const emptyPoints = [];
-export default function AppleMapCanvas({ location, points = emptyPoints, onPick, onSelect, focusRequest = 0 }) {
+export default function AppleMapCanvas({ location, points = emptyPoints, onPick, onSelect, userLocation, focusRequest = 0 }) {
   const theme=useMapTheme();
   const themeRef=useRef(theme);themeRef.current=theme;
   const element = useRef(null);
@@ -63,5 +63,15 @@ export default function AppleMapCanvas({ location, points = emptyPoints, onPick,
     else if (changed && annotations.length > 1) map.showItems(annotations, { animate: true, padding: new kit.Padding(50, element.current.clientWidth > 700 ? 370 : 50, 50, 50) });
     return () => { if (instance.current?.map === map) map.removeAnnotations(annotations); };
   }, [ready, location, points, focusRequest]);
+  useEffect(() => {
+    if (!ready || !instance.current || !validLocation(userLocation)) return;
+    const {map,kit} = instance.current;
+    const coordinate = new kit.Coordinate(userLocation.lat,userLocation.lng);
+    const marker = new kit.MarkerAnnotation(coordinate,{title:'Моё местоположение',color:'#1976d2',glyphText:'●'});
+    map.addAnnotations([marker]);
+    map.setCenterAnimated(coordinate,true);
+    map.setCameraDistanceAnimated(1400,true);
+    return () => { if (instance.current?.map===map) map.removeAnnotations([marker]); };
+  },[ready,userLocation]);
   return <div class="map-canvas-wrap"><div class="map-canvas apple-map" ref={element} aria-label="Apple Maps"/>{!ready && !error && <span class="map-loading" role="status">Загружаю Apple Maps…</span>}{error && <div class="apple-map-error" role="alert"><strong>Apple Maps пока недоступна</strong><p>{error}</p></div>}</div>;
 }

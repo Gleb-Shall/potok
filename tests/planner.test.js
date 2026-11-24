@@ -16,8 +16,9 @@ test('duration and end time update in both directions and handle midnight', () =
   assert.equal(eventEnd('23:30', 30), '00:00');
   assert.equal(updateTiming({ start: '23:30' }, 'end', '00:00').duration, 30);
   assert.equal(updateTiming({ start: '00:00' }, 'end', '00:00').duration, 1440);
-  assert.equal(eventEnd('23:30', 60), '');
-  assert.equal(updateTiming(timing, 'end', '16:00').duration, -60);
+  assert.equal(eventEnd('23:30', 60), '00:30');
+  assert.equal(updateTiming({ start:'23:30' }, 'end', '01:00').duration, 90);
+  assert.equal(updateTiming(timing, 'end', '16:00').duration, 1380);
   assert.equal(eventEnd('', 60), '');
 });
 test('permanent deletion removes a one-off event and its ghost/history', () => {

@@ -4,15 +4,15 @@ import workerURL from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { validLocation } from '../lib/places.js';
 import { useMapTheme } from '../hooks/useMapTheme.js';
+import { vectorMapStyle } from '../lib/vector-map-style.js';
 
 export { validLocation } from '../lib/places.js';
 setWorkerUrl(workerURL);
-const mapStyle = theme => theme==='dark' ? import.meta.env.VITE_MAP_DARK_STYLE_URL || 'https://tiles.openfreemap.org/styles/dark' : import.meta.env.VITE_MAP_STYLE_URL || 'https://tiles.openfreemap.org/styles/liberty';
 const emptyPoints = [];
 
-export default function VectorMapCanvas({ location, points = emptyPoints, onPick, onSelect, focusRequest = 0 }) {
+export default function VectorMapCanvas({ location, points = emptyPoints, onPick, onSelect, userLocation, focusRequest = 0 }) {
   const theme=useMapTheme();
-  const styleRef=useRef(mapStyle(theme));
+  const styleRef=useRef(vectorMapStyle(theme));
   const element = useRef(null);
   const mapRef = useRef(null);
   const lastPicked = useRef(null);
@@ -26,7 +26,7 @@ export default function VectorMapCanvas({ location, points = emptyPoints, onPick
     let map;
     try {
       map = new VectorMap({
-        container: element.current, style: styleRef.current, center: [30.3351, 59.9343], zoom: 12,
+        container: element.current, ...styleRef.current, center: [30.3351, 59.9343], zoom: 12,
         maxZoom: 20, scrollZoom: true, cooperativeGestures: false, dragRotate: false,
         touchPitch: false, attributionControl: { compact: true },
       });
@@ -48,8 +48,10 @@ export default function VectorMapCanvas({ location, points = emptyPoints, onPick
     return () => { observer.disconnect(); map.remove(); mapRef.current = null; };
   }, []);
   useEffect(()=>{
-    const style=mapStyle(theme);
-    if(mapRef.current && styleRef.current!==style) {styleRef.current=style;mapRef.current.setStyle(style);}
+    const next=vectorMapStyle(theme);
+    if (!mapRef.current || (styleRef.current.style===next.style && styleRef.current.transformStyle===next.transformStyle)) return;
+    styleRef.current=next;
+    mapRef.current.setStyle(next.style, { transformStyle:next.transformStyle });
   },[theme]);
   useEffect(() => {
     const map = mapRef.current;
@@ -82,5 +84,17 @@ export default function VectorMapCanvas({ location, points = emptyPoints, onPick
     }
     return () => markers.forEach(marker => marker.remove());
   }, [location, points, focusRequest]);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !validLocation(userLocation)) return;
+    const element = document.createElement('span');
+    element.className = 'user-location-marker';
+    element.setAttribute('role','img');
+    element.setAttribute('aria-label','Моё местоположение');
+    const center = [userLocation.lng,userLocation.lat];
+    const marker = new Marker({element}).setLngLat(center).addTo(map);
+    map.easeTo({center,zoom:16,duration:500});
+    return () => marker.remove();
+  },[userLocation]);
   return <div class="map-canvas-wrap"><div ref={element} class="map-canvas" aria-label="Карта мест событий"/>{loading && <span class="map-loading" role="status">Загружаю карту…</span>}{error && <p class="map-error" role="status">{error}</p>}</div>;
 }

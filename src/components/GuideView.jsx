@@ -37,7 +37,7 @@ export function GuideView({initialChapter = 0}) {
     if (nextChapter) return [chapterIndex+offset,offset<0 ? nextChapter.topics.length-1 : 0];
   };
   return <section class="user-guide" aria-label="Руководство пользователя">
-    <div class="guide-masthead"><Icon name="book"/><span>Руководство Потока</span></div>
+    <header class="section-actions guide-masthead"><h2>Руководство Потока</h2></header>
     <div class="user-guide-layout">
       <nav class="guide-contents" aria-label="Оглавление руководства">
         <ul>{chapters.map((item,i)=><li key={item.title}>

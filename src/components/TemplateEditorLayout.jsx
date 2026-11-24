@@ -24,32 +24,33 @@ export function TemplateEditorSettings({ description, open, onToggle, children }
   </details>;
 }
 
-export function TemplateEditorFields({ fields, renderField, onMove, emptyMessage, onAdd, children }) {
+export function TemplateEditorFields({ fields, renderField, onMove, onRemove, emptyMessage, onAdd, children }) {
   const {list,gripProps} = useFieldReorder(fields.length, onMove);
   return <>
     <div class="builder-heading"><h3>Дополнительные поля</h3><Button icon="plus" onClick={onAdd}>Добавить поле</Button></div>
     {emptyMessage && <p class="builder-empty">{emptyMessage}</p>}
     <ul class="builder-fields" ref={list}>
-      {fields.map((field,index) => <li class="builder-field-row" key={field.id}>
+      {fields.map((field,index) => <li class={`builder-field-row${onRemove ? ' has-field-remove' : ''}`} key={field.id}>
         <button type="button" class="card-style-grip builder-field-grip" {...gripProps(index,field.label || 'Новое поле')}>
           <span aria-hidden="true">⠿</span>
         </button>
         {renderField(field)}
+        {onRemove && <Button kind="secondary builder-field-delete" icon="trash"
+          title="Удалить поле" aria-label={`Удалить поле «${field.label || 'Новое поле'}»`} onClick={()=>onRemove(field)}/>}
       </li>)}
     </ul>
     {children}
   </>;
 }
 
-export function TemplateEditorField({ field, open, onToggle, action, formatLocked, showOptions, children }) {
-  return <details class={field.archived ? 'builder-field field-archived' : 'builder-field'} open={open}>
+export function TemplateEditorField({ field, open, onToggle, formatLocked, showOptions, children }) {
+  return <details class="builder-field" open={open}>
     <summary class="builder-field-summary" onClick={event => { event.preventDefault(); onToggle(open ? '' : field.id); }}>
       <strong>{field.label || 'Новое поле'}{showOptions && field.options?.some(option => option.trim()) && <small>{field.options.filter(option => option.trim()).join(' · ')}</small>}</strong>
-      <small class="builder-format-tag">{formatLocked && <Icon name="lock"/>}{field.archived ? 'Скрыто' : FIELD_TYPES[field.type]}</small><Icon name="down"/>
+      <small class="builder-format-tag">{formatLocked && <Icon name="lock"/>}{FIELD_TYPES[field.type]}</small><Icon name="down"/>
     </summary>
     <div class="builder-field-body">
       {children}
-      {action && <div class="builder-field-actions">{action}</div>}
     </div>
   </details>;
 }

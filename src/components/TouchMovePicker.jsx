@@ -1,12 +1,13 @@
 import { calendarRange } from '../lib/events.js';
 import { createPortal } from 'preact/compat';
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { addDays, monthStart, minutesToTime, todayISO } from '../lib/domain.js';
+import { eventTimeRange } from '../lib/timing.js';
+import { addDays, monthStart, todayISO } from '../lib/domain.js';
 
 export function PressDragGhost({ controller, title }) {
   const { drag, ghostRef } = controller;
   if (!drag || drag.mode==='timeline') return null;
-  return createPortal(<div ref={ghostRef} class="press-drag-ghost" aria-hidden="true" style={{ background: drag.background, color: drag.color, transform: `translate3d(${drag.point.x}px,${drag.point.y}px,0)` }}><time>{minutesToTime(drag.item.start)}–{minutesToTime(drag.item.start + drag.item.duration)}</time><strong>{title}</strong></div>, document.body);
+  return createPortal(<div ref={ghostRef} class="press-drag-ghost" aria-hidden="true" style={{ background: drag.background, color: drag.color, transform: `translate3d(${drag.point.x}px,${drag.point.y}px,0)` }}><time>{eventTimeRange(drag.item.start,drag.item.duration)}</time><strong>{title}</strong></div>, document.body);
 }
 
 export function TouchMovePicker({ controller, title, onChoose, dragging = true, onHover }) {

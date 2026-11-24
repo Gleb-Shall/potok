@@ -83,7 +83,6 @@
 .layout .free-day span { font-size:13px; color:var(--muted); }
 .layout .calendar-bottom { border-top:1px solid var(--line); padding:12px 20px; border-radius:0 0 14px 14px; } /* taste-skill-ignore: the working calendar uses boundaries between real date columns and controls. */
 .layout .calendar-bottom .drag-hint { color:var(--muted); font-size:13px; }
-.layout .pending-panel.is-empty { display:none; }
 .layout .pending-panel { border-color:var(--line); background:var(--surface); border-radius:12px; }
 .layout .page-footer { padding-top:18px; color:var(--muted); font-size:12px; }
 .touch-move-picker { border-radius:18px; color:var(--ink); }

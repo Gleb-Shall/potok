@@ -311,16 +311,6 @@ h1 {
   background:#bce58b;
 }
 
-.button.secondary {
-  background:#fff;
-  border-color:#e5e8ed;
-  color:#656b7c;
-}
-
-.button.secondary:hover {
-  background:#f5f6f8;
-}
-
 .button.small {
   min-height:31px;
   padding:5px 10px;

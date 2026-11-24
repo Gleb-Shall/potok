@@ -1,9 +1,9 @@
 import { eventTitle } from '../lib/events.js';
-import { minutesToTime } from '../lib/domain.js';
+import { eventTimeRange } from '../lib/timing.js';
 import { dateLabel } from './UI.jsx';
 
 export function ActivityTime({ date, start, duration }) {
-  return <>{date && <small>{dateLabel(date)}</small>}<span><time>{minutesToTime(start)}</time>–<time>{minutesToTime(start+duration)}</time></span></>;
+  return <>{date && <small>{dateLabel(date)}</small>}<span><time>{eventTimeRange(start,duration)}</time></span></>;
 }
 
 export function ActivityStatus({ appearance }) {

@@ -4,6 +4,7 @@ import { readCardStyle } from './card-style.js';
 import { referencedCardBackgrounds, saveCardBackground } from './card-backgrounds.js';
 import { activeReminders, eventAlerts } from './reminder-model.js';
 import { addDays, mondayOf, weekdayOf, validateStudent } from './domain.js';
+import { DAY_MINUTES, validEventTiming } from './timing.js';
 
 export const FIELD_TYPES = { text: 'Текст', url: 'Ссылка', textarea: 'Длинный текст', number: 'Число', date: 'Дата', select: 'Один вариант', multiselect: 'Несколько вариантов', checkbox: 'Флажок' };
 export const RECORD_KINDS = { student: 'Ученик', person: 'Человек', course: 'Предмет', place: 'Место', project: 'Проект' };
@@ -144,13 +145,16 @@ export function* recurringEventsThrough(series, end) {
     }
   }
 }
-export function projectWeek(data, start, dayCount = 7) {
+export function projectWeek(data, start, dayCount = 7, {includeContinuations = false} = {}) {
   const end = addDays(start, dayCount - 1);
   const inWeek = date => date && date >= start && date <= end;
+  const previous = includeContinuations ? addDays(start, -1) : null;
+  const visible = (date, minute, duration) => inWeek(date) ||
+    (previous !== null && date === previous && minute + duration > DAY_MINUTES);
   const stored = new Map(data.events.map(event => [event.id, event]));
   const all = new Map();
   for (const series of data.series) {
-    for (let day = 0; day < dayCount; day++) {
+    for (let day = includeContinuations ? -1 : 0; day < dayCount; day++) {
       const date = addDays(start, day);
       if (seriesOccurs(series, date)) { const item = occurrence(series, date); all.set(item.id, stored.get(item.id) || item); }
     }
@@ -159,10 +163,12 @@ export function projectWeek(data, start, dayCount = 7) {
   const events = [], ghosts = [], pending = [];
   for (const event of all.values()) {
     if (event.status === 'pending') pending.push(event);
-    else if (event.status !== 'cancelled' && inWeek(event.date)) events.push(event);
+    else if (event.status !== 'cancelled' && visible(event.date,event.start,event.duration)) events.push(event);
     const origin = event.originalDate || event.anchorDate || event.date;
     const changed = event.date !== origin || event.start !== (event.originalStart ?? event.start) || event.status === 'pending' || event.status === 'cancelled';
-    if (changed && inWeek(origin)) ghosts.push({ ...event, ghost: true, destinationDate: event.date, destinationStart: event.start, date: origin, start: event.originalStart ?? event.start });
+    const originalStart = event.originalStart ?? event.start;
+    const originalDuration = event.originalDuration ?? event.duration;
+    if (changed && visible(origin,originalStart,originalDuration)) ghosts.push({ ...event, ghost: true, destinationDate: event.date, destinationStart: event.start, date: origin, start: originalStart, duration: originalDuration });
   }
   const sorted = list => list.sort((a, b) => (a.date || '').localeCompare(b.date || '') || a.start - b.start);
   return { events: sorted(events), ghosts: sorted(ghosts), pending };
@@ -192,7 +198,7 @@ export function moveEvent(event, date, start, duration) {
 export function validateEvent(data, input) {
   if (!input.title?.trim() || input.title.length > 200) throw new Error('Укажи название до 200 символов.');
   addDays(input.date, 0);
-  if (!Number.isInteger(input.start) || !Number.isInteger(input.duration) || input.start < 0 || input.duration < 5 || input.start + input.duration > 1440) throw new Error('Событие должно длиться не меньше 5 минут и закончиться в тот же день.');
+  if (!validEventTiming(input.start,input.duration)) throw new Error('Событие должно длиться от 5 минут до 24 часов.');
   const type = data.types.find(item => item.id === input.typeId);
   if (!type) throw new Error('Выбери существующий шаблон события.');
   if (type.requireStudent && !input.recordDetached && !data.students.some(student => student.id === input.studentId)) throw new Error('Для этого типа нужен ученик. Сначала добавь его в разделе «Записи».');
@@ -216,24 +222,35 @@ export function validateEvent(data, input) {
   }
   return { ...input, title: input.title.trim() };
 }
-function overlaps(a, b) { return a.id !== b.id && a.busy !== false && b.busy !== false && a.start < b.start + b.duration && a.start + a.duration > b.start; }
+function overlaps(a, b, dayOffset) {
+  const start = b.start + dayOffset * DAY_MINUTES;
+  return a.id !== b.id && a.busy !== false && b.busy !== false && a.start < start + b.duration && a.start + a.duration > start;
+}
 export function assertNoConflict(data, event, repeat = null) {
   if (event.busy === false) return;
-  const current = projectWeek(data, mondayOf(event.date)).events.find(item => item.date === event.date && overlaps(event, item));
+  const current = projectWeek(data, addDays(event.date,-1), 3).events
+    .find(item => overlaps(event,item,daysBetween(event.date,item.date)));
   if (current) throw new Error(`Пересечение с событием «${eventTitle(data, current)}». Измени время или отключи «Занимает время».`);
   if (!repeat) return;
   const proposed = { ...event, from: event.date, until: repeat.until, intervalWeeks: repeat.intervalWeeks, weekday: weekdayOf(event.date) };
-  for (const item of data.events) {
-    if (item.date && !['pending', 'cancelled'].includes(item.status) && seriesOccurs(proposed, item.date) && overlaps(event, item)) throw new Error(`Будущее пересечение с событием «${eventTitle(data, item)}» (${item.date}).`);
-  }
-  for (const series of data.series) {
-    if (series.archived || !overlaps(event, series) || series.weekday !== proposed.weekday) continue;
-    // Intervals are limited to 12 weeks; their least common cycle fits in 132 weeks.
-    const jump = Math.max(0, Math.ceil(daysBetween(event.date, series.from) / (proposed.intervalWeeks * 7)));
-    let date = addDays(event.date, jump * proposed.intervalWeeks * 7);
-    for (let index = 0; index <= 132; index++, date = addDays(date, proposed.intervalWeeks * 7)) {
-      if (proposed.until && date > proposed.until || series.until && date > series.until) break;
-      if (seriesOccurs(series, date)) throw new Error(`Постоянное время пересекается с «${series.title || 'Событие'}».`);
+  const step = proposed.intervalWeeks * 7;
+  for (const offset of [-1,0,1]) {
+    for (const item of data.events) {
+      if (item.date && !['pending', 'cancelled'].includes(item.status) && overlaps(event,item,offset) &&
+        seriesOccurs(proposed,addDays(item.date,-offset))) throw new Error(`Будущее пересечение с событием «${eventTitle(data, item)}» (${item.date}).`);
+    }
+    for (const series of data.series) {
+      if (series.archived || !overlaps(event,series,offset) || series.weekday !== (proposed.weekday+offset+7)%7) continue;
+      const first = addDays(event.date, offset);
+      const jump = Math.max(0, Math.ceil(daysBetween(first,series.from) / step));
+      // Intervals are limited to 12 weeks. Check a complete cycle after the first possible match.
+      const checks = (132 + (series.excludedDates?.length || 0) * 12);
+      for (let index = jump; index <= jump+checks; index++) {
+        const date = addDays(event.date,index*step);
+        const other = addDays(date,offset);
+        if (proposed.until && date > proposed.until || series.until && other > series.until) break;
+        if (seriesOccurs(series,other)) throw new Error(`Постоянное время пересекается с «${series.title || 'Событие'}».`);
+      }
     }
   }
 }
@@ -335,6 +352,10 @@ function inheritChoiceOptions(field,sources) {
   return source?.type===field.type ? {...field,options:source.options} : field;
 }
 
+export function recordFieldInUse(data,kind,id) {
+  return data.types.some(type=>recordKind(type)===kind && type.fields.some(field=>field.source?.fieldId===`detail:${id}`));
+}
+
 export function saveRecordType(data, kind, definitions) {
   kind = kind.trim();
   if (!kind || kind.length>80 || kind==='any') throw new Error('Укажи название шаблона записи до 80 символов.');
@@ -354,7 +375,7 @@ export function saveRecordType(data, kind, definitions) {
   }
   for (const field of declaredRecordFields(data,kind)) {
     if (fields.some(item=>item.id===field.id && item.type===field.type)) continue;
-    if (data.types.some(type=>recordKind(type)===kind && type.fields.some(item=>item.source?.fieldId===`detail:${field.id}`)))
+    if (recordFieldInUse(data,kind,field.id))
       throw new Error(`Поле «${field.label}» используется в шаблоне события.`);
   }
   const previous = data.recordTypes?.find(type=>type.kind===kind);
@@ -469,7 +490,7 @@ export function calendarRange(anchor, view, weekStart) {
 
 export function saveMove(data, event, date, start, duration = event.duration) {
   addDays(date, 0);
-  if (!Number.isInteger(start) || !Number.isInteger(duration) || duration<1 || start < 0 || start + duration > 1440) throw new Error('Событие должно закончиться в тот же день.');
+  if (!validEventTiming(start,duration,1)) throw new Error('Проверь время начала и длительность до 24 часов.');
   const moved = moveEvent(event, date, start, duration);
   assertNoConflict(data, moved);
   return { ...data, events: upsert(data.events, moved) };

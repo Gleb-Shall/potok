@@ -9,5 +9,5 @@ export function MapCanvas({ provider = getMapProvider(), ...props }) {
   return <Suspense fallback={<div class="map-canvas-wrap"><span class="map-loading">Загружаю карту…</span></div>}><Canvas {...props}/></Suspense>;
 }
 export function MapSourceSwitch({ provider, onChange }) {
-  return <div class="map-source-switch" role="group" aria-label="Источник карты">{[['maplibre', 'OpenFreeMap'], ['apple', 'Apple Maps']].map(([id, name]) => <button type="button" key={id} aria-pressed={provider === id} class={provider === id ? 'active' : ''} onClick={() => onChange(id)}>{name}</button>)}</div>;
+  return <div class="section-switch map-source-switch" role="group" aria-label="Источник карты">{[['maplibre', 'OpenFreeMap'], ['apple', 'Apple Maps']].map(([id, name]) => <button type="button" key={id} aria-pressed={provider === id} onClick={() => onChange(id)}>{name}</button>)}</div>;
 }

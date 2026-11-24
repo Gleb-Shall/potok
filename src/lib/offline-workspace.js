@@ -149,19 +149,51 @@ export function checkpointWorkspace(current, uploaded, confirmed) {
 }
 
 export const workspaceCacheKey = (scope, userId) => 'potok:workspace:v1:' + JSON.stringify([scope, userId]);
-export const readWorkspaceCache = key => JSON.parse(localStorage.getItem(key));
+
+const isCachedWorkspace = data => data?.version === 2 && Array.isArray(data.events) && Array.isArray(data.series);
+const isRevision = value => Number.isSafeInteger(value) && value >= 0;
+
+function parseWorkspaceCache(raw) {
+  if (raw === null) return null;
+  try {
+    const entry = JSON.parse(raw);
+    if (!isRevision(entry?.version) || !isCachedWorkspace(entry.base) || !isRevision(entry.base.revision) ||
+        (entry.draft != null && !isCachedWorkspace(entry.draft))) {
+      throw new TypeError('Некорректная структура локальной копии.');
+    }
+    return entry;
+  } catch (cause) {
+    throw new Error('Не удалось прочитать локальную копию расписания.', { cause });
+  }
+}
+
+export const readWorkspaceCache = key => parseWorkspaceCache(localStorage.getItem(key));
 export const visibleWorkspace = entry => ({ ...(entry.draft || entry.base), revision: entry.version });
 
-export function updateWorkspaceCache(key, update) {
+export function updateWorkspaceCache(key, update, { recoverFromServer = false } = {}) {
   const change = () => {
-    const entry = readWorkspaceCache(key);
+    const raw = localStorage.getItem(key);
+    let entry;
+    let damaged = false;
+    try { entry = parseWorkspaceCache(raw); }
+    catch (error) {
+      if (!recoverFromServer) throw error;
+      entry = null;
+      damaged = true;
+    }
     const next = update(entry);
     if (next === entry) return entry;
-    const version = !entry ? next.base.revision :
-      entry.version + Number(!sameWorkspace(entry.draft || entry.base, next.draft || next.base));
+    // A recovered copy must invalidate editors that were open before the damage.
+    const version = damaged ? Math.max(Date.now(), next.base.revision) :
+      entry ? entry.version + Number(!sameWorkspace(entry.draft || entry.base, next.draft || next.base)) :
+      next.base.revision;
     const saved = { ...next, version };
-    try { localStorage.setItem(key, JSON.stringify(saved)); }
-    catch { throw new Error('Не удалось сохранить копию на устройстве. Проверь свободное место.'); }
+    try {
+      if (damaged) localStorage.setItem(`${key}:recovery:${crypto.randomUUID()}`, raw);
+      localStorage.setItem(key, JSON.stringify(saved));
+    } catch (cause) {
+      throw new Error('Не удалось сохранить копию на устройстве. Проверь свободное место.', { cause });
+    }
     return saved;
   };
   return typeof navigator.locks?.request === 'function' ? navigator.locks.request(key, change) : Promise.resolve().then(change);

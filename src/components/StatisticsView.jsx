@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'preact/hooks';
+import { useId, useMemo, useRef, useState } from 'preact/hooks';
 import { lazy, Suspense } from 'preact/compat';
 import { getRecord } from '../lib/events.js';
 import { matchesReportFilter, recordStatisticsOptions, reportFields, reportFilterFields, reportGroups, reportMeasure, reportRows, reportValue, summarizeEvents } from '../lib/statistics.js';
@@ -16,6 +16,7 @@ const blankRule = id => ({id,key:'',operator:'filled',first:'',last:''});
 const fieldLabel = field => `${field.typeName} → ${field.label}${field.unit && !field.label.includes(field.unit) ? ` (${field.unit})` : ''}`;
 const groupedTypes = new Set(['select','multiselect','checkbox','date','text']);
 const filterTypes = {number:['range','Диапазон'],date:['range','Диапазон'],text:['contains','Содержит'],textarea:['contains','Содержит'],url:['contains','Содержит']};
+const views = [['report','Отчёт'],['events','События']];
 
 function isActiveRule({key,operator,first,last}) {
   return Boolean(key && (operator==='filled' || operator==='empty' || first.trim() || (operator==='range' && last)));
@@ -63,6 +64,9 @@ export function StatisticsView({data, now, onOpen, onGuide}) {
   const [group,setGroup] = useState('');
   const [selectedGroup,setSelectedGroup] = useState(null);
   const [map,setMap] = useState(false);
+  const [view,setView] = useState('report');
+  const tabsId = useId();
+  const tabId = key => `${tabsId}-tab-${key}`;
   const from = custom ? range.from : month+'-01';
   const to = custom ? range.to : addDays(monthStart(from,1),-1);
   const validPeriod = Boolean(from && to && from<=to);
@@ -101,9 +105,30 @@ export function StatisticsView({data, now, onOpen, onGuide}) {
   const list = listRows.map(row=>row.event);
   const clearGroup = change => value => {change(value);setSelectedGroup(null);};
   const openMapEvent = id => {const event=list.find(item=>item.id===id);if(event) onOpen(event);};
+  const filterCount = Number(Boolean(recordId)) + Number(Boolean(typeId)) + activeRules.length;
+  const navigateTabs = event => {
+    if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+    event.preventDefault();
+    const current = views.findIndex(([key])=>key===view);
+    const index = event.key==='Home' ? 0 : event.key==='End' ? views.length-1 :
+      (current + (event.key==='ArrowRight' ? 1 : -1) + views.length) % views.length;
+    const [next] = views[index];
+    setView(next);
+    document.getElementById(tabId(next))?.focus();
+  };
+  const openGroup = item => {
+    setSelectedGroup({id:item.id});
+    setView('events');
+    document.getElementById(tabId('events'))?.focus();
+  };
   return <section class="statistics-view" aria-label="Статистика событий">
-    <header class="statistics-toolbar"><h2>Статистика</h2>{onGuide && <Button kind="text-button" onClick={onGuide}>Руководство</Button>}</header>
-    <section class="statistics-controls" aria-label="Выборка отчёта">
+    <header class="section-actions statistics-toolbar"><h2>Статистика</h2>{onGuide && <Button kind="text-button" onClick={onGuide}>Руководство</Button>}</header>
+    <div class="section-switch statistics-tabs" role="tablist" aria-label="Разделы статистики" onKeyDown={navigateTabs}>
+      {views.map(([key,label])=><button type="button" role="tab" key={key} id={tabId(key)}
+        aria-selected={view===key} tabIndex={view===key ? 0 : -1}
+        onClick={()=>setView(key)}>{label}</button>)}
+    </div>
+    <section class="statistics-controls" aria-label="Период и фильтры">
       <div class="statistics-period">
         {custom ? <>
           <Field label="Дата с" type="date" value={range.from} onChange={from=>{setRange({...range,from});setSelectedGroup(null);}}/>
@@ -112,7 +137,8 @@ export function StatisticsView({data, now, onOpen, onGuide}) {
         <Button kind="text-button" onClick={()=>{if(!custom)setRange({from,to});setCustom(!custom);setSelectedGroup(null);}}>{custom ? 'По месяцам' : 'Выбрать даты'}</Button>
       </div>
       {!validPeriod && <p class="form-error" role="status">Укажи начало и конец периода по порядку.</p>}
-      <div class="statistics-facets">
+      <details class="statistics-advanced"><summary>Фильтры {filterCount > 0 && <span class="section-count">{filterCount}</span>}</summary>
+        <div class="statistics-facets">
         <Select label="Запись" aria-label="Запись для статистики" value={recordId} onChange={clearGroup(setRecordId)}>
           <option value="">Все записи</option>
           {records.filter(record=>recordCounts.has(record.id)||record.id===recordId).map(record=><option key={record.id} value={record.id}>{record.name} · {recordCounts.get(record.id)||0}</option>)}
@@ -121,21 +147,20 @@ export function StatisticsView({data, now, onOpen, onGuide}) {
           <option value="">Все шаблоны</option>
           {[...types].filter(([id])=>typeCounts.has(id)||id===typeId).map(([id,name])=><option key={id} value={id}>{name} · {typeCounts.get(id)||0}</option>)}
         </Select>
-      </div>
-      <details class="statistics-advanced"><summary>Уточнить выборку {activeRules.length>0 && <span class="section-count">{activeRules.length}</span>}</summary>
+        </div>
         {rules.map(rule=><ReportFilter key={rule.id} rule={rule} field={filterByKey.get(rule.key)} fields={filterFields} rows={scope} onChange={next=>{setRules(rules.map(item=>item.id===next.id?next:item));setSelectedGroup(null);}} onRemove={()=>{setRules(rules.filter(item=>item.id!==rule.id));setSelectedGroup(null);}}/>)}
-        <Button icon="plus" onClick={()=>setRules(current=>[...current,blankRule(++nextRule.current)])}>Добавить условие</Button>
+        <Button icon="plus" onClick={()=>setRules(current=>[...current,blankRule(++nextRule.current)])}
+          disabled={!filterFields.length}>Добавить условие</Button>
       </details>
     </section>
-    <dl class="statistics-totals">
+    <section class="statistics-analysis" role="tabpanel" aria-labelledby={tabId('report')} hidden={view!=='report'}>
+      <dl class="statistics-totals">
       <div><dt>Проведённые события</dt><dd>{number.format(entries.length)}</dd></div>
       <div><dt>Общее время</dt><dd>{hours(minutes)}</dd></div>
       {metrics.map(item=><div key={item.id}><dt>{item.label}</dt><dd>{item.count ? quantity(item.total,item.unit) : '—'}</dd>
         <small>{item.typeName}{item.missing > 0 && ` · Без значения: ${item.missing}`}</small>
       </div>)}
-    </dl>
-    <section class="statistics-analysis" aria-label="Конструктор отчёта">
-      <header class="activity-section-heading"><h2>Свой отчёт</h2></header>
+      </dl>
       <div class="statistics-facets">
         <Select label="Что считать" value={metric} onChange={key=>{setMetric(key);setExtra([]);setOperation('sum');}}>
           <option value="duration">Длительность</option><option value="events">Количество событий</option>
@@ -156,17 +181,18 @@ export function StatisticsView({data, now, onOpen, onGuide}) {
           <option value="">Выбери поле</option>{numericFields.filter(field=>field.key!==primary.key && field.unit===primary.unit && !extra.includes(field.key)).map(field=><option key={field.key} value={field.key}>{fieldLabel(field)}</option>)}
         </Select>}
       {extra.map(key=><Button key={key} kind="text-button" icon="close" onClick={()=>setExtra(extra.filter(item=>item!==key))}>{byKey.has(key) ? fieldLabel(byKey.get(key)) : 'Поле вне выборки'}</Button>)}
-      <p class="statistics-result"><span>{primary ? calculations[operation] : 'Итого'}</span><strong>{display(result.value)}</strong>{result.missing>0 && <small>Без значения: {result.missing}</small>}</p>
+      {mode!=='duration' && mode!=='events' && <p class="statistics-result"><span>{primary ? calculations[operation] : 'Итого'}</span><strong>{display(result.value)}</strong>{result.missing>0 && <small>Без значения: {result.missing}</small>}</p>}
       {group && !['record','type','day','place'].includes(group) && <p class="quiet-note">{byKey.get(group)?.type==='multiselect' ? 'Событие может быть в нескольких группах. В общем итоге оно учтено один раз.' : 'В разбивку входят события, в которых есть это поле шаблона.'}</p>}
       {groups.length>0 && <ul class="statistics-groups">{groups.map(item=><li key={JSON.stringify(item.id)}>
-        <button type="button" aria-pressed={chosen===item} onClick={()=>setSelectedGroup(chosen===item?null:{id:item.id})}><span>{item.label}</span><small>{number.format(item.rows.length)} соб.</small><strong>{display(reportMeasure(item.rows,selectedFields,mode).value)}</strong></button>
+        <button type="button" onClick={()=>openGroup(item)}><span>{item.label}</span><small>{number.format(item.rows.length)} соб.</small><strong>{display(reportMeasure(item.rows,selectedFields,mode).value)}</strong></button>
       </li>)}</ul>}
     </section>
-    <section class="statistics-events" aria-label="События за период">
+    <section class="statistics-events" role="tabpanel" aria-labelledby={tabId('events')} hidden={view!=='events'}>
       <header class="activity-section-heading statistics-list-heading"><h2>{chosen ? chosen.label : 'События за период'}</h2><span class="section-count">{list.length}</span>
         <div class="week-layout-switch" role="group" aria-label="Вид результатов"><button type="button" aria-pressed={!map} onClick={()=>setMap(false)}>Список</button><button type="button" aria-pressed={map} onClick={()=>setMap(true)}>Карта</button></div>
       </header>
-      {map && list.some(event=>Number.isFinite(event.location?.lat) && Number.isFinite(event.location?.lng)) ?
+      {chosen && <Button kind="text-button" onClick={()=>setSelectedGroup(null)}>Показать все события</Button>}
+      {view === 'events' && (map && list.some(event=>Number.isFinite(event.location?.lat) && Number.isFinite(event.location?.lng)) ?
         <Suspense fallback={<p>Загружаю карту…</p>}><MapView events={list} data={data} onOpen={openMapEvent} showTotals/></Suspense> :
         map ? <p class="activity-empty">В этой выборке у событий нет мест.</p> :
         list.length ? <div class="activity-list">{listRows.map(row=>{
@@ -179,7 +205,7 @@ export function StatisticsView({data, now, onOpen, onGuide}) {
           meta={[types.get(type.id),getRecord(data,event)?.name].filter(Boolean).join(' · ')}
           trailing={<><span>{hours(event.duration)}</span>{amounts.map(item=><span key={item.id} class="statistics-amount" title={item.label}>{item.value === null ? 'Без значения' : quantity(item.value,item.unit)}</span>)}</>}/>;
         })}</div> :
-        <p class="activity-empty">За выбранный период по этим фильтрам нет проведённых событий.</p>}
+        <p class="activity-empty">За выбранный период по этим фильтрам нет проведённых событий.</p>)}
     </section>
   </section>;
 }

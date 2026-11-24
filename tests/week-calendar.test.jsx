@@ -53,6 +53,18 @@ it('opens today on a phone and drills down from year to month to a single day',a
  await click(root.querySelector('.mobile-calendar-today'));
  expect(visibleDates()).toEqual([todayISO()]);
 });
+it('shows one overnight event across two days on the mobile timeline', async()=>{
+ usePhoneViewport();
+ const data=sample(), day=data.events[0].date, next=addDays(day,1);
+ Object.assign(data.events[0],{start:23*60+30,duration:90});
+ await mount(data);
+ const card=date=>root.querySelector(`[data-time-date="${date}"] [data-event-id="one"]`);
+ expect(card(day).querySelector('.card-time').textContent).toContain('23:30–01:00');
+ expect(card(next).querySelector('.card-time').textContent).toContain('00:00–01:00');
+ await click(card(next).querySelector('.card-open'));
+ expect(root.querySelector('dialog[open]').textContent).toContain('23:30–01:00 (+1 день)');
+ expect(JSON.parse(localStorage.getItem(key)).events).toHaveLength(1);
+});
 
 it('selects a phone event before exposing resize handles or opening its details',async()=>{
  usePhoneViewport();
@@ -142,6 +154,51 @@ it('shows the transfer queue alongside linked tasks and archives completed tasks
  expect(root.querySelector('.task-lane-done').textContent).not.toContain('Проверить материалы');
  await click(button('.task-board-bar button','Архив'));
  expect(root.querySelector('.task-archive').textContent).toContain('Проверить материалы');
+});
+it('confirms or cancels past events from the transfer column on a phone',async()=>{
+ usePhoneViewport();
+ vi.spyOn(window,'confirm').mockReturnValue(true);
+ const data=sample();
+ const date=addDays(todayISO(),-1);
+ const past={...data.events[0],date,anchorDate:date};
+ data.events=[{...past,id:'done',title:'Проведённая встреча'},{...past,id:'cancel',title:'Отменяемая встреча'}];
+ data.events.push(moveEvent({...past,id:'pending',title:'Жду новую дату'},null,600,60));
+ await mount(data);
+ await click(root.querySelector('.sidebar-toggle'));
+ await click(root.querySelector('nav [aria-label="Доска"]'));
+ await click(root.querySelector('.task-column-tabs button:first-child'));
+ expect(root.querySelector('.task-lane-pending').textContent).toContain('Жду новую дату');
+ await click(root.querySelector('.event-queue-switch button:last-child'));
+ expect(root.querySelector('.event-confirmations').textContent).not.toContain('Жду новую дату');
+ await click(root.querySelector('[data-activity-id="done"] .activity-open'));
+ expect(root.querySelector('dialog[open]').textContent).toContain('Проведённая встреча');
+ await click(root.querySelector('dialog[open] .modal-close'));
+ await click(root.querySelector('[data-activity-id="done"] .activity-actions button:first-child'));
+ await click(root.querySelector('[data-activity-id="cancel"] .activity-actions button:last-child'));
+ expect(root.querySelector('.task-lane-pending').textContent).toContain('Все прошедшие события отмечены');
+ const saved=JSON.parse(localStorage.getItem(key)).events;
+ expect(saved.find(event=>event.id==='done').status).toBe('done');
+ expect(saved.find(event=>event.id==='cancel').status).toBe('cancelled');
+});
+it('shows confirmations on the mobile calendar after an event ends, with no transfers',async()=>{
+ usePhoneViewport();
+ const data=sample();
+ const end=Date.parse(`${data.events[0].date}T11:00:00+03:00`);
+ const clock=vi.spyOn(Date,'now').mockReturnValue(end-60000);
+ await mount(data);
+ const queue=root.querySelector('#schedule-pending');
+ expect(queue.hidden).toBe(true);
+ expect(root.querySelector('#schedule-pending-trigger')).toBeNull();
+ clock.mockReturnValue(end);
+ await act(()=>document.dispatchEvent(new Event('visibilitychange')));
+ await click(root.querySelector('.mobile-calendar-footer [aria-label="Подтверждения"]'));
+ expect(queue.hidden).toBe(false);
+ await click(queue.querySelector('[aria-label="Отметить проведённым: Встреча"]'));
+ expect(queue.textContent).toContain('Все прошедшие события отмечены');
+ expect(JSON.parse(localStorage.getItem(key)).events[0].status).toBe('done');
+ await click(queue.querySelector('[aria-label="Закрыть ожидающие события"]'));
+ expect(queue.hidden).toBe(true);
+ expect(document.activeElement).toBe(root.querySelector('.mobile-calendar-today'));
 });
 it('uses a time-slot preview for mouse movement and never falls back to a board header',async()=>{
  await mount();
@@ -243,7 +300,7 @@ it('rejects a conflicting time without losing the original event, then schedules
  await act(()=>render(null,root));
  const waiting=sample();waiting.events[0]=moveEvent(waiting.events[0],null,600,60);
  await mount(waiting);
- await click(root.querySelector('.pending-shortcut'));
+ await click(root.querySelector('#schedule-pending-trigger'));
  await dragTo(todayISO(),540);
  const saved=JSON.parse(localStorage.getItem(key)).events[0];expect(saved.status).toBe('planned');expect(saved.start).toBe(540);
  expect(root.querySelectorAll('.pending-card')).toHaveLength(0);

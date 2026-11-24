@@ -3,8 +3,8 @@
   .layout.has-mobile-calendar .mobile-workspace-header { display:none; }
   .layout.has-mobile-calendar .schedule-panel { padding-bottom:0; }
   .layout.has-mobile-calendar .sidebar {
-    top:8px; left:var(--mobile-calendar-gutter); right:auto; bottom:auto;
-    max-height:calc(100dvh - 32px); transform-origin:top left;
+    top:calc(8px + env(safe-area-inset-top)); left:var(--mobile-calendar-gutter); right:auto; bottom:auto;
+    max-height:calc(100dvh - 32px - env(safe-area-inset-top)); transform-origin:top left;
   }
   .layout.has-mobile-calendar.sidebar-collapsed :is(.sidebar,.sidebar-header,.sidebar-toggle) {
     height:var(--mobile-calendar-control); width:var(--mobile-calendar-control);
@@ -13,7 +13,8 @@
   .mobile-calendar-header { flex:none; position:relative; z-index:12; background:var(--surface); }
   .mobile-calendar-toolbar {
     display:flex; align-items:center; justify-content:space-between; gap:8px;
-    min-height:66px; padding:8px var(--mobile-calendar-gutter);
+    min-height:calc(66px + env(safe-area-inset-top)); padding:8px var(--mobile-calendar-gutter);
+    padding-top:calc(8px + env(safe-area-inset-top));
     padding-inline-start:calc(var(--mobile-calendar-gutter) + var(--mobile-calendar-control) + 8px);
   }
   .mobile-calendar-pill {
@@ -55,6 +56,7 @@
   }
   .mobile-calendar-week .is-weekend,.mobile-calendar-month-grid .is-weekend,
   .mobile-calendar-month-weekdays span:nth-last-child(-n+2) { color:var(--muted); }
+  .mobile-calendar-week [data-timeline-drop-hover] strong { outline:2px solid var(--focus-color); }
   .mobile-calendar-week [aria-pressed=true] strong,.mobile-calendar-month-grid [aria-pressed=true] strong {
     background:var(--today-accent); color:var(--today-ink);
   }
@@ -118,8 +120,6 @@
     border-top:1px solid var(--line); background:var(--surface);
   }
   .mobile-calendar-today { min-height:54px; padding:0 20px; font-size:16px; }
-  .mobile-calendar-pending { min-width:46px; gap:4px; padding:0 10px; }
-  .mobile-calendar-pending span { color:var(--accent); font-size:11px; }
 }
 
 @media (max-width:360px) {

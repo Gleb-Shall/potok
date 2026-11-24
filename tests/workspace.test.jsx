@@ -166,6 +166,41 @@ it('times out the initial connection without making a blank cloud workspace edit
   } finally { vi.useRealTimers(); }
 });
 
+it('recovers a damaged local copy only from a server snapshot and keeps the original bytes', async () => {
+  const damaged = '{"version":3,"draft":';
+  localStorage.setItem(key, damaged);
+  await signIn(null);
+  await signIn({ id:'alice' });
+  expect(workspace.account.error).toContain('локальную копию');
+
+  await act(() => snapshot(data(2, [record('old')]), false));
+  expect(localStorage.getItem(key)).toBe(damaged);
+  expect(workspace.account.hasData).toBe(false);
+
+  await act(() => snapshot(data(4, [record('from-server')]), true));
+  expect(records()).toEqual(['from-server']);
+  expect(workspace.account.error).toBe('');
+  expect(workspace.account.pending).toBe(false);
+  const recoveryKey = Object.keys(localStorage).find(name => name.startsWith(`${key}:recovery:`));
+  expect(localStorage.getItem(recoveryKey)).toBe(damaged);
+  await save(data(4, [record('from-server'), record('new-offline-edit')]));
+  expect(workspace.account.pending).toBe(true);
+  expect(connection.save).not.toHaveBeenCalled();
+});
+
+it('invalidates an open editor even when recovery returns the same server revision', async () => {
+  await edit();
+  const oldSave = workspace.save;
+  localStorage.setItem(key, '{');
+  await act(() => snapshot(data(3, [record('restored')]), true));
+  expect(workspace.stale).toBe(true);
+  await act(async () => {
+    await expect(oldSave(data(3, [record('old-editor')]))).rejects.toThrow('Расписание изменилось');
+  });
+  await act(() => workspace.refresh());
+  expect(records()).toEqual(['restored']);
+});
+
 it('ignores older cache data and keeps local changes after a cloud CAS failure', async () => {
   await act(()=>snapshot(data(2,[record('old')]),false));
   expect(records()).toEqual(['existing']);

@@ -3,6 +3,10 @@
 .task-board-bar h2 { margin:0; font-size:24px; letter-spacing:-.04em; }
 .task-board-bar > div { display:flex; flex-wrap:wrap; gap:8px; }
 .task-board-columns { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
+.task-lane-pending .event-confirmations .activity-row,
+.task-lane-pending .event-confirmations .activity-open { grid-template-columns:minmax(0,1fr); }
+.task-lane-pending .event-confirmations .activity-open { gap:4px; }
+.task-lane-pending .event-confirmations .activity-links { padding-inline-start:var(--activity-inset); }
 .task-lane { display:flex; flex-direction:column; min-width:0; min-height:270px; padding:12px; border-radius:16px; background:var(--control-surface); }
 .task-lane-pending { background:color-mix(in srgb,var(--control-surface) 95%,var(--accent)); }
 .task-lane.is-drop-ready { outline:1px dashed var(--muted); outline-offset:-1px; }
@@ -63,16 +67,9 @@
 @media (max-width:760px) {
   .task-board-bar { margin-bottom:12px; }
   .task-board-bar h2 { font-size:20px; }
-  .task-column-tabs {
-    display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:3px;
-    margin-bottom:16px; padding:4px; border-radius:16px; background:var(--control-surface);
-  }
-  .task-column-tabs button {
-    min-height:44px; padding:4px; border:0; border-radius:12px;
-    background:transparent; color:var(--text-secondary); font:inherit; font-size:14px; line-height:1.2;
-  }
-  .task-column-tabs button[aria-pressed=true] {
-    background:var(--surface-raised); color:var(--ink); font-weight:650; box-shadow:0 1px 4px #11171024;
+  .task-column-tabs.section-switch {
+    grid-template-columns:minmax(0,1.1fr) minmax(0,1.35fr) minmax(0,.95fr) minmax(0,.75fr);
+    margin-bottom:16px;
   }
   .task-board-columns.is-single-column { grid-template-columns:minmax(0,1fr); }
   .is-single-column .task-lane { min-height:0; padding:0; background:none; }
@@ -94,6 +91,9 @@
   }
   .product-dialog .task-form > .modal-footer .button { min-height:50px; font-size:16px; }
 }
-@media (max-width:360px) {
-  .task-column-tabs { grid-template-columns:repeat(2,minmax(0,1fr)); }
+@media (max-width:379px) {
+  .task-column-tabs.section-switch {
+    grid-auto-flow:row;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
 }

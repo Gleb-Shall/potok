@@ -50,4 +50,34 @@ describe('account workspace', () => {
   expect(root.querySelector('.sync-copy').textContent).toContain('На устройстве');
   expect(connection.save).not.toHaveBeenCalled();
  });
+ it('exports locally saved edits after an offline restart without contacting the cloud', async () => {
+  const saveBackupFile = vi.fn().mockResolvedValue(undefined);
+  const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+  try {
+   await act(() => window.dispatchEvent(new Event('offline')));
+   await act(() => auth({ id: 'alice' }));
+   await act(() => snapshot({ ...empty(), revision: 3 }, true));
+   await click('Добавить событие');
+   const title = root.querySelector('.event-editor-dialog input[type=text]');
+   await act(() => {
+    title.value = 'Сохранено без интернета';
+    title.dispatchEvent(new Event('input', { bubbles: true }));
+   });
+   await act(() => root.querySelector('.event-editor-dialog form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+   await vi.waitFor(() => expect(root.querySelector('.event-editor-dialog')).toBeNull());
+   await act(() => render(null, root));
+   connection.onAuth.mockImplementation(callback => { callback({ id: 'alice' }); return vi.fn(); });
+   await act(() => render(<App provider={provider} requireAccount saveBackupFile={saveBackupFile}/>, root));
+   await vi.waitFor(() => expect(root.textContent).toContain('Сохранено без интернета'));
+
+   await click('Настройки');
+   await click('Скачать резервную копию');
+   expect(saveBackupFile).toHaveBeenCalledOnce();
+   const [name, contents] = saveBackupFile.mock.calls[0];
+   expect(name).toMatch(/^potok-cloud-\d{4}-\d{2}-\d{2}\.json$/);
+   expect(JSON.parse(contents).data.events).toEqual([expect.objectContaining({ title: 'Сохранено без интернета' })]);
+   expect(connection.fetch).not.toHaveBeenCalled();
+   expect(connection.save).not.toHaveBeenCalled();
+  } finally { online.mockRestore(); }
+ });
 });

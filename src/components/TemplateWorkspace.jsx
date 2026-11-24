@@ -77,6 +77,7 @@ export function TemplateWorkspace({ data, onSave, onDelete, onArchive, initialDr
   const deleteEntry = entry => onDelete(records ? {kind:'record-template',value:entry.id} : {kind:'type',value:entry});
   const archiveEntry = (entry, value) => changeEditor(() => onArchive(family,entry.id,value));
   const createLabel = records ? 'Создать шаблон записи' : 'Создать шаблон события';
+  const createDraft = () => changeEditor(() => { setDraft({name:''}); setMobileEditor(true); });
   const draftName = draft && <div class="template-draft-row">
     <label><span>{mobile ? 'Название шаблона' : 'Черновик'}</span><input ref={draftInput} aria-label="Название шаблона" placeholder="Название шаблона" maxLength={80} value={draft.name}
       onInput={event => { const name = event.currentTarget.value; setDraft(previous => ({...previous,name})); }}/></label>
@@ -85,13 +86,17 @@ export function TemplateWorkspace({ data, onSave, onDelete, onArchive, initialDr
   return <section class="template-browser template-workspace" aria-label="Редактор шаблонов">
     <div class="template-browser-layout">
       {!showMobileEditor && <aside class="template-browser-list" aria-label="Список шаблонов">
-        <div class="week-layout-switch template-family-switch" role="group" aria-label="Шаблоны">
+        {mobile && <header class="section-actions">
+          <h2>Шаблоны</h2>
+          <Button kind="primary" icon="plus" aria-label={createLabel}
+            onClick={createDraft}>Создать шаблон</Button>
+        </header>}
+        <div class={mobile ? 'section-switch template-list-switch' : 'week-layout-switch template-family-switch'} role="group" aria-label="Вид шаблонов">
           <button type="button" aria-pressed={!records} onClick={() => { if (records) changeEditor(() => setFamily('events')); }}>События</button>
           <button type="button" aria-pressed={records} onClick={() => { if (!records) changeEditor(() => setFamily('records')); }}>Записи</button>
         </div>
-        <Button class="button template-create" icon="plus" aria-label={createLabel} onClick={() => changeEditor(() => { setDraft({name:''}); setMobileEditor(true); })}>
-          {mobile ? 'Создать шаблон' : createLabel}
-        </Button>
+        {!mobile && <Button class="button template-create" icon="plus" aria-label={createLabel}
+          onClick={createDraft}>{createLabel}</Button>}
         {!mobile && draftName}
         {mobile && !entries.length && <p class="builder-empty">Шаблонов пока нет.</p>}
         {entries.map(entry => {

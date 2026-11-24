@@ -20,7 +20,7 @@ export function GuideBoardExample() {
 
   return <>
     <p>Перемести «Проверить макет» в «Готово» и отправь в архив. По ссылке на стикере можно открыть связанное событие.</p>
-    <TaskBoard data={data} pending={[]} onAdd={()=>setEditor({})} onEdit={task=>setEditor({task})}
+    <TaskBoard data={data} now={Date.parse(`${event.date}T12:00:00+03:00`)} pending={[]} onAdd={()=>setEditor({})} onEdit={task=>setEditor({task})}
       onOpenEvent={()=>setEventOpen(true)} onStatus={(id,status)=>setData(previous=>setTaskStatus(previous,id,status))}
       onArchive={(ids,archived)=>setData(previous=>archiveTasks(previous,ids,archived))}/>
     {editor && <TaskEditor data={data} task={editor.task} today={event.date} now={0}

@@ -8,6 +8,7 @@ import { MoveEditor } from '../src/components/MoveEditor.jsx';
 import { EventCard } from '../src/components/EventCard.jsx';
 import MapPicker from '../src/components/MapPicker.jsx';
 import MapView from '../src/components/MapView.jsx';
+import { Modal } from '../src/components/UI.jsx';
 import { defaultTypes, calendarRange } from '../src/lib/events.js';
 import { todayISO } from '../src/lib/domain.js';
 
@@ -61,6 +62,21 @@ beforeEach(() => {
 afterEach(async () => { await act(() => render(null, root)); root.remove(); vi.unstubAllGlobals(); });
 
 describe('critical user flows', () => {
+  it('only light-dismisses a dialog when the press starts and ends on its backdrop', async () => {
+    const close = vi.fn();
+    await mount(<Modal title="Тест" subtitle="Описание окна" onClose={close}/>);
+    const dialog = root.querySelector('dialog');
+    dialog.getBoundingClientRect = () => ({ left: 100, top: 100, right: 400, bottom: 400 });
+    expect(document.getElementById(dialog.getAttribute('aria-describedby')).textContent).toBe('Описание окна');
+
+    const press = x => dialog.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, clientX: x, clientY: 150 }));
+    const release = x => dialog.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: x, clientY: 150 }));
+    await act(() => { press(150); release(50); });
+    await act(() => { press(50); release(150); });
+    expect(close).not.toHaveBeenCalled();
+    await act(() => { press(50); release(50); });
+    expect(close).toHaveBeenCalledOnce();
+  });
   it('opens day, week and month views and expands cards independently', async () => {
     localStorage.setItem('potok:week-layout','board');
     const data = base(); data.events.push(sample());
@@ -146,6 +162,9 @@ describe('critical user flows', () => {
     expect(mapSDK.maps[0].options.cooperativeGestures).toBe(false);
     await input(root.querySelector('.place-search input'), 'Университет Санкт-Петербург');
     await vi.waitFor(() => expect(root.querySelector('.place-results button')).toBeTruthy());
+    expect(fetch).toHaveBeenCalledOnce();
+    await click(byText('OpenFreeMap'));
+    expect(root.querySelector('.place-results button').textContent).toContain('Учебный корпус');
     expect(fetch).toHaveBeenCalledOnce();
     await click(root.querySelector('.place-results button'));
     expect(root.querySelector('.place-floating-label').textContent).toContain('Учебный корпус');
@@ -281,7 +300,7 @@ describe('critical user flows', () => {
   });
   it('expands the place picker to the window and Escape first returns to the ordinary picker', async () => {
     const onClose = vi.fn(); await mount(<MapPicker value={null} saved={[]} onChange={() => {}} onClose={onClose}/>);
-    await click(byText('На всё окно')); expect(root.querySelector('dialog').classList.contains('is-fullscreen')).toBe(true);
+    await click(root.querySelector('[aria-label="На весь экран"]')); expect(root.querySelector('dialog').classList.contains('is-fullscreen')).toBe(true);
     await act(() => root.querySelector('dialog').dispatchEvent(new Event('cancel', { cancelable: true })));
     expect(root.querySelector('dialog').classList.contains('is-fullscreen')).toBe(false); expect(onClose).not.toHaveBeenCalled();
   });
@@ -289,7 +308,7 @@ describe('critical user flows', () => {
     const request = vi.fn(success => success({ coords: { latitude: 60.1, longitude: 30.2 } }));
     vi.stubGlobal('navigator', { geolocation: { getCurrentPosition: request } });
     const onChange = vi.fn(); await mount(<MapPicker value={null} saved={[]} onChange={onChange} onClose={() => {}}/>);
-    expect(request).not.toHaveBeenCalled(); await click(byText('Моё местоположение'));
+    expect(request).not.toHaveBeenCalled(); await click(root.querySelector('[aria-label="Моё местоположение"]'));
     await vi.waitFor(() => expect(byText('Выбрать место').disabled).toBe(false)); await click(byText('Выбрать место'));
     expect(request).toHaveBeenCalledOnce(); expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ lat: 60.1, lng: 30.2 }));
   });
@@ -297,7 +316,7 @@ describe('critical user flows', () => {
     vi.stubGlobal('navigator', { geolocation: { getCurrentPosition: (_, fail) => fail({ code: 1 }) } });
     const value = { lat: 59.94, lng: 30.3, label: 'Сохранённое место' }; const onChange = vi.fn();
     await mount(<MapPicker value={value} saved={[]} onChange={onChange} onClose={() => {}}/>);
-    await click(byText('Моё местоположение'));
+    await click(root.querySelector('[aria-label="Моё местоположение"]'));
     await vi.waitFor(() => expect(root.querySelector('[role=alert]')?.textContent).toContain('запрещён'));
     await click(byText('Выбрать место')); expect(onChange).toHaveBeenCalledWith(value);
   });

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'preact/hooks';
+import { sortedCopy } from '../lib/array.js';
 import { unconfirmedEvents } from '../lib/event-history.js';
 import { eventMatches, eventTitle, eventType, getRecord } from '../lib/events.js';
 import { ActivityTime, EventListRow } from './EventListRow.jsx';
@@ -37,7 +38,7 @@ export function JournalView({data, now, pending, renderPending, onOpenEvent, onO
 const archiveDate = item => item.date || item.from || item.originalDate || item.anchorDate || '';
 
 function ArchivedEvents({data,onOpen,onDelete}) {
-  const entries = [...(data.eventArchive || [])].sort((a,b)=>archiveDate(b).localeCompare(archiveDate(a)) || b.start-a.start);
+  const entries = sortedCopy(data.eventArchive || [], (a,b)=>archiveDate(b).localeCompare(archiveDate(a)) || b.start-a.start);
   if (!entries.length) return <p class="activity-empty">Здесь появятся события и серии удалённых шаблонов.</p>;
   return <>
     <div class="activity-toolbar"><span>События и серии · {entries.length}</span><Button icon="trash" onClick={()=>onDelete(null)}>Очистить архив</Button></div>

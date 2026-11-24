@@ -1,12 +1,21 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import {layoutDay,weekBounds,minuteAt,readTimeTarget} from '../src/lib/week-layout.js';
+import {layoutDay,weekBounds,minuteAt,readTimeTarget,timelineLaneTarget} from '../src/lib/week-layout.js';
 
 test('overlap groups use distinct tracks, adjacent events reuse full width and source order is untouched',()=>{
  const events=[{id:'c',start:660,duration:60},{id:'b',start:630,duration:60},{id:'a',start:600,duration:60},{id:'d',start:720,duration:60}];
  const layout=layoutDay(events);
  assert.deepEqual(events.map(item=>item.id),['c','b','a','d']);
  assert.deepEqual(layout.map(({event,column,columns})=>[event.id,column,columns]),[['a',0,2],['b',1,2],['c',0,2],['d',0,1]]);
+});
+test('the late slot and midnight are distinct drop targets across a year boundary',()=>{
+ const lane={dataset:{timeDate:'2026-12-31',timeStart:'0',timeEnd:'1440'},getBoundingClientRect:()=>({top:100,height:1440})};
+ assert.equal(timelineLaneTarget(lane,1526,30),'2026-12-31@1425');
+ assert.equal(timelineLaneTarget(lane,1538,30),'2027-01-01@0');
+ assert.equal(timelineLaneTarget(lane,102,30),'2026-12-30@1425');
+ assert.equal(timelineLaneTarget(lane,110),'2026-12-31@0');
+ assert.equal(timelineLaneTarget(lane,110,30),'2026-12-31@0');
+ assert.equal(timelineLaneTarget(lane,110,45,true),'2026-12-30@1410');
 });
 test('visible hours include early and late events without hiding them',()=>{
  assert.deepEqual(weekBounds([]),{start:0,end:1440});

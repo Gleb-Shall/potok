@@ -5,6 +5,7 @@ import { beforeEach, afterEach, expect, it, vi } from 'vitest';
 import { ActionMenu } from '../src/components/ActionMenu.jsx';
 import { EventDetails } from '../src/components/EventDetails.jsx';
 import { TypeEditor } from '../src/components/TypeEditor.jsx';
+import { RecordTypeEditor } from '../src/components/RecordTypeEditor.jsx';
 import { RecordsDirectory } from '../src/components/RecordsDirectory.jsx';
 import { RecordFields } from '../src/components/RecordFields.jsx';
 import { TemplateWorkspace } from '../src/components/TemplateWorkspace.jsx';
@@ -15,9 +16,26 @@ let root;
 const mount = component => act(() => render(component,root));
 const click = node => act(() => node.click());
 const input = (node,value) => act(() => { node.value=value; node.dispatchEvent(new Event('input',{bubbles:true})); });
+it.each([false,true])('keeps move history collapsed after reminders and tasks in event details (anchored=%s)', async anchored => {
+ const data={students:[],records:[],types:defaultTypes(),series:[],events:[]};
+ const date=todayISO();
+ const event={id:'history',title:'Встреча',typeId:'personal',date,start:630,duration:60,status:'planned',fields:{},
+   history:[{fromDate:date,fromStart:600,toDate:date,toStart:630}]};
+ await mount(<EventDetails key={1} data={data} event={event} anchor={anchored ? root : null}
+   alertsSection={<section>Напоминания</section>} tasksSection={<section>Задачи</section>} onClose={()=>{}}/>);
+ const history=root.querySelector('.inspector-history');
+ expect(history.open).toBe(false);
+ expect(history).toBe(root.querySelector('.inspector-content').lastElementChild);
+ expect(history.previousElementSibling.textContent).toBe('Задачи');
+ await click(history.querySelector('summary'));
+ expect(history.open).toBe(true);
+ expect(history.textContent).toContain('10:30');
+ await mount(<EventDetails key={2} data={data} event={event} onClose={()=>{}}/>);
+ expect(root.querySelector('.inspector-history').open).toBe(false);
+});
 beforeEach(() => { localStorage.clear(); root=document.createElement('div'); document.body.append(root); HTMLDialogElement.prototype.showModal=function(){this.open=true;};HTMLDialogElement.prototype.close=function(){this.open=false;}; });
 afterEach(async () => { await mount(null);root.remove();vi.restoreAllMocks(); });
-it.each(['header', 'directory'])('creates and persists a project from the %s add-record button', async source => {
+it('creates and persists a project from the directory add-record button', async () => {
  localStorage.setItem('tutor-schedule:mode','personal');
  localStorage.setItem('tutor-schedule:personal:v2',JSON.stringify({version:2,students:[],records:[],series:[],events:[],types:defaultTypes(),recordTypes:[{kind:'project',fields:[]}]}));
  await mount(<App/>);
@@ -26,8 +44,8 @@ it.each(['header', 'directory'])('creates and persists a project from the %s add
  expect(root.querySelector('.layout').dataset.workspaceView).toBe('students');
  expect(root.querySelector('.page-header h1').classList.contains('sr-only')).toBe(true);
  expect(root.querySelector('.directory-toolbar h2')).toBeNull();
- const add=source==='header' ? root.querySelector('.header-actions .primary') :
-   [...root.querySelectorAll('button')].find(node=>!node.closest('.page-header') && /Создать запись|Добавить запись/.test(node.textContent));
+ expect(root.querySelector('.header-actions .primary')).toBeNull();
+ const add=root.querySelector('.record-directory .section-actions .primary');
  expect(add).toBeTruthy(); await click(add);
  await click([...root.querySelectorAll('.record-choice button')].find(node=>node.textContent==='Проект'));
  const field=[...root.querySelectorAll('.field')].find(node=>node.firstElementChild.textContent==='Название или имя').querySelector('input');
@@ -74,7 +92,9 @@ it('defers from the card menu, exposes the waiting queue and supports undo', asy
  localStorage.setItem('potok:week-layout','board');
  await mount(<App/>); await click(root.querySelector('.card-controls .action-menu-trigger'));
  await click([...root.querySelectorAll('.ui-action-menu[data-open=true] button')].find(node=>node.textContent.includes('Отложить перенос')));
- expect(root.querySelectorAll('.pending-card')).toHaveLength(1);expect(root.querySelector('.pending-shortcut').textContent).toContain('1');
+ expect(root.querySelector('#schedule-pending-trigger').textContent).toContain('1');
+ await click(root.querySelector('#schedule-pending-trigger'));
+ expect(root.querySelectorAll('#schedule-pending .pending-card')).toHaveLength(1);
  await click(root.querySelector('.toast-undo'));
  expect(root.querySelectorAll('.pending-card')).toHaveLength(0);expect(root.querySelector('.card-name').textContent).toBe('Встреча');
 });
@@ -94,6 +114,7 @@ it('opens a reminder directly from the pending queue and saves it for that event
  localStorage.setItem('tutor-schedule:mode','personal');localStorage.setItem('tutor-schedule:personal:v2',JSON.stringify(data));
  localStorage.setItem('potok:week-layout','board');
  await mount(<App/>);
+ await click(root.querySelector('#schedule-pending-trigger'));
  const remind=[...root.querySelectorAll('.pending-card button')].find(button=>button.textContent==='Напомнить');
  expect(remind).toBeTruthy();await click(remind);
  expect(root.querySelector('[aria-label="Напоминание о событии"]')).not.toBeNull();
@@ -111,6 +132,8 @@ it.each([false,true])('restores a waiting event to its original slot, respecting
  const data={version:2,revision:0,students:[],records:[],types:defaultTypes(),series:[],events,reminders:[{id:'reminder-one',eventId:'waiting',at:new Date(Date.now()+86400000).toISOString()}]};
  localStorage.setItem('tutor-schedule:mode','personal');localStorage.setItem('tutor-schedule:personal:v2',JSON.stringify(data));
  await mount(<App/>);
+ await click(root.querySelector('#schedule-pending-trigger'));
+ await click(root.querySelector('#schedule-pending .event-queue-switch button:first-child'));
  await click(root.querySelector('[data-event-id="waiting"] .pending-open'));
  expect(root.querySelector('.event-reminder')).toBeNull();
  expect(root.querySelector('.pending-original-time').textContent).toContain('10:00');
@@ -167,11 +190,38 @@ it('opens mobile template lists before showing the selected editor', async () =>
  expect(root.querySelector('.template-browser-list')).toBeNull();
  expect(root.querySelector('.template-inline-editor')).not.toBeNull();
  await click(root.querySelector('.template-back'));
- await click(root.querySelector('.template-family-switch button:last-child'));
+ await click(root.querySelector('.template-list-switch button:last-child'));
  expect(root.querySelector('.template-list-select').textContent).toBe('Ученик');
  expect(root.querySelector('.template-workspace-editor')).toBeNull();
- await click(root.querySelector('.template-create'));
+ await click(root.querySelector('.template-browser-list .section-actions .primary'));
  expect(root.querySelector('.template-workspace-editor .template-draft-row input')).not.toBeNull();
+});
+
+it('deletes new and saved event-template fields without erasing historical values',async()=>{
+ const types=defaultTypes();
+ const data={types,students:[],records:[],series:[],events:[{typeId:'lesson',fields:{rate:1000}}]};
+ const save=vi.fn();
+ await mount(<TypeEditor data={data} original={types[0]} onSave={save} onClose={()=>{}} inline/>);
+ await click(root.querySelector('.builder-heading button'));
+ await click(root.querySelector('[aria-label="Удалить поле «Новое поле»"]'));
+ await click(root.querySelector('[aria-label="Удалить поле «Тема»"]'));
+ await click(root.querySelector('[aria-label="Удалить поле «Стоимость, ₽»"]'));
+ expect(root.querySelectorAll('.builder-field-row')).toHaveLength(0);
+ expect(root.querySelector('.builder-hidden-fields').textContent).toContain('Стоимость, ₽');
+ await act(()=>root.querySelector('form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+ expect(save.mock.calls[0][0].types[0].fields).toEqual([expect.objectContaining({id:'rate',archived:true})]);
+ expect(save.mock.calls[0][0].events[0].fields.rate).toBe(1000);
+});
+
+it('removes an old field from a record template while keeping the value on its record',async()=>{
+ const details=[{id:'reference',label:'Пометка',type:'text',value:'Сохранённое значение'}];
+ const data={types:defaultTypes(),students:[],records:[{id:'p',kind:'project',details}],recordTypes:[{kind:'project',fields:details}]};
+ const save=vi.fn();
+ await mount(<RecordTypeEditor data={data} kind="project" onSave={save} onClose={()=>{}} inline/>);
+ await click(root.querySelector('[aria-label="Удалить поле «Пометка»"]'));
+ await act(()=>root.querySelector('form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+ expect(save.mock.calls[0][0].recordTypes[0].fields).toEqual([]);
+ expect(save.mock.calls[0][0].records[0].details).toEqual(details);
 });
 
 it('opens record templates in the shared template editor and saves a choice field', async () => {

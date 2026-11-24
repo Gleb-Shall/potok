@@ -72,7 +72,15 @@ dialog.compact-dialog { width:min(560px,calc(100vw - 32px)); padding:28px; }
 @media(max-width:760px) {
   dialog.compact-dialog { width:100%; padding:28px 20px calc(24px + env(safe-area-inset-bottom)); }
   .layout[data-workspace-view]:not(.is-calendar-workspace) .main { padding:0 16px 24px; }
-  .layout[data-workspace-view]:not(.is-calendar-workspace) .page-header { padding:8px 0 8px 52px; margin-bottom:12px; }
+  .layout[data-workspace-view]:not(.is-calendar-workspace) .sidebar {
+    top:calc(8px + env(safe-area-inset-top));
+    max-height:calc(100dvh - 32px - env(safe-area-inset-top));
+  }
+  .layout[data-workspace-view]:not(.is-calendar-workspace) .page-header {
+    padding:calc(8px + env(safe-area-inset-top)) 0 8px 52px;
+    min-height:calc(60px + env(safe-area-inset-top));
+    margin-bottom:12px;
+  }
   .layout[data-workspace-view] .header-actions > .sync-status { display:block; }
   .layout[data-workspace-view] .sync-copy > span { display:none; }
   .layout[data-workspace-view] .header-actions { gap:6px; }

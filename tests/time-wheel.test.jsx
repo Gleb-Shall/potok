@@ -2,6 +2,7 @@ import { render } from 'preact';
 import { act } from 'preact/test-utils';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { TimeInput } from '../src/components/TimeInput.jsx';
+import { Field } from '../src/components/UI.jsx';
 let root;
 beforeEach(()=>{
  root=document.createElement('div');document.body.append(root);
@@ -10,8 +11,9 @@ beforeEach(()=>{
 });
 afterEach(()=>{act(()=>render(null,root));root.remove();vi.unstubAllGlobals();});
 it('uses independent scroll wheels on mobile and commits only after confirmation',async()=>{
- const change=vi.fn();await act(async()=>render(<TimeInput value="09:15" label="Время" onChange={change}/>,root));
- await act(async()=>root.querySelector('button').click());
+ const change=vi.fn();await act(async()=>render(<Field label="Время"><TimeInput value="09:15" label="Время" onChange={change}/></Field>,root));
+ expect(root.querySelector('label').control).toBe(root.querySelector('button'));
+ await act(async()=>root.querySelector('label span').click());
  const dialog=document.querySelector('.time-wheel-dialog');
  expect(dialog.parentElement).toBe(document.body);
  const wheels=dialog.querySelectorAll('[role=listbox]');expect(wheels).toHaveLength(2);
@@ -30,4 +32,31 @@ it('does not change the original time when the wheel is cancelled',async()=>{
  await act(async()=>dialog.querySelector('[role=option]').click());
  await act(async()=>[...dialog.querySelectorAll('button')].find(button=>button.textContent==='Отмена').click());
  expect(change).not.toHaveBeenCalled();
+});
+it('cycles past the last hour and minute with keyboard and scrolling',async()=>{
+ const change=vi.fn();
+ await act(()=>render(<TimeInput value="23:59" onChange={change}/>,root));
+ await act(()=>root.querySelector('button').click());
+ const dialog=document.querySelector('.time-wheel-dialog');
+ const [hours,minutes]=dialog.querySelectorAll('[role=listbox]');
+ await act(()=>hours.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true,cancelable:true})));
+ await act(()=>{
+   minutes.scrollTop=3*60*44;
+   minutes.dispatchEvent(new Event('scroll'));
+   [...dialog.querySelectorAll('button')].find(button=>button.textContent==='Готово').click();
+ });
+ expect(change).toHaveBeenCalledWith('00:00');
+});
+it('commits the wheel position even before the pending scroll frame runs', async () => {
+ const change = vi.fn();
+ await act(() => render(<TimeInput value="09:15" onChange={change}/>, root));
+ await act(() => root.querySelector('button').click());
+ const dialog = document.querySelector('.time-wheel-dialog');
+ const [, minutes] = dialog.querySelectorAll('[role=listbox]');
+ await act(() => {
+   minutes.scrollTop = 42 * 44;
+   minutes.dispatchEvent(new Event('scroll'));
+   [...dialog.querySelectorAll('button')].find(button => button.textContent === 'Готово').click();
+ });
+ expect(change).toHaveBeenCalledWith('09:42');
 });

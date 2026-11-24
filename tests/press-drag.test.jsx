@@ -162,8 +162,9 @@ it('keeps deferring an event available inside the new date picker', async () => 
   await act(() => root.querySelector('.card-move').click());
   await act(() => document.querySelector('.touch-move-pending').click());
   expect(document.querySelector('.touch-move-picker')).toBeNull();
-  expect(root.querySelectorAll('.pending-card')).toHaveLength(1);
-  expect(root.querySelector('.pending-panel').classList.contains('has-pending')).toBe(true);
+  await act(() => root.querySelector('#schedule-pending-trigger').click());
+  await act(() => root.querySelector('#schedule-pending .event-queue-switch button:first-child').click());
+  expect(root.querySelectorAll('#schedule-pending .pending-card')).toHaveLength(1);
 });
 it('opens a full month by holding the mouse, then follows and drops without opening details', async () => {
   localStorage.clear();localStorage.setItem('potok:week-layout','board');

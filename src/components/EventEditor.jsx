@@ -68,15 +68,17 @@ export function EventEditor({ data, original, date, typeId, draft, onSave, onClo
   };
   return <Modal title={original ? 'Редактор события' : 'Новое событие'} wide onClose={onClose} className="product-dialog event-editor-dialog" panel>
     <form onSubmit={submit} class="event-form">
-      <section class="editor-section"><Select label="Шаблон события" value={values.typeId} onChange={changeType}>{data.types.filter(item => !item.archived || item.id === original?.typeId).map(item => <option key={item.id} value={item.id}>{item.name}{item.archived ? ' (архив)' : ''}</option>)}</Select>
+      <section class="editor-section event-basics">
+      <div class="event-title-field"><Field label="Название события" value={values.title} onChange={value => change('title', value)} required maxLength={200} placeholder="Название события"/></div>
+      <Select label="Шаблон события" value={values.typeId} onChange={changeType}>{data.types.filter(item => !item.archived || item.id === original?.typeId).map(item => <option key={item.id} value={item.id}>{item.name}{item.archived ? ' (архив)' : ''}</option>)}</Select>
       {kind && <div class="student-select-row"><Select label={`Связанная запись${requiredRecord ? ' *' : ' · необязательно'}`} value={values.recordId} onChange={chooseRecord} required={requiredRecord}><option value="">Выбери запись</option>{records.filter(item => kind === 'any' || item.kind === kind).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</Select>{!data.archivedRecordKinds?.includes(newRecordKind) && !data.deletedRecordKinds?.includes(newRecordKind) && <button type="button" class="icon-button" onClick={newRecord} aria-label="Создать связанную запись"><Icon name="plus"/></button>}</div>}
       {values.recordDetached && <p class="quiet-note">Связанная запись удалена. Это самостоятельное событие; при желании можно выбрать другую запись.</p>}
       {linked && <div class="linked-record-summary"><strong>{linked.name}</strong><span>{linked.subject || linked.subtitle || RECORD_KINDS[linked.kind] || linked.kind}</span>{linked.details?.length > 0 && <details><summary>Общие сведения</summary><dl>{linked.details.map(item => <div key={item.id}><dt>{item.label}</dt><dd><LinkedText value={item.value}/></dd></div>)}</dl></details>}</div>}
-      <Field label="Название события" value={values.title} onChange={value => change('title', value)} required maxLength={200} placeholder={values.typeId === 'class' ? 'Математический анализ' : 'Название события'}/>
-      <div class="form-row time-fields"><Field label="Дата" type="date" value={values.date} onChange={value => change('date', value)} required/><TimingFields values={values} onChange={timing}/></div></section>
+      <div class="form-row time-fields" role="group" aria-label="Дата и время"><Field label="Дата" type="date" value={values.date} onChange={value => change('date', value)} required/><TimingFields values={values} onChange={timing} durationLabel="Минуты"/></div></section>
+      <div class="event-options">
       <section class="editor-section recurrence-section">{currentSeries ? <Select label="Какие события изменить" value={scope} onChange={setScope}><option value="one">Только это событие</option><option value="future">Это и последующие по расписанию</option></Select> : <Check checked={repeat} onChange={setRepeat}>Повторять событие</Check>}
       {(repeat || currentSeries && scope === 'future') && <div class="recurrence-box"><div class="form-row"><Field label="Каждые, недель" type="number" value={weeks} onChange={setWeeks} min="1" max="12" required/><Field label="До даты · необязательно" type="date" value={until} onChange={setUntil}/></div><small>2 недели — для чередующихся пар. Без даты окончания — постоянно.</small></div>}</section>
-      {fields.length > 0 && <details class="editor-disclosure" open={fields.some(field => field.required || values.fields[field.id] != null && values.fields[field.id] !== '')}><summary>Детали события <span>{fields.length} полей</span></summary><div class="editor-disclosure-body">{fields.map(field => {
+      {fields.length > 0 && <details class="editor-disclosure" open={fields.some(field => field.required || values.fields[field.id] != null && values.fields[field.id] !== '')}><summary>Детали события</summary><div class="editor-disclosure-body">{fields.map(field => {
         const own = Object.hasOwn(values.fields,field.id);
         const updateValue = value => setValues(previous => ({...previous,fields:{...previous.fields,[field.id]:value}}));
         return <div class="event-field" key={`${type.id}:${field.id}`}>
@@ -88,8 +90,9 @@ export function EventEditor({ data, original, date, typeId, draft, onSave, onClo
         </div>;
       })}</div></details>}
       {(type.enableLocation !== false || values.location) && <LocationField value={values.location} onChange={value => change('location', value)} data={data}/>}
-      <details class="editor-disclosure" open={Boolean(values.notes)}><summary>Заметки <span>для этого события</span></summary><div class="editor-disclosure-body"><Field label="Заметка" type="textarea" rows="3" value={values.notes} onChange={value => change('notes', value)} maxLength={5000}/></div></details>
+      <details class="editor-disclosure" open={Boolean(values.notes)}><summary>Заметки</summary><div class="editor-disclosure-body"><Field label="Заметка" type="textarea" rows="3" value={values.notes} onChange={value => change('notes', value)} maxLength={5000}/></div></details>
       <details class="editor-disclosure"><summary>Оформление и занятость</summary><div class="editor-disclosure-body"><Colors value={values.color} onChange={value => change('color', value)}/><Check checked={values.busy} onChange={value => change('busy', value)}>Занимает время — предупреждать о пересечениях</Check></div></details>
+      </div>
       <ErrorMessage error={error}/><FormFooter onClose={onClose} label={original ? 'Сохранить изменения' : 'Добавить событие'}>{original && onDelete && <ActionMenu label="Ещё" items={[{id:'delete',icon:'trash',label:'Удалить событие',danger:true,onSelect:onDelete}]}/>}</FormFooter>
     </form>
   </Modal>;

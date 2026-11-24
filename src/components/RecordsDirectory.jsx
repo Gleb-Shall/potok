@@ -34,6 +34,10 @@ export function RecordsDirectory({data,query,onQuery,filter,onFilter,onOpen,onAd
   const hasFilters = Boolean(query.trim() || category || repeatFilter);
   const reset = () => {onQuery('');onFilter('');setRepeatFilter('');};
   return <section class="students-panel record-directory">
+    <header class="section-actions">
+      <h2>Записи</h2>
+      <Button kind="primary" icon="plus" onClick={onAdd}>Добавить запись</Button>
+    </header>
     <div class="record-filter-toolbar" role="group" aria-label="Поиск и фильтры записей">
       <Search value={query} onChange={onQuery} placeholder="Имя, контакт или поле записи"/>
       <Select label="Шаблон записи" value={category} onChange={onFilter}>
@@ -67,7 +71,6 @@ export function RecordsDirectory({data,query,onQuery,filter,onFilter,onOpen,onAd
     {!visible.length && <div class="empty-state">
       <h3>{records.length ? 'Записи не найдены' : 'Добавь первую запись'}</h3>
       <p>{records.length ? 'Попробуй изменить запрос или сбросить фильтры.' : 'Запись можно связать с одним или несколькими событиями.'}</p>
-      {!records.length && <Button kind="primary" onClick={onAdd}>Добавить запись</Button>}
     </div>}
   </section>;
 }

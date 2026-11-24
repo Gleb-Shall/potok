@@ -1,7 +1,7 @@
 import { ActionMenu } from './ActionMenu.jsx';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { moveField } from '../hooks/useFieldReorder.js';
-import { Field, Select, Check } from './UI.jsx';
+import { Button, Field, Select, Check } from './UI.jsx';
 import { FieldOptionsEditor } from './FieldOptionsEditor.jsx';
 import { CardStyleSettings } from './CardStyleEditor.jsx';
 import { TemplateEditorLayout, TemplateEditorSettings, TemplateEditorFields, TemplateEditorField, TemplateFieldIdentity } from './TemplateEditorLayout.jsx';
@@ -27,11 +27,21 @@ export function TypeEditor({ data, original, onSave, onClose, onDelete, inline, 
     setType(previous => ({ ...previous, fields: [...previous.fields, { id, label: '', type: 'text', required: false, showOnCard: true, archived: false, options: [] }] }));
     setActiveField(id);
   };
-  const reorder = (from, to) => setType(previous => ({...previous, fields:moveField(previous.fields,from,to)}));
+  const activeFields = type.fields.filter(field=>!field.archived);
+  const hiddenFields = type.fields.filter(field=>field.archived);
+  const reorder = (from, to) => setType(previous => ({...previous,
+    fields:moveField(previous.fields,previous.fields.findIndex(field=>field.id===activeFields[from]?.id),
+      previous.fields.findIndex(field=>field.id===activeFields[to]?.id)),
+  }));
   const sources = recordTypeFields(data,type.recordKind);
   const linkedKinds = recordKinds(data);
   if (type.recordKind && type.recordKind!=='any' && !linkedKinds.includes(type.recordKind)) linkedKinds.push(type.recordKind);
   const populated = useMemo(() => populatedEventFields(data,type.id), [data,type.id]);
+  const removeField = field => {
+    if (populated.has(field.id)) updateField(field.id,{archived:true,required:false});
+    else setType(previous=>({...previous,fields:previous.fields.filter(item=>item.id!==field.id)}));
+    if (activeField===field.id) setActiveField('');
+  };
   const chooseSource = (field, id) => {
     const source = sources.find(item=>item.id===id);
     if (!source) {updateField(field.id,{source:null});return;}
@@ -70,12 +80,11 @@ export function TypeEditor({ data, original, onSave, onClose, onDelete, inline, 
       {type.recordKind && <Check checked={type.requireRecord} onChange={value => change('requireRecord', value)}>Связанная запись обязательна</Check>}
       <Check checked={type.enableLocation} onChange={value => change('enableLocation', value)}>Можно выбрать место на карте</Check>
     </TemplateEditorSettings>
-    {needsRecordChoice ? <p class="builder-empty">Выбери шаблон записи или «Без связи», чтобы настроить поля события.</p> : <TemplateEditorFields fields={type.fields} onMove={reorder} onAdd={addField} emptyMessage={type.fields.length === 0 && 'Название, дата и время уже есть. Добавь поля для своих событий.'} renderField={field => {
+    {needsRecordChoice ? <p class="builder-empty">Выбери шаблон записи или «Без связи», чтобы настроить поля события.</p> : <TemplateEditorFields fields={activeFields} onMove={reorder} onRemove={removeField} onAdd={addField} emptyMessage={activeFields.length === 0 && 'Название, дата и время уже есть. Добавь поля для своих событий.'} renderField={field => {
         const hasValues = populated.has(field.id);
         const formatLockReason = field.source ? 'Формат наследуется из поля связанной записи.'
           : hasValues ? 'В сохранённых событиях уже есть значения этого поля.' : '';
-        const action = <button type="button" class="text-button" onClick={() => updateField(field.id, { archived: !field.archived, required: false })}>{field.archived ? 'Вернуть поле' : 'Скрыть поле'}</button>;
-        return <TemplateEditorField field={field} open={activeField === field.id} onToggle={setActiveField} action={action} formatLocked={Boolean(formatLockReason)}>
+        return <TemplateEditorField field={field} open={activeField === field.id} onToggle={setActiveField} formatLocked={Boolean(formatLockReason)}>
           <TemplateFieldIdentity field={field} formats={Object.keys(FIELD_TYPES).filter(id => id !== 'date' || field.type === 'date')}
             formatLockReason={formatLockReason} onLabelChange={label => updateField(field.id, { label })}
             onFormatChange={value => updateField(field.id, { type: value, source:null, metric:false, ...(value === 'url' && field.showCompact == null ? { showCompact: true } : {}) })}/>
@@ -92,7 +101,13 @@ export function TypeEditor({ data, original, onSave, onClose, onDelete, inline, 
             {field.metric && <Field label="Единица измерения" value={field.metricUnit || ''} maxLength="24" placeholder="Например, км" onChange={metricUnit=>updateField(field.id,{metricUnit})}/>}</>}
           {!field.archived && <Check checked={field.required} onChange={value => updateField(field.id, { required: value })}>Обязательное</Check>}
         </TemplateEditorField>;
-      }}/>}
+      }}>
+        {hiddenFields.length > 0 && <details class="builder-hidden-fields">
+          <summary>Скрытые поля · {hiddenFields.length}</summary>
+          {hiddenFields.map(field=><div key={field.id}><span>{field.label}</span><Button onClick={()=>updateField(field.id,{archived:false})}
+            aria-label={`Вернуть поле «${field.label}»`}>Вернуть</Button></div>)}
+        </details>}
+      </TemplateEditorFields>}
     </>}
   </TemplateEditorLayout>;
 }

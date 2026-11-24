@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { restoreMove, isEventMoved, defaultTypes, calendarRange, projectWeek, saveMove, moveEvent, saveEvent, validateEvent, saveRecord, getRecord, normalizeData, fieldDisplay } from '../src/lib/events.js';
+import { assertNoConflict, restoreMove, isEventMoved, defaultTypes, calendarRange, projectWeek, saveMove, moveEvent, saveEvent, validateEvent, saveRecord, getRecord, normalizeData, fieldDisplay } from '../src/lib/events.js';
 import { persistData, loadData } from '../src/lib/storage.js';
 
 const base = () => ({ version: 2, revision: 0, students: [], records: [], types: defaultTypes(), series: [], events: [] });
@@ -45,12 +45,23 @@ test('quick transfer changes one occurrence and preserves all other repeats, dat
   assert.equal(again.events[0].history.length, 2);
   assert.equal(data.events.length, 0);
 });
-test('quick transfer rejects overlap and midnight overflow but allows adjacent and nonblocking events', () => {
+test('quick transfer rejects overlap across midnight and allows adjacent and nonblocking events', () => {
   const data = { ...base(), events: [event({ id: 'occupied', date: '2026-11-01', start: 720 })] };
   assert.throws(() => saveMove(data, event(), '2026-11-01', 750), /Пересечение/);
   assert.doesNotThrow(() => saveMove(data, event(), '2026-11-01', 810));
   assert.doesNotThrow(() => saveMove(data, event({ busy: false }), '2026-11-01', 750));
-  assert.throws(() => saveMove(data, event(), '2026-11-01', 1400));
+  const night=saveMove(data,event(),'2026-11-01',1400);
+  assert.throws(()=>saveMove(night,event({id:'early'}),'2026-11-02',10),/Пересечение/);
+  assert.doesNotThrow(()=>saveMove(night,event({id:'early'}),'2026-11-02',50));
+  assert.equal(projectWeek(night,'2026-11-02',1,{includeContinuations:true}).events.length,1);
+  assert.equal(projectWeek(night,'2026-11-02',1).events.length,0);
+});
+test('detects overnight overlaps with a series that starts on the next weekday in a future week', () => {
+  const data=base();
+  data.series.push({...event({id:'morning',start:15}),from:'2026-11-02',weekday:1,intervalWeeks:1});
+  const overnight=event({date:'2026-10-25',start:1410,duration:90});
+  assert.throws(()=>assertNoConflict(data,overnight,{intervalWeeks:1,until:''}),/Постоянное время/);
+  assert.doesNotThrow(()=>assertNoConflict(data,overnight,{intervalWeeks:1,until:'2026-10-25'}));
 });
 test('pending occurrence is listed once in a month and can be scheduled again', () => {
   const data = recurring(); const original = projectWeek(data, '2026-10-26').events[0];

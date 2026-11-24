@@ -98,6 +98,12 @@ it('statistics facets follow one another and a selected group narrows the event 
     {...event(),id:'anna-class',recordId:'anna',status:'done'},
   ];
   await mount(<StatisticsView data={workspace} now={Date.parse('2026-10-31T12:00:00Z')} onOpen={vi.fn()}/>);
+  const report=root.querySelector('[role="tab"][aria-selected="true"]');
+  expect(report.textContent).toBe('Отчёт');
+  expect(root.querySelector('.statistics-analysis .statistics-totals')).not.toBeNull();
+  await act(()=>report.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true})));
+  expect(document.activeElement.textContent).toBe('События');
+  await click('[role="tab"]:first-child');
   const choose=async (select,value)=>act(()=>{select.value=value;select.dispatchEvent(new Event('change',{bubbles:true}));});
   const record=root.querySelector('[aria-label="Запись для статистики"]');
   const findSelect=label=>[...root.querySelectorAll('.statistics-view label')].find(item=>item.firstElementChild?.textContent===label).querySelector('select');
@@ -113,6 +119,7 @@ it('statistics facets follow one another and a selected group narrows the event 
   const group=[...root.querySelectorAll('.statistics-groups button')].find(button=>button.textContent.includes('Павел'));
   await act(()=>group.click());
   expect(root.querySelectorAll('.statistics-events .activity-open')).toHaveLength(1);
+  expect(root.querySelector('[role="tab"][aria-selected="true"]').textContent).toBe('События');
   expect(root.querySelector('.statistics-events .statistics-amount').textContent).toBe('0 ₽');
 });
 

@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'preact/hooks';
 
-export function useDeviceAlarms(adapter, account, alerts, stale) {
+export function useDeviceAlarms(adapter, account, alerts, { mode, stale }) {
   const [deviceId,setDeviceId] = useState('');
   const [error,setError] = useState('');
   const [retry,setRetry] = useState(0);
-  const { authResolved, ready, user } = account;
+  const { authResolved, hasData, pending, ready, user } = account;
   useEffect(()=>{
     if (!adapter) return;
     let mounted = true;
@@ -16,7 +16,8 @@ export function useDeviceAlarms(adapter, account, alerts, stale) {
     return ()=>{ mounted = false; };
   },[adapter,retry]);
   useEffect(()=>{
-    if (!adapter || !deviceId || !authResolved || (user && (!ready || stale))) return;
+    if (!adapter || !deviceId || !authResolved) return;
+    if (user && (mode !== 'cloud' || !hasData || stale || (!ready && !pending))) return;
     let mounted = true;
     const sync = () => {
       const desired = user ? alerts.filter(alert=>alert.alarmDevice === deviceId).map(alert=>({
@@ -32,6 +33,6 @@ export function useDeviceAlarms(adapter, account, alerts, stale) {
     sync();
     document.addEventListener('visibilitychange',foreground);
     return ()=>{ mounted = false; document.removeEventListener('visibilitychange',foreground); };
-  },[adapter,deviceId,authResolved,ready,user?.id,alerts,stale,retry]);
+  },[adapter,deviceId,authResolved,hasData,pending,ready,user?.id,alerts,mode,stale,retry]);
   return { deviceId, error, retry:()=>setRetry(value=>value+1) };
 }

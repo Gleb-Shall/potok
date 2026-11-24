@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { allRecords, FIELD_TYPES, RECORD_KINDS, recordKinds, saveRecordType } from '../lib/events.js';
+import { allRecords, FIELD_TYPES, RECORD_KINDS, recordKinds, recordFieldInUse, saveRecordType } from '../lib/events.js';
 import { builtinRecordFields, declaredRecordFields, isChoiceField, RECORD_FIELD_FORMATS, recordFieldCatalog, recordTemplateUsesNameOnly } from '../lib/record-field-links.js';
 import { moveField } from '../hooks/useFieldReorder.js';
 import { FieldOptionsEditor } from './FieldOptionsEditor.jsx';
@@ -25,6 +25,15 @@ export function RecordTypeEditor({data,kind = '',onSave,onClose,inline,draftName
     setActiveField(field.id);
   };
   const update = (id,patch) => setFields(previous => previous.map(field=>field.id===id ? {...field,...patch} : field));
+  const remove = field => {
+    if (recordFieldInUse(data,kind,field.id)) {
+      setError(`Поле «${field.label}» используется в шаблоне события. Сначала убери эту связь.`);
+      return;
+    }
+    setError('');
+    setFields(previous=>previous.filter(item=>item.id!==field.id));
+    if (activeField===field.id) setActiveField('');
+  };
   const submit = event => {
     event.preventDefault();
     setError('');
@@ -53,12 +62,8 @@ export function RecordTypeEditor({data,kind = '',onSave,onClose,inline,draftName
       <p class="quiet-note">Встроенные поля · {builtinFields.map(field=>field.label).join(', ')}</p>
     </TemplateEditorSettings>}
     <TemplateEditorFields fields={fields} onMove={(from,to) => setFields(previous => moveField(previous,from,to))}
-      onAdd={()=>add()} emptyMessage={!fields.length && 'Добавь поля, которые будут общими для записей по этому шаблону.'} renderField={field => {
-        const remove = <button type="button" class="text-button" onClick={()=>{
-          setFields(previous => previous.filter(item=>item.id!==field.id));
-          setActiveField('');
-        }}>Убрать поле</button>;
-        return <TemplateEditorField field={field} open={activeField===field.id} onToggle={setActiveField} action={remove} showOptions={inline}>
+      onAdd={()=>add()} onRemove={remove} emptyMessage={!fields.length && 'Добавь поля, которые будут общими для записей по этому шаблону.'} renderField={field => {
+        return <TemplateEditorField field={field} open={activeField===field.id} onToggle={setActiveField} showOptions={inline}>
           <TemplateFieldIdentity field={field} formats={RECORD_FIELD_FORMATS} onLabelChange={label=>update(field.id,{label})} onFormatChange={type=>update(field.id,{type})}/>
           {isChoiceField(field.type) && <FieldOptionsEditor label={field.label} options={field.options} onChange={options=>update(field.id,{options})}/>}
         </TemplateEditorField>;

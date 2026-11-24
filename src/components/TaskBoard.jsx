@@ -2,6 +2,7 @@ import { createPortal } from 'preact/compat';
 import { useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { usePressDrag, touchDropTarget } from '../hooks/usePressDrag.js';
 import { ActionMenu } from './ActionMenu.jsx';
+import { EventQueue } from './PendingEvents.jsx';
 import { Icon } from './Icon.jsx';
 import { Button, dateLabel } from './UI.jsx';
 import { eventTitle, findOccurrence } from '../lib/events.js';
@@ -34,7 +35,7 @@ function TaskMovePicker({ drag, hover, ghostRef }) {
   </div>, document.body);
 }
 
-export function TaskBoard({ data, pending, renderPending, onAdd, onEdit, onOpenEvent, onStatus, onArchive, mobile = false }) {
+export function TaskBoard({ data, now, pending, confirmations = [], renderPending, onAdd, onEdit, onOpenEvent, onOpenConfirmation, onEventStatus, onStatus, onArchive, mobile = false }) {
   const [drag, setDrag] = useState(null);
   const [showArchive, setShowArchive] = useState(false);
   const [activeColumn, setActiveColumn] = useState('todo');
@@ -79,20 +80,22 @@ export function TaskBoard({ data, pending, renderPending, onAdd, onEdit, onOpenE
   };
 
   return <section class="task-board" aria-label="Доска задач">
-    <header class="task-board-bar">
+    <header class="section-actions task-board-bar">
       <h2>{showArchive ? 'Архив задач' : 'Доска'}</h2>
-      <div><Button aria-pressed={showArchive} onClick={()=>setShowArchive(value=>!value)}>{showArchive ? 'Вернуться к доске' : `Архив · ${archived.length}`}</Button>
+      <div class="section-actions-buttons">
+        <Button icon={showArchive ? 'left' : mobile ? 'inbox' : undefined}
+          aria-label={showArchive ? 'Вернуться к доске' : `Архив · ${archived.length}`}
+          onClick={()=>setShowArchive(value=>!value)}>{showArchive ? 'К доске' : mobile ? archived.length : `Архив · ${archived.length}`}</Button>
         {!showArchive && <Button kind="primary" icon="plus" onClick={onAdd}>Добавить стикер</Button>}</div>
     </header>
     {showArchive ? <div class="task-archive">{archived.length ? archived.map(card) : <p>В архиве пока пусто</p>}</div> : <>
-      {mobile && <div class="task-column-tabs" role="group" aria-label="Колонки доски">
+      {mobile && <div class="section-switch task-column-tabs" role="group" aria-label="Колонки доски">
         {BOARD_COLUMNS.map(([status,title]) => <button type="button" key={status}
           aria-pressed={activeColumn === status} onClick={()=>setActiveColumn(status)}>{title}</button>)}
       </div>}
       <div ref={columns} class={`task-board-columns${mobile ? ' is-single-column' : ''}`}>
-        {(!mobile || activeColumn === 'pending') && <section class="task-lane task-lane-pending">
-          <header><h3>Ждут переноса <span class="section-count">{pending.length}</span></h3></header>
-          <div class="task-lane-cards">{pending.length ? pending.map(renderPending) : <p>Все события на своих местах</p>}</div>
+        {(!mobile || activeColumn === 'pending') && <section class="task-lane task-lane-pending" aria-label="Ожидающие события">
+          <EventQueue {...{data,now,pending,confirmations,renderPending}} onOpen={onOpenConfirmation} onStatus={onEventStatus}/>
         </section>}
         {TASK_COLUMNS.filter(([status]) => !mobile || activeColumn === status).map(([status, title]) => {
           const items = tasks.filter(task => !task.archived && task.status === status);

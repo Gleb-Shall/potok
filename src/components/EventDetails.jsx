@@ -2,6 +2,7 @@ import { useState } from 'preact/hooks';
 import { EventPlacePreview } from './EventPlacePreview.jsx';
 import { ActionMenu } from './ActionMenu.jsx';
 import { Modal, Button, dateLabel } from './UI.jsx';
+import { eventTimeRange } from '../lib/timing.js';
 import { minutesToTime } from '../lib/domain.js';
 import { eventFields, eventType, allRecords, getStudent, getRecord, eventTitle, fieldDisplay, RECORD_KINDS } from '../lib/events.js';
 import { LinkedValue, LinkedText, ExternalLink } from './LinkedValue.jsx';
@@ -34,19 +35,19 @@ export function EventDetails({ data, event, onEdit, onMove, onRestore, onRemind,
       event.seriesId && onStop && {id:'stop',icon:'repeat',label:'Завершить повторы',description:'История проведённых событий сохранится',onSelect:onStop},
       !elapsed && can('cancel') && {id:'cancel',icon:'close',label:'Отменить событие',danger:true,onSelect:()=>onStatus('cancelled'),separate:true},
       onDelete && {id:'delete',icon:'trash',label:'Удалить событие',danger:true,separate:elapsed || !can('cancel'),onSelect:onDelete},
-    ]}/>}</div><div class="lesson-detail-time"><Icon name="calendar"/><strong>{event.date ? dateLabel(event.date, { weekday: 'long', year: 'numeric' }) : 'Новое время ещё не выбрано'}</strong>{event.date && <span>{minutesToTime(event.start)}–{minutesToTime(event.start + event.duration)}</span>}</div>
+    ]}/>}</div><div class="lesson-detail-time"><Icon name="calendar"/><strong>{event.date ? dateLabel(event.date, { weekday: 'long', year: 'numeric' }) : 'Новое время ещё не выбрано'}</strong>{event.date && <span>{eventTimeRange(event.start,event.duration)}</span>}</div>
     {event.archiveKind === 'series' && <p class="quiet-note">Серия с {dateLabel(event.from)}{event.until && ` по ${dateLabel(event.until)}`} · раз в {event.intervalWeeks || 1} нед.</p>}
     {event.seriesId && <span class="inspector-recurrence"><Icon name="repeat"/>Повторяется по расписанию</span>}
-    {previous && <p class="pending-original-time">Было {dateLabel(previous.date)} · {minutesToTime(previous.start)}–{minutesToTime(previous.start+previous.duration)}</p>}
+    {previous && <p class="pending-original-time">Было {dateLabel(previous.date)} · {eventTimeRange(previous.start,previous.duration)}</p>}
     <dl class="detail-fields">{type.fields.filter(field => fieldDisplay(field, values[field.id]) !== '').map(field => <div key={field.id}><dt>{field.label}{field.archived ? ' · скрыто в форме' : ''}</dt><dd><LinkedValue field={field} value={values[field.id]}/></dd></div>)}</dl>
     {recordLinks(record).length > 0 && <div class="detail-record-links"><h3 class="detail-section-title">Ссылки записи · {record?.name}</h3>{recordLinks(record).map(link => <ExternalLink key={link.href} href={link.href} className="card-link-chip">{link.label}</ExternalLink>)}</div>}
     {event.notes && <p class="notes-text"><LinkedText value={event.notes}/></p>}
-    {!anchor && history && <><h3 class="detail-section-title">История переносов</h3>{history}</>}
     {!readOnly && <div class="inspector-record">{student ? <Button onClick={() => onStudent(student)} icon="users">Открыть запись ученика</Button> : record && allRecords(data).some(item => item.id === record.id) && <Button onClick={() => onRecord(record)} icon="users">Открыть запись · {RECORD_KINDS[record.kind] || 'Запись'}</Button>}</div>}
-    {anchor && history && <details class="inspector-history"><summary>История переносов</summary>{history}</details>}
     {alertsSection}
     <EventPlacePreview location={event.location} expanded={mapExpanded} onExpand={setMapExpanded}/>
-    {tasksSection}</div>
+    {tasksSection}
+    {history && <details class="inspector-history"><summary>История переносов</summary>{history}</details>}
+    </div>
     {!readOnly && <div class="inspector-footer">
       {pending ? <><Button onClick={onMove} kind="primary" icon="calendar">Выбрать дату</Button>{can('restoreSlot') && onRestore && (event.originalDate || event.anchorDate) && <Button onClick={onRestore} icon="refresh">Вернуть на место</Button>}</> :
        elapsed ? <><Button kind="primary" icon="check" onClick={()=>onStatus('done')}>Проведён</Button><Button icon="close" onClick={()=>onStatus('cancelled')}>Отменён</Button></> :

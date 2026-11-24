@@ -1,4 +1,4 @@
-import { createContext } from 'preact';
+import { cloneElement, createContext } from 'preact';
 import { useEffect, useRef, useId, useContext } from 'preact/hooks';
 import { Icon } from './Icon.jsx';
 import { COLOR_NAMES } from '../lib/events.js';
@@ -10,17 +10,32 @@ export const dayNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб']
 export const longDays = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
 export const SaveErrorContext = createContext('');
 export function Button({ children, icon, kind = 'secondary', ...props }) { return <button type="button" class={`button ${kind}`} {...props}>{icon && <Icon name={icon}/>}{children}</button>; }
-export function Field({ label, value, onChange, type = 'text', children, ...props }) {
-  return <label class="field"><span>{label}</span>{children || (type === 'textarea'
-    ? <textarea value={value ?? ''} onInput={event => onChange(event.currentTarget.value)} {...props}/>
-    : <input type={type} value={value ?? ''} onInput={event => onChange(event.currentTarget.value)} {...props}/>)}</label>;
+export function Field({ label, value, onChange, type = 'text', children, id, ...props }) {
+  const fieldId = useId();
+  const controlId = children?.props?.id ?? id ?? fieldId;
+  return <label class="field" htmlFor={controlId}><span>{label}</span>{children ? cloneElement(children, { id: controlId }) : (type === 'textarea'
+    ? <textarea id={controlId} value={value ?? ''} onInput={event => onChange(event.currentTarget.value)} {...props}/>
+    : <input id={controlId} type={type} value={value ?? ''} onInput={event => onChange(event.currentTarget.value)} {...props}/>)}</label>;
 }
 export function Select({ label, value, onChange, children, ...props }) { return <Field label={label}><select value={value} onChange={event => onChange(event.currentTarget.value)} {...props}>{children}</select></Field>; }
-export function Check({ children, checked, onChange, ...props }) { return <label class="check-label editor-check"><input type="checkbox" checked={checked} onChange={event => onChange(event.currentTarget.checked)} {...props}/><span>{children}</span></label>; }
+export function Check({ children, checked, onChange, id, ...props }) {
+  const fieldId = useId();
+  const controlId = id ?? fieldId;
+  return <label class="check-label editor-check" htmlFor={controlId}><input id={controlId} type="checkbox" checked={checked} onChange={event => onChange(event.currentTarget.checked)} {...props}/><span>{children}</span></label>;
+}
 export function Colors({ value, onChange }) { return <fieldset class="color-field"><legend>Цвет карточки</legend>{Object.entries(COLOR_NAMES).map(([color, name]) => <label key={color} class={`color-option color-${color}`}><input name="color" type="radio" value={color} checked={value === color} onChange={() => onChange(color)}/><span class="sr-only">{name}</span></label>)}</fieldset>; }
+
+function isOutsideDialog(event) {
+  if (event.target !== event.currentTarget) return false;
+  const { left, right, top, bottom } = event.currentTarget.getBoundingClientRect();
+  return event.clientX < left || event.clientX > right || event.clientY < top || event.clientY > bottom;
+}
+
 export function Modal({ title, subtitle, eyebrow, onClose, children, wide = false, className = '', fullscreen = false, onEscape, panel = false, onOpen, anchor }) {
   const ref = useRef(null);
+  const pressedOutside = useRef(false);
   const titleId = useId();
+  const subtitleId = subtitle ? `${titleId}-description` : undefined;
   const saveError = useContext(SaveErrorContext);
   useEffect(() => { const dialog = ref.current; dialog.showModal(); onOpen?.(dialog); return () => dialog.close(); }, []);
   useEffect(() => {
@@ -56,11 +71,27 @@ export function Modal({ title, subtitle, eyebrow, onClose, children, wide = fals
       dialog.style.removeProperty('--dialog-y');
     };
   },[anchor]);
-  return <dialog ref={ref} class={`${wide ? 'wide-modal' : ''} ${className} ${fullscreen ? 'is-fullscreen' : ''} ${panel ? 'panel-dialog' : ''} ${anchor ? 'is-anchored' : ''}`} aria-labelledby={titleId} onCancel={event => { if (onEscape) { event.preventDefault(); onEscape(); } else onClose(); }} onClick={event => {
-    if (event.target !== event.currentTarget) return;
-    const rect = event.currentTarget.getBoundingClientRect();
-    if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) onClose();
-  }}><button type="button" class="modal-close icon-button" aria-label="Закрыть окно" onClick={onClose}><Icon name="close"/></button>{panel ? <header class="panel-heading">{eyebrow && <p class="eyebrow">{eyebrow}</p>}<h2 id={titleId}>{title}</h2>{subtitle && <p class="modal-subtitle">{subtitle}</p>}</header> : <>{eyebrow && <p class="eyebrow">{eyebrow}</p>}<h2 id={titleId}>{title}</h2>{subtitle && <p class="modal-subtitle">{subtitle}</p>}</>}{saveError && <p class="dialog-save-error" role="alert">{saveError}</p>}{children}</dialog>;
+  const heading = <>
+    {eyebrow && <p class="eyebrow">{eyebrow}</p>}
+    <h2 id={titleId}>{title}</h2>
+    {subtitle && <p id={subtitleId} class="modal-subtitle">{subtitle}</p>}
+  </>;
+  return <dialog ref={ref}
+    class={`${wide ? 'wide-modal' : ''} ${className} ${fullscreen ? 'is-fullscreen' : ''} ${panel ? 'panel-dialog' : ''} ${anchor ? 'is-anchored' : ''}`}
+    aria-labelledby={titleId} aria-describedby={subtitleId}
+    onCancel={event => { event.preventDefault(); (onEscape ?? onClose)(); }}
+    onPointerDown={event => { pressedOutside.current = event.button === 0 && isOutsideDialog(event); }}
+    onPointerCancel={() => { pressedOutside.current = false; }}
+    onClick={event => {
+      const dismiss = pressedOutside.current && isOutsideDialog(event);
+      pressedOutside.current = false;
+      if (dismiss) onClose();
+    }}>
+    <button type="button" class="modal-close icon-button" aria-label="Закрыть окно" onClick={onClose}><Icon name="close"/></button>
+    {panel ? <header class="panel-heading">{heading}</header> : heading}
+    {saveError && <p class="dialog-save-error" role="alert">{saveError}</p>}
+    {children}
+  </dialog>;
 }
 export function FormFooter({ onClose, label = 'Сохранить', disabled, children }) { return <div class="modal-footer">{children}<Button onClick={onClose}>Отмена</Button><button type="submit" class="button primary" disabled={disabled}>{label}</button></div>; }
 export function ErrorMessage({ error }) { return error ? <p class="form-error" role="alert">{error}</p> : null; }
